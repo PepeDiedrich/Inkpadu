@@ -20,6 +20,16 @@ jobs:
         with:
           channel: stable
 
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            build
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -43,11 +53,21 @@ jobs:
         with:
           channel: stable
 
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            build
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Execute integration tests
-        run: flutter test integration_test
+        run: flutter test -d linux integration_test
 
   platform-builds:
     name: Build release artifacts
@@ -65,7 +85,7 @@ jobs:
             artifact-path: build/web
             runs-on: ubuntu-latest
           - target: ios
-            build-command: flutter build ios --no-codesign --release
+            build-command: flutter build ipa --no-codesign
             artifact-path: build/ios/ipa
             runs-on: macos-latest
           - target: macos
@@ -81,6 +101,17 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            build
+          key: ${{ runner.os }}-${{ matrix.target }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-pub-
+            ${{ runner.os }}-pub-
 
       - name: Install dependencies
         run: flutter pub get

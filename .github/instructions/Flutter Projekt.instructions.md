@@ -45,3 +45,13 @@ rules:
     do_not:
       - "class {{ClassName}} {{...}} {"
       - "{{returnType}} {{methodName}}({{...}}) {"
+
+Hintergrund (Dark Mode): Sehr dunkles Blau (#1A2A3A)
+
+Hintergrund (Light Mode): Helles Grau/Off-White (#F5F5F5)
+
+Textfarbe: Helles Grau auf dunklem Grund (#E0E0E0), dunkles Grau auf hellem Grund (#333333)
+
+Primäre Akzentfarbe: Ein warmer Goldton (#FFC107)
+
+Sekundäre Akzentfarbe: Ein sanftes Grün (#2ECC71)
