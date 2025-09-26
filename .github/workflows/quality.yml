@@ -1,0 +1,95 @@
+name: Quality Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    name: Run analyzer, metrics, and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run static analysis and metrics
+        run: ./scripts/quality/run_checks.sh
+
+      - name: Run unit tests
+        run: flutter test --coverage
+
+  integration-tests:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Execute integration tests
+        run: flutter test integration_test
+
+  platform-builds:
+    name: Build release artifacts
+    runs-on: ${{ matrix.runs-on }}
+    needs: validate
+    strategy:
+      matrix:
+        include:
+          - target: apk
+            build-command: flutter build apk --release
+            artifact-path: build/app/outputs/flutter-apk/app-release.apk
+            runs-on: ubuntu-latest
+          - target: web
+            build-command: flutter build web --release
+            artifact-path: build/web
+            runs-on: ubuntu-latest
+          - target: ios
+            build-command: flutter build ios --no-codesign --release
+            artifact-path: build/ios/ipa
+            runs-on: macos-latest
+          - target: macos
+            build-command: flutter build macos --release
+            artifact-path: build/macos/Build/Products/Release
+            runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build ${{ matrix.target }} artifact
+        run: ${{ matrix.build-command }}
+
+      - name: Upload ${{ matrix.target }} artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-${{ matrix.target }}
+          path: ${{ matrix.artifact-path }}

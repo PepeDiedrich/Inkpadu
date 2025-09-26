@@ -1,0 +1,24 @@
+analyzer:
+  exclude:
+    - build/**
+    - lib/**.g.dart
+    - lib/**.freezed.dart
+    - lib/**.generated.dart
+    - test/**.mocks.dart
+
+metrics:
+  cyclomatic-complexity: 20
+  lines-of-code: 120
+  number-of-parameters: 4
+  maximum-nesting-level: 5
+
+rules:
+  - avoid-border-all
+  - avoid-collection-methods-with-unrelated-types
+  - avoid-nested-conditional-expressions
+  - avoid-unnecessary-type-assertions
+  - boolean-literal-comparisons
+  - function-length
+  - prefer-trailing-comma
+  - prefer-conditional-expressions
+  - prefer-moving-to-variable
