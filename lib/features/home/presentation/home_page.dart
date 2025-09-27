@@ -27,7 +27,8 @@ class _HomePageState extends State<HomePage> {
       Note(
         id: '1',
         title: 'Meeting-Notizen',
-        content: 'Kickoff mit dem Design-Team vorbereitet. Aufgaben festhalten.',
+        content:
+            'Kickoff mit dem Design-Team vorbereitet. Aufgaben festhalten.',
         updatedAt: now.subtract(const Duration(hours: 1)),
       ),
       Note(
@@ -64,8 +65,7 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       final updated = List<Note>.from(_notes);
-      final existingIndex =
-          updated.indexWhere((item) => item.id == result.id);
+      final existingIndex = updated.indexWhere((item) => item.id == result.id);
 
       if (existingIndex >= 0) {
         updated[existingIndex] = result;
@@ -101,9 +101,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Deine Notizen'),
-    ),
+    appBar: AppBar(title: const Text('Deine Notizen')),
     floatingActionButton: FloatingActionButton.extended(
       onPressed: _createNote,
       icon: const Icon(Icons.create),
@@ -113,44 +111,44 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: _notes.isEmpty
           ? const Center(
-            child: Text('Noch keine Notizen. Starte mit einer neuen.'),
-          )
+              child: Text('Noch keine Notizen. Starte mit einer neuen.'),
+            )
           : ListView.builder(
-            itemCount: _notes.length,
-            itemBuilder: (context, index) {
-              final note = _notes[index];
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  title: Text(
-                    note.displayTitle,
-                    style: Theme.of(context).textTheme.titleMedium,
+              itemCount: _notes.length,
+              itemBuilder: (context, index) {
+                final note = _notes[index];
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(note.preview),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatTimestamp(note.updatedAt),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: ListTile(
+                    title: Text(
+                      note.displayTitle,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(note.preview),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatTimestamp(note.updatedAt),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _editExisting(note),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _editExisting(note),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
     ),
   );
 }

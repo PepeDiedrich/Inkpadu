@@ -15,10 +15,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  static const List<Widget> _pages = <Widget>[
-    HomePage(),
-    SettingsPage(),
-  ];
+  static const List<Widget> _pages = <Widget>[HomePage(), SettingsPage()];
 
   static const List<NavigationDestination> _destinations =
       <NavigationDestination>[

@@ -5,11 +5,7 @@ import 'package:ai_handwriting_app/features/notes/domain/note.dart';
 /// Minimal text editor for viewing and editing a [Note].
 class EditorPage extends StatefulWidget {
   /// Creates a new [EditorPage].
-  const EditorPage({
-    super.key,
-    required this.initialNote,
-    this.isNew = false,
-  });
+  const EditorPage({super.key, required this.initialNote, this.isNew = false});
 
   /// Note that should be displayed when the editor opens.
   final Note initialNote;
@@ -29,7 +25,9 @@ class _EditorPageState extends State<EditorPage> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.initialNote.title);
-    _contentController = TextEditingController(text: widget.initialNote.content);
+    _contentController = TextEditingController(
+      text: widget.initialNote.content,
+    );
   }
 
   @override
@@ -53,10 +51,7 @@ class _EditorPageState extends State<EditorPage> {
     appBar: AppBar(
       title: Text(widget.isNew ? 'Neue Notiz' : 'Notiz bearbeiten'),
       actions: [
-        TextButton(
-          onPressed: _saveNote,
-          child: const Text('Speichern'),
-        ),
+        TextButton(onPressed: _saveNote, child: const Text('Speichern')),
       ],
     ),
     body: Padding(

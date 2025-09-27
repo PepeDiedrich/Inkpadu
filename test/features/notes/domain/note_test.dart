@@ -8,7 +8,7 @@ void main() {
       id: 'test',
       title: '',
       content: 'Inhalt',
-  updatedAt: DateTime(2024),
+      updatedAt: DateTime(2024),
     );
 
     expect(note.displayTitle, 'Unbenannte Notiz');
@@ -19,7 +19,7 @@ void main() {
       id: 'test',
       title: 'Titel',
       content: 'Erste Zeile\nZweite Zeile',
-  updatedAt: DateTime(2024),
+      updatedAt: DateTime(2024),
     );
 
     expect(note.preview, 'Erste Zeile');
@@ -30,7 +30,7 @@ void main() {
       id: 'test',
       title: 'Alt',
       content: 'Alt',
-  updatedAt: DateTime(2024),
+      updatedAt: DateTime(2024),
     );
 
     final updated = original.copyWith(
