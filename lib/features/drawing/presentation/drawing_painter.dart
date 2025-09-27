@@ -1,57 +1,51 @@
+import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
-/// CustomPainter der einfache handschriftliche Linien rendert.
+/// Ein [CustomPainter], der eine Liste von [Stroke]-Objekten auf eine Leinwand zeichnet.
 class DrawingPainter extends CustomPainter {
-  /// Erstellt einen DrawingPainter.
-  ///
-  /// [paths] enthält abgeschlossene Linien, [currentPath] die aktuell entstehende Linie.
-  DrawingPainter({
-    required this.paths,
-    required this.currentPath,
-    this.strokeColor = Colors.black,
-    this.strokeWidth = 4.0,
-  });
+  /// Erstellt einen neuen [DrawingPainter].
+  DrawingPainter({required this.strokes, this.currentStroke});
 
-  /// Abgeschlossene Pfade (jede Liste ist eine Linie aus Offsets).
-  /// Abgeschlossene Linien.
-  final List<List<Offset>> paths;
+  /// Alle abgeschlossenen Striche auf der Seite.
+  final List<Stroke> strokes;
 
-  /// Aktueller, noch nicht abgeschlossener Pfad.
-  /// Aktuelle, noch nicht abgeschlossene Linie.
-  final List<Offset> currentPath;
-
-  /// Linienfarbe.
-  /// Farbe der Linien.
-  final Color strokeColor;
-
-  /// Linienbreite.
-  /// Strichstärke der Linien.
-  final double strokeWidth;
+  /// Der aktuell gezeichnete, noch nicht abgeschlossene Strich.
+  final Stroke? currentStroke;
 
   @override
   void paint(Canvas canvas, Size size) {
+    for (final stroke in strokes) {
+      _drawStroke(canvas, stroke);
+    }
+    if (currentStroke != null) {
+      _drawStroke(canvas, currentStroke!);
+    }
+  }
+
+  void _drawStroke(Canvas canvas, Stroke stroke) {
     final paint = Paint()
-      ..color = strokeColor
+      ..color = stroke.isHighlighter
+          ? stroke.color.withAlpha((stroke.color.alpha * 0.5).round())
+          : stroke.color
       ..strokeCap = StrokeCap.round
-      ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    void drawSegments(List<Offset> pts) {
-      for (var i = 0; i < pts.length - 1; i++) {
-        canvas.drawLine(pts[i], pts[i + 1], paint);
-      }
-    }
+    if (stroke.points.isEmpty) return;
 
-    for (final path in paths) {
-      if (path.length > 1) drawSegments(path);
+    for (var i = 0; i < stroke.points.length - 1; i++) {
+      final p1 = stroke.points[i];
+      final p2 = stroke.points[i + 1];
+
+      // Dynamische Strichstärke basierend auf Druck
+      final width = stroke.baseWidth * (p1.pressure + p2.pressure) / 2;
+      paint.strokeWidth = width;
+
+      canvas.drawLine(p1.position, p2.position, paint);
     }
-    if (currentPath.length > 1) drawSegments(currentPath);
   }
 
   @override
   bool shouldRepaint(covariant DrawingPainter oldDelegate) =>
-      oldDelegate.paths != paths ||
-      oldDelegate.currentPath != currentPath ||
-      oldDelegate.strokeColor != strokeColor ||
-      oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.strokes != strokes ||
+      oldDelegate.currentStroke != currentStroke;
 }

@@ -7,7 +7,7 @@ import 'package:ai_handwriting_app/features/input/application/pointer_settings_s
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 
 void main() {
-  Widget _wrapWithScopes(Widget child, {InkNotesController? controller}) {
+  Widget wrapWithScopes(Widget child, {InkNotesController? controller}) {
     final notes = controller ?? InkNotesController();
     final pointer = PointerSettings();
     return InkNotesScope(
@@ -20,7 +20,7 @@ void main() {
   }
 
   testWidgets('Liste zeigt neu erstellte Notiz per FAB', (tester) async {
-    await tester.pumpWidget(_wrapWithScopes(const HomePage()));
+    await tester.pumpWidget(wrapWithScopes(const HomePage()));
 
     // Leerer Zustand Text prüfen
     expect(find.text('Noch keine handschriftlichen Notizen'), findsOneWidget);
@@ -56,7 +56,7 @@ void main() {
     controller.upsert(InkNote.empty());
 
     await tester.pumpWidget(
-      _wrapWithScopes(const HomePage(), controller: controller),
+      wrapWithScopes(const HomePage(), controller: controller),
     );
 
     // Kurzes Pump für Rebuild

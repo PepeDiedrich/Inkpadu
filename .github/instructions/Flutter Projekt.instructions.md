@@ -46,6 +46,16 @@ rules:
       - "class {{ClassName}} {{...}} {"
       - "{{returnType}} {{methodName}}({{...}}) {"
 
+  - name: UseObjectOrientedDrawingStructure
+    description: "Code-Qualität: Empfiehlt die Verwendung von objektorientierten Datenstrukturen anstelle von rohen Listen für Zeichnungsdaten."
+    languages: [dart]
+    recommendation: |
+      Anstatt `List<List<Offset?>>` zu verwenden, solltest du Klassen wie `DrawingPoint`, `Stroke` und `NotePage` definieren.
+      Dies kapselt Daten (wie Farbe, Strichstärke) mit der Logik, macht den Code erweiterbar (z.B. für Undo/Redo) und verbessert die Lesbarkeit und Wartbarkeit.
+    do_not:
+      - "List<List<Offset?>> paths;"
+      - "List<List<Offset>> strokes;"
+
 Hintergrund (Dark Mode): Sehr dunkles Blau (#1A2A3A)
 
 Hintergrund (Light Mode): Helles Grau/Off-White (#F5F5F5)

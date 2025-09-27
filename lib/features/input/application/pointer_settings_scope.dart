@@ -62,12 +62,14 @@ class PointerSettings extends ChangeNotifier {
 }
 
 /// Inherited Scope für globalen Zugriff auf [PointerSettings].
+/// Ein [InheritedNotifier] zum Verwalten des Zustands der Zeigereinstellungen.
 class PointerSettingsScope extends InheritedNotifier<PointerSettings> {
+  /// Erstellt eine neue [PointerSettingsScope].
   const PointerSettingsScope({
     super.key,
     required PointerSettings settings,
-    required Widget child,
-  }) : super(notifier: settings, child: child);
+    required super.child,
+  }) : super(notifier: settings);
 
   /// Liefert die [PointerSettings] Instanz aus dem Kontext.
   static PointerSettings of(BuildContext context) {

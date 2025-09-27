@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 
 /// Notifier verwaltet die in-memory Sammlung handschriftlicher Notizen.
@@ -13,36 +14,48 @@ class InkNotesController extends ChangeNotifier {
   InkNote createEmpty() {
     final note = InkNote.empty();
     _notes.insert(0, note);
-    notifyListeners();
+    _safelyNotifyListeners();
     return note;
   }
 
   /// Fügt eine Notiz ein oder aktualisiert sie anhand der ID.
+  /// Fügt eine neue Notiz hinzu oder aktualisiert eine bestehende.
   void upsert(InkNote note) {
     final idx = _notes.indexWhere((n) => n.id == note.id);
-    if (idx >= 0) {
-      _notes[idx] = note;
+    if (idx == -1) {
+      _notes.add(note);
     } else {
-      _notes.insert(0, note);
+      _notes[idx] = note;
     }
-    notifyListeners();
+    _safelyNotifyListeners();
   }
 
   /// Löscht die Notiz mit passender [id].
   void delete(String id) {
     _notes.removeWhere((n) => n.id == id);
-    notifyListeners();
+    _safelyNotifyListeners();
+  }
+
+  void _safelyNotifyListeners() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
+    } else {
+      notifyListeners();
+    }
   }
 }
 
 /// InheritedWidget für einfachen Zugriff im Widget-Tree.
 /// Inherited Scope für Zugriff auf [InkNotesController].
+/// Ein [InheritedNotifier] zum Verwalten des Zustands von handschriftlichen Notizen.
 class InkNotesScope extends InheritedNotifier<InkNotesController> {
+  /// Erstellt eine neue [InkNotesScope].
   const InkNotesScope({
     super.key,
     required InkNotesController controller,
-    required Widget child,
-  }) : super(notifier: controller, child: child);
+    required super.child,
+  }) : super(notifier: controller);
 
   /// Liefert den [InkNotesController] aus dem Kontext.
   static InkNotesController of(BuildContext context) {

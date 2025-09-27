@@ -1,5 +1,7 @@
+import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 
 import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
@@ -20,8 +22,11 @@ class DrawingNotePage extends StatefulWidget {
 
 class _DrawingNotePageState extends State<DrawingNotePage> {
   late InkNote _note;
-  final List<Offset> _currentPath = [];
+  Stroke? _currentStroke;
   bool _isDrawing = false;
+
+  // Undo/Redo Stacks
+  final List<Stroke> _redoStack = [];
 
   @override
   void didChangeDependencies() {
@@ -29,8 +34,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     final controller = InkNotesScope.of(context);
     final idx = controller.notes.indexWhere((n) => n.id == widget.noteId);
     if (idx == -1) {
-      // Fallback: Notiz existiert nicht (evtl. gelöscht oder inkonsistenter Zustand)
-      // Wir erzeugen eine leere Platzhalter-Notiz mit derselben ID, damit die Seite funktionsfähig bleibt.
       debugPrint(
         'Warnung: Notiz mit ID ${widget.noteId} nicht gefunden. Erzeuge Platzhalter.',
       );
@@ -38,7 +41,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         id: widget.noteId,
         title: 'Fehlende Notiz',
         updatedAt: DateTime.now(),
-        strokes: const <List<Offset>>[],
+        page: NotePage(strokes: const []),
       );
       controller.upsert(placeholder);
       _note = placeholder;
@@ -47,51 +50,127 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
-  void _start(DragStartDetails details) {
+  void _start(PointerDownEvent details) {
     final settings = PointerSettingsScope.of(context);
-    final kind = details.kind ?? PointerDeviceKind.touch; // Fallback
+    final kind = details.kind;
     if (!settings.accept(kind)) return;
     settings.register(kind);
+
+    final newPoint = DrawingPoint(
+      position: details.localPosition,
+      pressure: details.pressure,
+    );
+
     setState(() {
       _isDrawing = true;
-      _currentPath
-        ..clear()
-        ..add(details.localPosition);
+      _currentStroke = Stroke(
+        points: [newPoint],
+        // Hier könnten Stift-Einstellungen aus einem Scope kommen
+        color: Colors.amber,
+        baseWidth: 6.0,
+      );
+      _redoStack.clear(); // Neues Zeichnen löscht den Redo-Verlauf
     });
   }
 
-  void _update(DragUpdateDetails details) {
-    if (!_isDrawing) return;
-    setState(() => _currentPath.add(details.localPosition));
+  void _update(PointerMoveEvent details) {
+    if (!_isDrawing || _currentStroke == null) return;
+
+    final newPoint = DrawingPoint(
+      position: details.localPosition,
+      pressure: details.pressure,
+    );
+
+    setState(() {
+      _currentStroke = _currentStroke!.copyWith(
+        points: List.from(_currentStroke!.points)..add(newPoint),
+      );
+    });
   }
 
-  void _end(DragEndDetails details) {
-    if (!_isDrawing || _currentPath.length < 2) {
-      setState(() => _isDrawing = false);
+  void _end(PointerUpEvent details) {
+    if (!_isDrawing ||
+        _currentStroke == null ||
+        _currentStroke!.points.length < 2) {
+      setState(() {
+        _isDrawing = false;
+        _currentStroke = null;
+      });
       return;
     }
+
     final controller = InkNotesScope.of(context);
-    final updated = _note.copyWith(
-      strokes: List<List<Offset>>.from(_note.strokes)
-        ..add(List<Offset>.from(_currentPath)),
+    final updatedPage = _note.page.copyWith(
+      strokes: List.from(_note.page.strokes)..add(_currentStroke!),
+    );
+    final updatedNote = _note.copyWith(
+      page: updatedPage,
       updatedAt: DateTime.now(),
     );
-    controller.upsert(updated);
-    _note = updated;
+
+    controller.upsert(updatedNote);
+
     setState(() {
-      _currentPath.clear();
+      _note = updatedNote;
+      _currentStroke = null;
       _isDrawing = false;
+    });
+  }
+
+  void _undo() {
+    if (_note.page.strokes.isEmpty) return;
+
+    final controller = InkNotesScope.of(context);
+    final lastStroke = _note.page.strokes.last;
+
+    final updatedPage = _note.page.copyWith(
+      strokes: List.from(_note.page.strokes)..removeLast(),
+    );
+    final updatedNote = _note.copyWith(
+      page: updatedPage,
+      updatedAt: DateTime.now(),
+    );
+
+    controller.upsert(updatedNote);
+
+    setState(() {
+      _note = updatedNote;
+      _redoStack.add(lastStroke);
+    });
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+
+    final controller = InkNotesScope.of(context);
+    final strokeToRedo = _redoStack.removeLast();
+
+    final updatedPage = _note.page.copyWith(
+      strokes: List.from(_note.page.strokes)..add(strokeToRedo),
+    );
+    final updatedNote = _note.copyWith(
+      page: updatedPage,
+      updatedAt: DateTime.now(),
+    );
+
+    controller.upsert(updatedNote);
+
+    setState(() {
+      _note = updatedNote;
     });
   }
 
   void _clear() {
     final controller = InkNotesScope.of(context);
     final cleared = _note.copyWith(
-      strokes: <List<Offset>>[],
+      page: NotePage(strokes: []),
       updatedAt: DateTime.now(),
     );
     controller.upsert(cleared);
-    setState(() => _note = cleared);
+    setState(() {
+      _note = cleared;
+      _redoStack.clear();
+    });
   }
 
   void _openPointerSettings() => showModalBottomSheet<void>(
@@ -107,11 +186,21 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       title: Text(_note.title),
       actions: [
         IconButton(
+          onPressed: _undo,
+          icon: const Icon(Icons.undo),
+          tooltip: 'Undo',
+        ),
+        IconButton(
+          onPressed: _redo,
+          icon: const Icon(Icons.redo),
+          tooltip: 'Redo',
+        ),
+        IconButton(
           onPressed: _openPointerSettings,
           icon: const Icon(Icons.tune),
         ),
         IconButton(
-          onPressed: _note.strokes.isEmpty && _currentPath.isEmpty
+          onPressed: _note.page.strokes.isEmpty && _currentStroke == null
               ? null
               : _clear,
           icon: const Icon(Icons.delete_outline),
@@ -119,10 +208,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       ],
     ),
     body: LayoutBuilder(
-      builder: (context, constraints) => GestureDetector(
-        onPanStart: _start,
-        onPanUpdate: _update,
-        onPanEnd: _end,
+      builder: (context, constraints) => Listener(
+        onPointerDown: _start,
+        onPointerMove: _update,
+        onPointerUp: _end,
         child: Container(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
@@ -131,10 +220,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
           child: CustomPaint(
             painter: DrawingPainter(
-              paths: [..._note.strokes],
-              currentPath: _currentPath,
-              strokeColor: Theme.of(context).colorScheme.onSurface,
-              strokeWidth: 3.2,
+              strokes: _note.page.strokes,
+              currentStroke: _currentStroke,
             ),
           ),
         ),
@@ -156,41 +243,46 @@ class _PointerSettingsSheetState extends State<_PointerSettingsSheet> {
     final settings = PointerSettingsScope.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Eingabegeräte', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-          _ToggleRow(
-            label: 'Stift',
-            value: settings.allowStylus,
-            onChanged: (v) => setState(() => settings.update(stylus: v)),
-          ),
-          _ToggleRow(
-            label: 'Touch',
-            value: settings.allowTouch,
-            onChanged: (v) => setState(() => settings.update(touch: v)),
-          ),
-          _ToggleRow(
-            label: 'Maus',
-            value: settings.allowMouse,
-            onChanged: (v) => setState(() => settings.update(mouse: v)),
-          ),
-          const Divider(height: 28),
-          _ToggleRow(
-            label: 'Automatisch auf Stift sperren',
-            value: settings.autoLockOnStylus,
-            onChanged: (v) => setState(() => settings.update(autoLock: v)),
-          ),
-          if (settings.stylusLocked) ...[
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => setState(() => settings.resetStylusLock()),
-              child: const Text('Stift-Sperre aufheben'),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Eingabegeräte',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
+            const SizedBox(height: 12),
+            _ToggleRow(
+              label: 'Stift',
+              value: settings.allowStylus,
+              onChanged: (v) => setState(() => settings.update(stylus: v)),
+            ),
+            _ToggleRow(
+              label: 'Touch',
+              value: settings.allowTouch,
+              onChanged: (v) => setState(() => settings.update(touch: v)),
+            ),
+            _ToggleRow(
+              label: 'Maus',
+              value: settings.allowMouse,
+              onChanged: (v) => setState(() => settings.update(mouse: v)),
+            ),
+            const Divider(height: 28),
+            _ToggleRow(
+              label: 'Automatisch auf Stift sperren',
+              value: settings.autoLockOnStylus,
+              onChanged: (v) => setState(() => settings.update(autoLock: v)),
+            ),
+            if (settings.stylusLocked) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => setState(() => settings.resetStylusLock()),
+                child: const Text('Stift-Sperre aufheben'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -219,4 +311,19 @@ class _ToggleRow extends StatelessWidget {
     value: value,
     onChanged: onChanged,
   );
+}
+
+extension on Stroke {
+  Stroke copyWith({List<DrawingPoint>? points}) => Stroke(
+    id: id,
+    points: points ?? this.points,
+    color: color,
+    baseWidth: baseWidth,
+    isHighlighter: isHighlighter,
+  );
+}
+
+extension on NotePage {
+  NotePage copyWith({List<Stroke>? strokes}) =>
+      NotePage(strokes: strokes ?? this.strokes);
 }

@@ -1,5 +1,5 @@
+import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 
 /// Repräsentiert eine handschriftliche Notiz bestehend aus mehreren Strichen.
 @immutable
@@ -8,7 +8,7 @@ class InkNote {
     required this.id,
     required this.title,
     required this.updatedAt,
-    required this.strokes,
+    required this.page,
   });
 
   /// Eindeutige ID.
@@ -20,21 +20,17 @@ class InkNote {
   /// Zeitpunkt der letzten Änderung.
   final DateTime updatedAt;
 
-  /// Liste der Striche; ein Strich = Liste von Offsets.
-  /// Alle Striche dieser Notiz.
-  final List<List<Offset>> strokes;
+  /// Die Seite, die alle Zeichenelemente enthält.
+  final NotePage page;
 
   /// Kopie mit geänderten Feldern.
-  InkNote copyWith({
-    String? title,
-    DateTime? updatedAt,
-    List<List<Offset>>? strokes,
-  }) => InkNote(
-    id: id,
-    title: title ?? this.title,
-    updatedAt: updatedAt ?? this.updatedAt,
-    strokes: strokes ?? this.strokes,
-  );
+  InkNote copyWith({String? title, DateTime? updatedAt, NotePage? page}) =>
+      InkNote(
+        id: id,
+        title: title ?? this.title,
+        updatedAt: updatedAt ?? this.updatedAt,
+        page: page ?? this.page,
+      );
 
   /// Erzeugt eine leere neue Notiz mit generiertem Titel.
   factory InkNote.empty() {
@@ -43,7 +39,7 @@ class InkNote {
       id: now.microsecondsSinceEpoch.toString(),
       title: _autoTitle(now),
       updatedAt: now,
-      strokes: <List<Offset>>[],
+      page: NotePage(strokes: []),
     );
   }
 
