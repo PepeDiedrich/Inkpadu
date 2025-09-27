@@ -28,6 +28,7 @@ class InkpaduApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
+          themeMode: ThemeMode.light,
           initialRoute: AppRoutes.onboarding,
           routes: {
             AppRoutes.shell: (context) => const AppShell(),

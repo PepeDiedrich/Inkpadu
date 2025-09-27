@@ -25,7 +25,7 @@ class DrawingPainter extends CustomPainter {
   void _drawStroke(Canvas canvas, Stroke stroke) {
     final paint = Paint()
       ..color = stroke.isHighlighter
-          ? stroke.color.withAlpha((stroke.color.alpha * 0.5).round())
+          ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
           : stroke.color
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
