@@ -5,7 +5,12 @@ class DrawingPainter extends CustomPainter {
   /// Erstellt einen DrawingPainter.
   ///
   /// [paths] enthält abgeschlossene Linien, [currentPath] die aktuell entstehende Linie.
-  DrawingPainter({required this.paths, required this.currentPath, this.strokeColor = Colors.black, this.strokeWidth = 4.0});
+  DrawingPainter({
+    required this.paths,
+    required this.currentPath,
+    this.strokeColor = Colors.black,
+    this.strokeWidth = 4.0,
+  });
 
   /// Abgeschlossene Pfade (jede Liste ist eine Linie aus Offsets).
   /// Abgeschlossene Linien.
@@ -45,6 +50,8 @@ class DrawingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DrawingPainter oldDelegate) =>
-      oldDelegate.paths != paths || oldDelegate.currentPath != currentPath ||
-      oldDelegate.strokeColor != strokeColor || oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.paths != paths ||
+      oldDelegate.currentPath != currentPath ||
+      oldDelegate.strokeColor != strokeColor ||
+      oldDelegate.strokeWidth != strokeWidth;
 }

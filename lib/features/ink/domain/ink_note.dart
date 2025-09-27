@@ -13,10 +13,13 @@ class InkNote {
 
   /// Eindeutige ID.
   final String id;
+
   /// Titel (automatisch generiert, kann später geändert werden).
   final String title;
+
   /// Zeitpunkt der letzten Änderung.
   final DateTime updatedAt;
+
   /// Liste der Striche; ein Strich = Liste von Offsets.
   /// Alle Striche dieser Notiz.
   final List<List<Offset>> strokes;
@@ -46,8 +49,10 @@ class InkNote {
 
   static String _autoTitle(DateTime dt) {
     final d = dt.toLocal();
-    final date = '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
-    final time = '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
+    final date =
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final time =
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return 'Notiz $date $time';
   }
 }

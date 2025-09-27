@@ -42,14 +42,23 @@ class _HomePageState extends State<HomePage> {
               itemCount: notes.length,
               itemBuilder: (context, index) {
                 final n = notes[index];
-                final firstStrokePoints = n.strokes.isEmpty ? 0 : n.strokes.first.length;
+                final firstStrokePoints = n.strokes.isEmpty
+                    ? 0
+                    : n.strokes.first.length;
                 return Card(
                   elevation: 0,
-                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: ListTile(
                     title: Text(n.title),
-                    subtitle: Text('${n.strokes.length} Striche · $firstStrokePoints Punkte · ${_fmt(n.updatedAt)}'),
+                    subtitle: Text(
+                      '${n.strokes.length} Striche · $firstStrokePoints Punkte · ${_fmt(n.updatedAt)}',
+                    ),
                     onTap: () => _open(n.id),
                     trailing: const Icon(Icons.chevron_right),
                   ),
@@ -65,6 +74,6 @@ class _HomePageState extends State<HomePage> {
     if (diff.inMinutes < 1) return 'Gerade eben';
     if (diff.inHours < 1) return '${diff.inMinutes} min';
     if (diff.inHours < 24) return '${diff.inHours} h';
-    return '${dt.day.toString().padLeft(2,'0')}.${dt.month.toString().padLeft(2,'0')}.${dt.year}';
+    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 }

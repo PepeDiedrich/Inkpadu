@@ -51,14 +51,16 @@ void main() {
   testWidgets('Mehrere Notizen erscheinen (>=2) in Übersicht', (tester) async {
     final controller = InkNotesController();
     // Zwei vorhandene Notizen anlegen (verschiedene IDs & Timestamps)
-  // Erzeuge zwei Notizen ohne künstliche Delays (IDs durch Microseconds bereits unterschiedlich)
-  controller.upsert(InkNote.empty());
-  controller.upsert(InkNote.empty());
+    // Erzeuge zwei Notizen ohne künstliche Delays (IDs durch Microseconds bereits unterschiedlich)
+    controller.upsert(InkNote.empty());
+    controller.upsert(InkNote.empty());
 
-    await tester.pumpWidget(_wrapWithScopes(const HomePage(), controller: controller));
+    await tester.pumpWidget(
+      _wrapWithScopes(const HomePage(), controller: controller),
+    );
 
-  // Kurzes Pump für Rebuild
-  await tester.pump();
-  expect(find.byType(ListTile), findsNWidgets(2));
+    // Kurzes Pump für Rebuild
+    await tester.pump();
+    expect(find.byType(ListTile), findsNWidgets(2));
   });
 }

@@ -38,8 +38,11 @@ class InkNotesController extends ChangeNotifier {
 /// InheritedWidget für einfachen Zugriff im Widget-Tree.
 /// Inherited Scope für Zugriff auf [InkNotesController].
 class InkNotesScope extends InheritedNotifier<InkNotesController> {
-  const InkNotesScope({super.key, required InkNotesController controller, required Widget child})
-    : super(notifier: controller, child: child);
+  const InkNotesScope({
+    super.key,
+    required InkNotesController controller,
+    required Widget child,
+  }) : super(notifier: controller, child: child);
 
   /// Liefert den [InkNotesController] aus dem Kontext.
   static InkNotesController of(BuildContext context) {
@@ -50,5 +53,7 @@ class InkNotesScope extends InheritedNotifier<InkNotesController> {
 
   @override
   @override
-  bool updateShouldNotify(covariant InheritedNotifier<InkNotesController> oldWidget) => true;
+  bool updateShouldNotify(
+    covariant InheritedNotifier<InkNotesController> oldWidget,
+  ) => true;
 }

@@ -27,7 +27,24 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final controller = InkNotesScope.of(context);
-    _note = controller.notes.firstWhere((n) => n.id == widget.noteId);
+    final idx = controller.notes.indexWhere((n) => n.id == widget.noteId);
+    if (idx == -1) {
+      // Fallback: Notiz existiert nicht (evtl. gelöscht oder inkonsistenter Zustand)
+      // Wir erzeugen eine leere Platzhalter-Notiz mit derselben ID, damit die Seite funktionsfähig bleibt.
+      debugPrint(
+        'Warnung: Notiz mit ID ${widget.noteId} nicht gefunden. Erzeuge Platzhalter.',
+      );
+      final placeholder = InkNote(
+        id: widget.noteId,
+        title: 'Fehlende Notiz',
+        updatedAt: DateTime.now(),
+        strokes: const <List<Offset>>[],
+      );
+      controller.upsert(placeholder);
+      _note = placeholder;
+    } else {
+      _note = controller.notes[idx];
+    }
   }
 
   void _start(DragStartDetails details) {
@@ -55,7 +72,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
     final controller = InkNotesScope.of(context);
     final updated = _note.copyWith(
-      strokes: List<List<Offset>>.from(_note.strokes)..add(List<Offset>.from(_currentPath)),
+      strokes: List<List<Offset>>.from(_note.strokes)
+        ..add(List<Offset>.from(_currentPath)),
       updatedAt: DateTime.now(),
     );
     controller.upsert(updated);
@@ -68,7 +86,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
   void _clear() {
     final controller = InkNotesScope.of(context);
-    final cleared = _note.copyWith(strokes: <List<Offset>>[], updatedAt: DateTime.now());
+    final cleared = _note.copyWith(
+      strokes: <List<Offset>>[],
+      updatedAt: DateTime.now(),
+    );
     controller.upsert(cleared);
     setState(() => _note = cleared);
   }
@@ -85,9 +106,14 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       leading: const BackButton(),
       title: Text(_note.title),
       actions: [
-        IconButton(onPressed: _openPointerSettings, icon: const Icon(Icons.tune)),
         IconButton(
-          onPressed: _note.strokes.isEmpty && _currentPath.isEmpty ? null : _clear,
+          onPressed: _openPointerSettings,
+          icon: const Icon(Icons.tune),
+        ),
+        IconButton(
+          onPressed: _note.strokes.isEmpty && _currentPath.isEmpty
+              ? null
+              : _clear,
           icon: const Icon(Icons.delete_outline),
         ),
       ],
@@ -100,7 +126,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         child: Container(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
           child: CustomPaint(
             painter: DrawingPainter(
               paths: [..._note.strokes],
@@ -144,7 +172,7 @@ class _PointerSettingsSheetState extends State<_PointerSettingsSheet> {
             value: settings.allowTouch,
             onChanged: (v) => setState(() => settings.update(touch: v)),
           ),
-            _ToggleRow(
+          _ToggleRow(
             label: 'Maus',
             value: settings.allowMouse,
             onChanged: (v) => setState(() => settings.update(mouse: v)),
@@ -169,11 +197,18 @@ class _PointerSettingsSheetState extends State<_PointerSettingsSheet> {
 }
 
 class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({required this.label, required this.value, required this.onChanged});
+  const _ToggleRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
   /// Beschriftung.
   final String label;
+
   /// Aktueller Wert.
   final bool value;
+
   /// Callback bei Änderung.
   final ValueChanged<bool> onChanged;
 

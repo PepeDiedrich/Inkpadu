@@ -52,7 +52,9 @@ class PointerSettings extends ChangeNotifier {
 
   /// Registriert eine Pointer-Nutzung (für Auto-Lock Stylus).
   void register(PointerDeviceKind kind) {
-    if (autoLockOnStylus && !_stylusLocked && kind == PointerDeviceKind.stylus) {
+    if (autoLockOnStylus &&
+        !_stylusLocked &&
+        kind == PointerDeviceKind.stylus) {
       _stylusLocked = true;
       notifyListeners();
     }
@@ -61,17 +63,23 @@ class PointerSettings extends ChangeNotifier {
 
 /// Inherited Scope für globalen Zugriff auf [PointerSettings].
 class PointerSettingsScope extends InheritedNotifier<PointerSettings> {
-  const PointerSettingsScope({super.key, required PointerSettings settings, required Widget child})
-    : super(notifier: settings, child: child);
+  const PointerSettingsScope({
+    super.key,
+    required PointerSettings settings,
+    required Widget child,
+  }) : super(notifier: settings, child: child);
 
   /// Liefert die [PointerSettings] Instanz aus dem Kontext.
   static PointerSettings of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<PointerSettingsScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<PointerSettingsScope>();
     assert(scope != null, 'PointerSettingsScope nicht gefunden');
     return scope!.notifier!;
   }
 
   @override
   @override
-  bool updateShouldNotify(covariant InheritedNotifier<PointerSettings> oldWidget) => true;
+  bool updateShouldNotify(
+    covariant InheritedNotifier<PointerSettings> oldWidget,
+  ) => true;
 }
