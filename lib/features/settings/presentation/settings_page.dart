@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_page.dart';
+
 /// Placeholder settings screen showcasing configurable sections.
 class SettingsPage extends StatelessWidget {
   /// Creates a new [SettingsPage].
@@ -28,15 +30,21 @@ class SettingsPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        const _SettingsSection(
-          title: 'Handschrift',
+        _SettingsSection(
+          title: 'Eingabe',
           tiles: [
             _SettingsTile(
+              icon: Icons.tune,
+              title: 'Eingabegerät',
+              subtitle: 'Stift · Touch · Maus',
+              onTap: () => _openPointerSettings(context),
+            ),
+            const _SettingsTile(
               icon: Icons.brush_outlined,
               title: 'Stiftstärken',
               subtitle: 'Dünn · Medium · Fett',
             ),
-            _SettingsTile(
+            const _SettingsTile(
               icon: Icons.gesture_outlined,
               title: 'Handflächen-Erkennung',
               subtitle: 'Verhindert ungewollte Eingaben',
@@ -62,6 +70,10 @@ class SettingsPage extends StatelessWidget {
       ],
     ),
   );
+
+  static Future<void> _openPointerSettings(BuildContext context) => Navigator.of(
+        context,
+      ).push<void>(_PointerSettingsRoute(const PointerSettingsPage()));
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -94,11 +106,13 @@ class _SettingsTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -106,7 +120,7 @@ class _SettingsTile extends StatelessWidget {
     borderRadius: BorderRadius.circular(18),
     child: InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () {},
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: Row(
@@ -134,4 +148,29 @@ class _SettingsTile extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _PointerSettingsRoute extends PageRouteBuilder<void> {
+  _PointerSettingsRoute(this.child)
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => child,
+          transitionDuration: const Duration(milliseconds: 280),
+        );
+
+  final Widget child;
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+    final offsetAnimation = Tween<Offset>(
+      begin: const Offset(-1, 0),
+      end: Offset.zero,
+    ).animate(curved);
+    return SlideTransition(position: offsetAnimation, child: child);
+  }
 }
