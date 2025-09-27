@@ -27,7 +27,8 @@ class _PointerSettingsPageState extends State<PointerSettingsPage> {
           _ToggleTile(
             label: 'Stift',
             value: settings.allowStylus,
-            onChanged: (value) => setState(() => settings.update(stylus: value)),
+            onChanged: (value) =>
+                setState(() => settings.update(stylus: value)),
           ),
           _ToggleTile(
             label: 'Touch',
@@ -45,7 +46,8 @@ class _PointerSettingsPageState extends State<PointerSettingsPage> {
           _ToggleTile(
             label: 'Automatisch auf Stift sperren',
             value: settings.autoLockOnStylus,
-            onChanged: (value) => setState(() => settings.update(autoLock: value)),
+            onChanged: (value) =>
+                setState(() => settings.update(autoLock: value)),
           ),
           if (settings.stylusLocked) ...[
             const SizedBox(height: 8),
@@ -76,9 +78,9 @@ class _ToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SwitchListTile.adaptive(
-        value: value,
-        onChanged: onChanged,
-        title: Text(label),
-        contentPadding: EdgeInsets.zero,
-      );
+    value: value,
+    onChanged: onChanged,
+    title: Text(label),
+    contentPadding: EdgeInsets.zero,
+  );
 }

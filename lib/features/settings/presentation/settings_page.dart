@@ -71,7 +71,8 @@ class SettingsPage extends StatelessWidget {
     ),
   );
 
-  static Future<void> _openPointerSettings(BuildContext context) => Navigator.of(
+  static Future<void> _openPointerSettings(BuildContext context) =>
+      Navigator.of(
         context,
       ).push<void>(_PointerSettingsRoute(const PointerSettingsPage()));
 }
@@ -152,10 +153,10 @@ class _SettingsTile extends StatelessWidget {
 
 class _PointerSettingsRoute extends PageRouteBuilder<void> {
   _PointerSettingsRoute(this.child)
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => child,
-          transitionDuration: const Duration(milliseconds: 280),
-        );
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => child,
+        transitionDuration: const Duration(milliseconds: 280),
+      );
 
   final Widget child;
 
@@ -166,7 +167,10 @@ class _PointerSettingsRoute extends PageRouteBuilder<void> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+    );
     final offsetAnimation = Tween<Offset>(
       begin: const Offset(-1, 0),
       end: Offset.zero,

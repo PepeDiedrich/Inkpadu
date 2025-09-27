@@ -29,9 +29,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final notes = InkNotesScope.of(context).notes;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notizen'),
-      ),
+      appBar: AppBar(title: const Text('Notizen')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createAndOpen,
         icon: const Icon(Icons.add),
