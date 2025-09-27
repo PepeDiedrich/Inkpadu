@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/editor/presentation/editor_page.dart';
 import 'package:ai_handwriting_app/features/home/presentation/home_page.dart';
 import 'package:ai_handwriting_app/features/settings/presentation/settings_page.dart';
 
@@ -18,27 +17,22 @@ class _AppShellState extends State<AppShell> {
 
   static const List<Widget> _pages = <Widget>[
     HomePage(),
-    EditorPage(),
     SettingsPage(),
   ];
 
-  static const List<NavigationDestination> _destinations = <NavigationDestination>[
-    NavigationDestination(
-      icon: Icon(Icons.folder_copy_outlined),
-      selectedIcon: Icon(Icons.folder_copy),
-      label: 'Notizen',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.gesture_outlined),
-      selectedIcon: Icon(Icons.gesture),
-      label: 'Editor',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
-      label: 'Einstellungen',
-    ),
-  ];
+  static const List<NavigationDestination> _destinations =
+      <NavigationDestination>[
+        NavigationDestination(
+          icon: Icon(Icons.folder_copy_outlined),
+          selectedIcon: Icon(Icons.folder_copy),
+          label: 'Notizen',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: 'Einstellungen',
+        ),
+      ];
 
   void _onDestinationSelected(int index) {
     setState(() {
@@ -48,14 +42,11 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _pages,
-        ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          destinations: _destinations,
-          onDestinationSelected: _onDestinationSelected,
-        ),
-      );
+    body: IndexedStack(index: _currentIndex, children: _pages),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: _currentIndex,
+      destinations: _destinations,
+      onDestinationSelected: _onDestinationSelected,
+    ),
+  );
 }

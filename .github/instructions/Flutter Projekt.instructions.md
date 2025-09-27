@@ -55,3 +55,5 @@ Textfarbe: Helles Grau auf dunklem Grund (#E0E0E0), dunkles Grau auf hellem Grun
 Primäre Akzentfarbe: Ein warmer Goldton (#FFC107)
 
 Sekundäre Akzentfarbe: Ein sanftes Grün (#2ECC71)
+keep the ui simple and clean.
+good balance between known icon and text.

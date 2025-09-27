@@ -15,14 +15,14 @@ class InkpaduApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Inkpadu',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
-        initialRoute: AppRoutes.onboarding,
-        routes: {
-          AppRoutes.shell: (context) => const AppShell(),
-          AppRoutes.onboarding: (context) => const OnboardingPage(),
-        },
-      );
+    title: 'Inkpadu',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.light(),
+    darkTheme: AppTheme.dark(),
+    initialRoute: AppRoutes.onboarding,
+    routes: {
+      AppRoutes.shell: (context) => const AppShell(),
+      AppRoutes.onboarding: (context) => const OnboardingPage(),
+    },
+  );
 }

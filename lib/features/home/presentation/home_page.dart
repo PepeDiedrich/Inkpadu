@@ -1,137 +1,156 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/app/theme/app_colors.dart';
+import 'package:ai_handwriting_app/features/editor/presentation/editor_page.dart';
+import 'package:ai_handwriting_app/features/notes/domain/note.dart';
 
-/// Placeholder page representing the handwritten file manager view.
-class HomePage extends StatelessWidget {
+/// Displays the list of saved notes and routes to the editor.
+class HomePage extends StatefulWidget {
   /// Creates a new [HomePage].
   const HomePage({super.key});
 
-  static const List<_NotePreview> _notes = [
-    _NotePreview(
-      title: 'Meeting-Notizen',
-      subtitle: 'Kickoff mit dem Design-Team',
-      timestamp: 'Heute · 09:30',
-    ),
-    _NotePreview(
-      title: 'Skizze – App Layout',
-      subtitle: 'Navigation und Editor-Fluss',
-      timestamp: 'Gestern · 18:12',
-    ),
-    _NotePreview(
-      title: 'Ideen für neue Stifte',
-      subtitle: 'Varianten für Drucksensitivität',
-      timestamp: '28. Aug · 14:05',
-    ),
-    _NotePreview(
-      title: 'Workshop Protokoll',
-      subtitle: 'Fokus: Handschriftliche Eingaben',
-      timestamp: '26. Aug · 11:20',
-    ),
-  ];
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late List<Note> _notes;
+
+  @override
+  void initState() {
+    super.initState();
+    _notes = _initialNotes();
+  }
+
+  List<Note> _initialNotes() {
+    final now = DateTime.now();
+    final notes = <Note>[
+      Note(
+        id: '1',
+        title: 'Meeting-Notizen',
+        content: 'Kickoff mit dem Design-Team vorbereitet. Aufgaben festhalten.',
+        updatedAt: now.subtract(const Duration(hours: 1)),
+      ),
+      Note(
+        id: '2',
+        title: 'Skizze – App Layout',
+        content: 'Navigation und Editor-Fluss skizzieren.',
+        updatedAt: now.subtract(const Duration(days: 1, hours: 3)),
+      ),
+      Note(
+        id: '3',
+        title: 'Ideen für neue Stifte',
+        content: 'Varianten für Drucksensitivität notieren.',
+        updatedAt: now.subtract(const Duration(days: 3)),
+      ),
+    ];
+    notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return notes;
+  }
+
+  Future<void> _openEditor(Note note, {required bool isNew}) async {
+    final result = await Navigator.of(context).push<Note>(
+      MaterialPageRoute(
+        builder: (context) => EditorPage(initialNote: note, isNew: isNew),
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    if (isNew && result.title.trim().isEmpty && result.content.trim().isEmpty) {
+      return;
+    }
+
+    setState(() {
+      final updated = List<Note>.from(_notes);
+      final existingIndex =
+          updated.indexWhere((item) => item.id == result.id);
+
+      if (existingIndex >= 0) {
+        updated[existingIndex] = result;
+      } else {
+        updated.add(result);
+      }
+
+      updated.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _notes = updated;
+    });
+  }
+
+  Future<void> _createNote() => _openEditor(Note.empty(), isNew: true);
+
+  Future<void> _editExisting(Note note) => _openEditor(note, isNew: false);
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inDays == 0) {
+      return 'Heute, ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    }
+
+    if (difference.inDays == 1) {
+      return 'Gestern, ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    }
+
+    final day = timestamp.day.toString().padLeft(2, '0');
+    final month = timestamp.month.toString().padLeft(2, '0');
+    return '$day.$month.${timestamp.year}';
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        appBar: AppBar(
-          title: const Text('Deine Notizen'),
-          centerTitle: false,
-          actions: [
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.search),
-            ),
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.filter_list),
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {},
-          icon: const Icon(Icons.create),
-          label: const Text('Neue Notiz'),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Chip(
-                avatar: const Icon(Icons.auto_fix_high, color: Colors.white),
-                label: const Text('KI-Empfehlung: Fokus-Notizen'),
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                labelStyle: const TextStyle(color: AppColors.darkText),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _notes.length,
-                  itemBuilder: (context, index) {
-                    final note = _notes[index];
-                    return Card(
-                      elevation: 0,
-                      color: Theme.of(context).cardColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        title: Text(
-                          note.title,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(note.subtitle),
-                              const SizedBox(height: 4),
-                              Text(
-                                note.timestamp,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.6),
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        trailing: const Icon(Icons.more_vert),
-                        onTap: () {},
-                      ),
-                    );
-                  },
+    appBar: AppBar(
+      title: const Text('Deine Notizen'),
+    ),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: _createNote,
+      icon: const Icon(Icons.create),
+      label: const Text('Neue Notiz'),
+    ),
+    body: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: _notes.isEmpty
+          ? const Center(
+            child: Text('Noch keine Notizen. Starte mit einer neuen.'),
+          )
+          : ListView.builder(
+            itemCount: _notes.length,
+            itemBuilder: (context, index) {
+              final note = _notes[index];
+              return Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
                 ),
-              ),
-            ],
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: ListTile(
+                  title: Text(
+                    note.displayTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(note.preview),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatTimestamp(note.updatedAt),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _editExisting(note),
+                ),
+              );
+            },
           ),
-        ),
-      );
-}
-
-class _NotePreview {
-  const _NotePreview({
-    required this.title,
-    required this.subtitle,
-    required this.timestamp,
-  });
-
-  final String title;
-  final String subtitle;
-  final String timestamp;
+    ),
+  );
 }
