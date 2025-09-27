@@ -1,10 +1,12 @@
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Ein [CustomPainter], der eine Liste von [Stroke]-Objekten auf eine Leinwand zeichnet.
 class DrawingPainter extends CustomPainter {
   /// Erstellt einen neuen [DrawingPainter].
-  DrawingPainter({required this.strokes, this.currentStroke});
+  DrawingPainter({List<Stroke>? strokes, this.currentStroke})
+    : strokes = List<Stroke>.unmodifiable(strokes ?? const []);
 
   /// Alle abgeschlossenen Striche auf der Seite.
   final List<Stroke> strokes;
@@ -46,6 +48,6 @@ class DrawingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DrawingPainter oldDelegate) =>
-      oldDelegate.strokes != strokes ||
+      !listEquals(oldDelegate.strokes, strokes) ||
       oldDelegate.currentStroke != currentStroke;
 }

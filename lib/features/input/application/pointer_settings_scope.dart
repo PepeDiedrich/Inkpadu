@@ -4,12 +4,20 @@ import 'package:flutter/gestures.dart';
 /// Konfiguration der erlaubten Eingabegeräte.
 /// Verwaltet welche Eingabegeräte akzeptiert werden und Stylus-Lock Logik.
 class PointerSettings extends ChangeNotifier {
+  /// Gibt an, ob Eingaben per Stylus erlaubt sind.
   bool allowStylus;
+
+  /// Gibt an, ob Touch-Eingaben akzeptiert werden.
   bool allowTouch;
+
+  /// Gibt an, ob Maus-Eingaben akzeptiert werden.
   bool allowMouse;
+
+  /// Aktiviert den automatischen Stylus-Lock nach erster Nutzung.
   bool autoLockOnStylus;
   bool _stylusLocked = false;
 
+  /// Erstellt eine neue [PointerSettings]-Instanz.
   PointerSettings({
     this.allowStylus = true,
     this.allowTouch = true,

@@ -8,6 +8,10 @@ class NotePage {
   /// Die Liste aller Striche auf dieser Seite.
   final List<Stroke> strokes;
 
+  /// Erstellt eine Kopie der Seite mit optional geänderten Werten.
+  NotePage copyWith({List<Stroke>? strokes}) =>
+      NotePage(strokes: strokes ?? this.strokes);
+
   /// Wandelt das Objekt in eine JSON-Map um.
   Map<String, dynamic> toJson() => {
     'strokes': strokes.map((s) => s.toJson()).toList(),

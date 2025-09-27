@@ -1,3 +1,4 @@
+import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -7,6 +8,141 @@ import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+
+/// Verwaltet den Zustand der Zeichenfläche und stellt Undo/Redo-Funktionen bereit.
+class DrawingController extends ChangeNotifier {
+  /// Aktuell gezeichnete Striche.
+  List<Stroke> _strokes = const [];
+
+  /// Der temporäre Strich, der gerade entsteht.
+  Stroke? _currentStroke;
+
+  /// Stack für Wiederherstellen-Operationen.
+  final List<Stroke> _redoStack = [];
+
+  /// Liefert eine unveränderliche Sicht auf alle gespeicherten Striche.
+  List<Stroke> get strokes => List.unmodifiable(_strokes);
+
+  /// Gibt den aktuell entstehenden Strich zurück.
+  Stroke? get currentStroke => _currentStroke;
+
+  /// `true`, wenn mindestens ein Strich rückgängig gemacht werden kann.
+  bool get canUndo => _strokes.isNotEmpty;
+
+  /// `true`, wenn ein rückgängig gemachter Strich wiederhergestellt werden kann.
+  bool get canRedo => _redoStack.isNotEmpty;
+
+  /// Übernimmt eine bestehende Liste von Strichen in den Controller.
+  void initialize(List<Stroke> initialStrokes) {
+    _strokes = List<Stroke>.of(initialStrokes);
+    _currentStroke = null;
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  /// Startet einen neuen Strich mit dem übergebenen [point].
+  void startStroke(
+    DrawingPoint point, {
+    required Color color,
+    required double baseWidth,
+    bool isHighlighter = false,
+  }) {
+    _currentStroke = Stroke(
+      points: [point],
+      color: color,
+      baseWidth: baseWidth,
+      isHighlighter: isHighlighter,
+    );
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  /// Fügt dem aktuellen Strich einen weiteren Punkt hinzu.
+  void updateStroke(DrawingPoint point) {
+    if (_currentStroke == null) return;
+    _currentStroke = _currentStroke!.copyWith(
+      points: List<DrawingPoint>.of(_currentStroke!.points)..add(point),
+    );
+    notifyListeners();
+  }
+
+  /// Beendet den aktuellen Strich und speichert ihn dauerhaft.
+  /// Gibt `true` zurück, wenn der Strich übernommen wurde.
+  bool endStroke() {
+    if (_currentStroke == null) {
+      return false;
+    }
+
+    final stroke = _currentStroke!;
+    _currentStroke = null;
+
+    if (stroke.points.length < 2) {
+      notifyListeners();
+      return false;
+    }
+
+    final simplified = simplifyStroke(
+      stroke,
+      tolerance: _simplificationToleranceFor(stroke),
+    );
+
+    if (simplified.points.length < 2) {
+      notifyListeners();
+      return false;
+    }
+
+    _strokes = List<Stroke>.of(_strokes)..add(simplified);
+    notifyListeners();
+    return true;
+  }
+
+  /// Macht den zuletzt gespeicherten Strich rückgängig.
+  bool undo() {
+    if (_strokes.isEmpty) return false;
+
+    final updated = List<Stroke>.of(_strokes);
+    final removed = updated.removeLast();
+    _redoStack.add(removed);
+    _strokes = updated;
+    notifyListeners();
+    return true;
+  }
+
+  /// Stellt den zuletzt rückgängig gemachten Strich wieder her.
+  bool redo() {
+    if (_redoStack.isEmpty) return false;
+
+    final stroke = _redoStack.removeLast();
+    _strokes = List<Stroke>.of(_strokes)..add(stroke);
+    notifyListeners();
+    return true;
+  }
+
+  /// Entfernt alle Striche und setzt den Controller zurück.
+  bool clear() {
+    if (_strokes.isEmpty && _currentStroke == null) {
+      return false;
+    }
+    _strokes = const [];
+    _currentStroke = null;
+    _redoStack.clear();
+    notifyListeners();
+    return true;
+  }
+
+  /// Bricht den aktuell entstehenden Strich ab, ohne ihn zu speichern.
+  void cancelCurrentStroke() {
+    if (_currentStroke == null) return;
+    _currentStroke = null;
+    notifyListeners();
+  }
+
+  double _simplificationToleranceFor(Stroke stroke) {
+    final effective = stroke.baseWidth * 0.35;
+    const minTolerance = 0.5;
+    return effective < minTolerance ? minTolerance : effective;
+  }
+}
 
 /// Seite zum Bearbeiten / Zeichnen einer einzelnen handschriftlichen Notiz.
 class DrawingNotePage extends StatefulWidget {
@@ -22,17 +158,16 @@ class DrawingNotePage extends StatefulWidget {
 
 class _DrawingNotePageState extends State<DrawingNotePage> {
   late InkNote _note;
-  Stroke? _currentStroke;
-  bool _isDrawing = false;
-
-  // Undo/Redo Stacks
-  final List<Stroke> _redoStack = [];
+  late InkNotesController _inkNotesController;
+  final DrawingController _drawingController = DrawingController();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final controller = InkNotesScope.of(context);
-    final idx = controller.notes.indexWhere((n) => n.id == widget.noteId);
+    _inkNotesController = InkNotesScope.of(context);
+    final idx = _inkNotesController.notes.indexWhere(
+      (n) => n.id == widget.noteId,
+    );
     if (idx == -1) {
       debugPrint(
         'Warnung: Notiz mit ID ${widget.noteId} nicht gefunden. Erzeuge Platzhalter.',
@@ -43,11 +178,18 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         updatedAt: DateTime.now(),
         page: NotePage(strokes: const []),
       );
-      controller.upsert(placeholder);
+      _inkNotesController.upsert(placeholder);
       _note = placeholder;
     } else {
-      _note = controller.notes[idx];
+      _note = _inkNotesController.notes[idx];
     }
+    _drawingController.initialize(_note.page.strokes);
+  }
+
+  @override
+  void dispose() {
+    _drawingController.dispose();
+    super.dispose();
   }
 
   void _start(PointerDownEvent details) {
@@ -61,119 +203,72 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       pressure: details.pressure,
     );
 
-    setState(() {
-      _isDrawing = true;
-      _currentStroke = Stroke(
-        points: [newPoint],
-        // Hier könnten Stift-Einstellungen aus einem Scope kommen
-        color: Colors.amber,
-        baseWidth: 6.0,
-      );
-      _redoStack.clear(); // Neues Zeichnen löscht den Redo-Verlauf
-    });
+    _drawingController.startStroke(
+      newPoint,
+      color: Colors.amber,
+      baseWidth: 6.0,
+    );
   }
 
   void _update(PointerMoveEvent details) {
-    if (!_isDrawing || _currentStroke == null) return;
+    if (_drawingController.currentStroke == null || !details.down) {
+      return;
+    }
 
     final newPoint = DrawingPoint(
       position: details.localPosition,
       pressure: details.pressure,
     );
 
-    setState(() {
-      _currentStroke = _currentStroke!.copyWith(
-        points: List.from(_currentStroke!.points)..add(newPoint),
-      );
-    });
+    _drawingController.updateStroke(newPoint);
   }
 
   void _end(PointerUpEvent details) {
-    if (!_isDrawing ||
-        _currentStroke == null ||
-        _currentStroke!.points.length < 2) {
-      setState(() {
-        _isDrawing = false;
-        _currentStroke = null;
-      });
-      return;
+    if (_drawingController.endStroke()) {
+      _persistDrawing();
     }
+  }
 
-    final controller = InkNotesScope.of(context);
+  void _cancel(PointerCancelEvent details) {
+    _drawingController.cancelCurrentStroke();
+  }
+
+  void _handleUndo() {
+    if (_drawingController.undo()) {
+      _persistDrawing();
+    }
+  }
+
+  void _handleRedo() {
+    if (_drawingController.redo()) {
+      _persistDrawing();
+    }
+  }
+
+  void _handleClear() {
+    if (_drawingController.clear()) {
+      _persistDrawing();
+    }
+  }
+
+  void _persistDrawing() {
     final updatedPage = _note.page.copyWith(
-      strokes: List.from(_note.page.strokes)..add(_currentStroke!),
+      strokes: _drawingController.strokes,
     );
+
     final updatedNote = _note.copyWith(
       page: updatedPage,
       updatedAt: DateTime.now(),
     );
 
-    controller.upsert(updatedNote);
+    _inkNotesController.upsert(updatedNote);
 
-    setState(() {
-      _note = updatedNote;
-      _currentStroke = null;
-      _isDrawing = false;
-    });
+    if (mounted) {
+      setState(() {
+        _note = updatedNote;
+      });
+    }
   }
-
-  void _undo() {
-    if (_note.page.strokes.isEmpty) return;
-
-    final controller = InkNotesScope.of(context);
-    final lastStroke = _note.page.strokes.last;
-
-    final updatedPage = _note.page.copyWith(
-      strokes: List.from(_note.page.strokes)..removeLast(),
-    );
-    final updatedNote = _note.copyWith(
-      page: updatedPage,
-      updatedAt: DateTime.now(),
-    );
-
-    controller.upsert(updatedNote);
-
-    setState(() {
-      _note = updatedNote;
-      _redoStack.add(lastStroke);
-    });
-  }
-
-  void _redo() {
-    if (_redoStack.isEmpty) return;
-
-    final controller = InkNotesScope.of(context);
-    final strokeToRedo = _redoStack.removeLast();
-
-    final updatedPage = _note.page.copyWith(
-      strokes: List.from(_note.page.strokes)..add(strokeToRedo),
-    );
-    final updatedNote = _note.copyWith(
-      page: updatedPage,
-      updatedAt: DateTime.now(),
-    );
-
-    controller.upsert(updatedNote);
-
-    setState(() {
-      _note = updatedNote;
-    });
-  }
-
-  void _clear() {
-    final controller = InkNotesScope.of(context);
-    final cleared = _note.copyWith(
-      page: NotePage(strokes: []),
-      updatedAt: DateTime.now(),
-    );
-    controller.upsert(cleared);
-    setState(() {
-      _note = cleared;
-      _redoStack.clear();
-    });
-  }
-
-  // Pointer settings moved to Home (Notizen-Übersicht).
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -181,22 +276,27 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       leading: const BackButton(),
       title: Text(_note.title),
       actions: [
-        IconButton(
-          onPressed: _undo,
-          icon: const Icon(Icons.undo),
-          tooltip: 'Undo',
-        ),
-        IconButton(
-          onPressed: _redo,
-          icon: const Icon(Icons.redo),
-          tooltip: 'Redo',
-        ),
-        // Pointer settings removed from toolbar. Open them from Home.
-        IconButton(
-          onPressed: _note.page.strokes.isEmpty && _currentStroke == null
-              ? null
-              : _clear,
-          icon: const Icon(Icons.delete_outline),
+        AnimatedBuilder(
+          animation: _drawingController,
+          builder: (context, child) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: _drawingController.canUndo ? _handleUndo : null,
+                icon: const Icon(Icons.undo),
+                tooltip: 'Undo',
+              ),
+              IconButton(
+                onPressed: _drawingController.canRedo ? _handleRedo : null,
+                icon: const Icon(Icons.redo),
+                tooltip: 'Redo',
+              ),
+              IconButton(
+                onPressed: _drawingController.canUndo ? _handleClear : null,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -205,16 +305,26 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         onPointerDown: _start,
         onPointerMove: _update,
         onPointerUp: _end,
+        onPointerCancel: _cancel,
         child: Container(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
           color: Theme.of(
             context,
           ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-          child: CustomPaint(
-            painter: DrawingPainter(
-              strokes: _note.page.strokes,
-              currentStroke: _currentStroke,
+          child: AnimatedBuilder(
+            animation: _drawingController,
+            builder: (context, child) => Stack(
+              children: [
+                CustomPaint(
+                  painter: DrawingPainter(strokes: _drawingController.strokes),
+                ),
+                CustomPaint(
+                  painter: DrawingPainter(
+                    currentStroke: _drawingController.currentStroke,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -304,19 +414,4 @@ class _ToggleRow extends StatelessWidget {
     value: value,
     onChanged: onChanged,
   );
-}
-
-extension on Stroke {
-  Stroke copyWith({List<DrawingPoint>? points}) => Stroke(
-    id: id,
-    points: points ?? this.points,
-    color: color,
-    baseWidth: baseWidth,
-    isHighlighter: isHighlighter,
-  );
-}
-
-extension on NotePage {
-  NotePage copyWith({List<Stroke>? strokes}) =>
-      NotePage(strokes: strokes ?? this.strokes);
 }

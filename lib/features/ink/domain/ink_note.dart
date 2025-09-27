@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 /// Repräsentiert eine handschriftliche Notiz bestehend aus mehreren Strichen.
 @immutable
 class InkNote {
+  /// Erstellt eine neue handschriftliche Notiz.
   const InkNote({
     required this.id,
     required this.title,
