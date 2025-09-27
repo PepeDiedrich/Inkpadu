@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
+import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_sheet.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.
 class HomePage extends StatefulWidget {
@@ -29,7 +30,20 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final notes = InkNotesScope.of(context).notes;
     return Scaffold(
-      appBar: AppBar(title: const Text('Notizen')),
+      appBar: AppBar(
+        title: const Text('Notizen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: 'Eingabe-Einstellungen',
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              builder: (_) => const PointerSettingsSheet(),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createAndOpen,
         icon: const Icon(Icons.add),

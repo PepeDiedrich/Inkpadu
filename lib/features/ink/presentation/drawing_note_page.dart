@@ -173,11 +173,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     });
   }
 
-  void _openPointerSettings() => showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    builder: (context) => const _PointerSettingsSheet(),
-  );
+  // Pointer settings moved to Home (Notizen-Übersicht).
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -195,10 +191,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           icon: const Icon(Icons.redo),
           tooltip: 'Redo',
         ),
-        IconButton(
-          onPressed: _openPointerSettings,
-          icon: const Icon(Icons.tune),
-        ),
+        // Pointer settings removed from toolbar. Open them from Home.
         IconButton(
           onPressed: _note.page.strokes.isEmpty && _currentStroke == null
               ? null
