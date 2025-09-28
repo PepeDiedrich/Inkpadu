@@ -1,4 +1,4 @@
-import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart';
+import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart' as async_simpl;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -90,7 +90,7 @@ class DrawingController extends ChangeNotifier {
     }
 
     // Asynchrone Vereinfachung (potentiell Isolate) basierend auf Punktanzahl.
-    final simplified = simplifyStroke(
+    final simplified = await async_simpl.simplifyStrokeAsync(
       stroke,
       tolerance: _simplificationToleranceFor(stroke),
     );
