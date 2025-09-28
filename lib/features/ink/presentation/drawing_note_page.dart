@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
@@ -14,6 +16,8 @@ import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Verwaltet den Zustand der Zeichenfläche und stellt Undo/Redo-Funktionen bereit.
 class DrawingController extends ChangeNotifier {
@@ -240,6 +244,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   late InkNote _note;
   late InkNotesController _inkNotesController;
   final DrawingController _drawingController = DrawingController();
+  late final _ToolPreferencesStore _toolPreferencesStore;
   late List<_DrawingTool> _tools;
   late String _selectedToolId;
   static const double _minSidebarFraction = 0.0;
@@ -276,6 +281,21 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     Color(0xFF6D4C41),
     Color(0xFF607D8B),
     Colors.white,
+  ];
+
+  static const List<_ToolIconOption> _toolIconOptions = <_ToolIconOption>[
+    _ToolIconOption(icon: Icons.edit, label: 'Fineliner'),
+    _ToolIconOption(icon: Icons.create, label: 'Tintenroller'),
+    _ToolIconOption(icon: Icons.draw, label: 'Füller'),
+    _ToolIconOption(icon: Icons.brush, label: 'Pinsel'),
+    _ToolIconOption(icon: Icons.mode_edit_outline, label: 'Skizzieren'),
+    _ToolIconOption(icon: Icons.gesture, label: 'Gesten'),
+    _ToolIconOption(icon: Icons.edit_note, label: 'Notizen'),
+    _ToolIconOption(icon: Icons.border_color, label: 'Marker'),
+    _ToolIconOption(icon: Icons.highlight, label: 'Highlight'),
+    _ToolIconOption(icon: Icons.auto_fix_high, label: 'Effekt'),
+    _ToolIconOption(icon: Icons.colorize, label: 'Farbverlauf'),
+    _ToolIconOption(icon: Icons.flash_on, label: 'Blitz'),
   ];
 
   _DrawingTool get _currentTool {
@@ -329,6 +349,24 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           .map((tool) => tool.id == updatedTool.id ? updatedTool : tool)
           .toList(growable: false);
     });
+    _persistTools();
+  }
+
+  Future<void> _loadPersistedTools() async {
+    final List<_DrawingTool> loaded = await _toolPreferencesStore.load(_tools);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _tools = loaded;
+      if (!_tools.any((tool) => tool.id == _selectedToolId)) {
+        _selectedToolId = _tools.first.id;
+      }
+    });
+  }
+
+  void _persistTools() {
+    unawaited(_toolPreferencesStore.save(_tools));
   }
 
   Color _toolDisplayColor(_DrawingTool tool) {
@@ -351,6 +389,24 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         : background.withValues(alpha: 1);
     final brightness = ThemeData.estimateBrightnessForColor(opaque);
     return brightness == Brightness.dark ? Colors.white : Colors.black87;
+  }
+
+  String _formatColorHex(Color color) {
+    final int argb = color.toARGB32();
+    final String rgb = argb.toRadixString(16).padLeft(8, '0').substring(2);
+    return '#${rgb.toUpperCase()}';
+  }
+
+  double _pressureForEvent(PointerEvent event, _DrawingTool tool) {
+    if (!tool.usePressure) {
+      return 1;
+    }
+    final double pressure = event.pressure;
+    if (!pressure.isFinite || pressure <= 0) {
+      return 1;
+    }
+    final num clamped = pressure.clamp(0.1, 1.0);
+    return clamped.toDouble();
   }
 
   Widget _buildToolSelector() => Wrap(
@@ -416,6 +472,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           builder: (context, setModalState) {
             final bool showColorPicker = !draft.isEraser;
             final bool showHighlighterToggle = !draft.isEraser;
+            final bool showPressureToggle = !draft.isEraser;
             final double minWidth = draft.isEraser
                 ? 8
                 : draft.isHighlighter
@@ -431,7 +488,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               maxWidth,
             );
             final theme = Theme.of(context);
-            return Padding(
+            final ColorScheme colorScheme = theme.colorScheme;
+            return SingleChildScrollView(
               padding: const EdgeInsets.only(
                 left: 20,
                 right: 20,
@@ -439,7 +497,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                 bottom: 12,
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -453,41 +510,133 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
-                      children: _defaultToolColors.map((color) {
-                        final bool isActive = draft.color == color;
-                        return GestureDetector(
-                          onTap: () => setModalState(
-                            () => draft = draft.copyWith(color: color),
-                          ),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              border: Border.all(
-                                color: isActive
-                                    ? AppColors.primaryAccent
-                                    : theme.colorScheme.outlineVariant,
-                                width: isActive ? 3 : 1,
+                      children: _defaultToolColors
+                          .map((color) {
+                            final bool isActive = draft.color == color;
+                            return GestureDetector(
+                              onTap: () => setModalState(
+                                () => draft = draft.copyWith(color: color),
+                              ),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: color,
+                                  border: Border.all(
+                                    color: isActive
+                                        ? AppColors.primaryAccent
+                                        : colorScheme.outlineVariant,
+                                    width: isActive ? 3 : 1,
+                                  ),
+                                ),
+                                child: isActive
+                                    ? Icon(
+                                        Icons.check,
+                                        color:
+                                            ThemeData.estimateBrightnessForColor(
+                                                  color,
+                                                ) ==
+                                                Brightness.dark
+                                            ? Colors.white
+                                            : Colors.black,
+                                        size: 18,
+                                      )
+                                    : null,
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                    const SizedBox(height: 16),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colorScheme.outlineVariant),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Farbkreis',
+                              style: theme.textTheme.labelMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            ColorPicker(
+                              pickerColor: draft.color,
+                              onColorChanged: (Color color) => setModalState(
+                                () => draft = draft.copyWith(color: color),
+                              ),
+                              enableAlpha: false,
+                              paletteType: PaletteType.hueWheel,
+                              displayThumbColor: true,
+                              portraitOnly: true,
+                              pickerAreaBorderRadius: const BorderRadius.all(
+                                Radius.circular(12),
                               ),
                             ),
-                            child: isActive
-                                ? Icon(
-                                    Icons.check,
-                                    color:
-                                        ThemeData.estimateBrightnessForColor(
-                                              color,
-                                            ) ==
-                                            Brightness.dark
-                                        ? Colors.white
-                                        : Colors.black,
-                                    size: 18,
-                                  )
-                                : null,
-                          ),
-                        );
-                      }).toList(),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Aktuelle Farbe: ${_formatColorHex(draft.color)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!draft.isEraser) ...[
+                    const SizedBox(height: 24),
+                    Text('Symbol', style: theme.textTheme.labelLarge),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: _toolIconOptions
+                          .map((option) {
+                            final bool isActive = option.icon == draft.icon;
+                            return Tooltip(
+                              message: option.label,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => setModalState(
+                                  () =>
+                                      draft = draft.copyWith(icon: option.icon),
+                                ),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                        ? AppColors.primaryAccent.withValues(
+                                            alpha: 0.12,
+                                          )
+                                        : colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isActive
+                                          ? AppColors.primaryAccent
+                                          : colorScheme.outlineVariant,
+                                      width: isActive ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    option.icon,
+                                    color: isActive
+                                        ? AppColors.primaryAccent
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
                     ),
                   ],
                   const SizedBox(height: 24),
@@ -520,6 +669,21 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                           baseWidth: adjustedWidth,
                         );
                       }),
+                    ),
+                  ],
+                  if (showPressureToggle) ...[
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Druckerkennung'),
+                      subtitle: Text(
+                        'Steuert, ob Stiftdruck die Linienstärke beeinflusst.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      value: draft.usePressure,
+                      onChanged: (value) => setModalState(
+                        () => draft = draft.copyWith(usePressure: value),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 8),
@@ -669,6 +833,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         color: Color(0xFFFFC107),
         baseWidth: 11,
         isHighlighter: true,
+        usePressure: false,
       ),
       const _DrawingTool(
         id: 'pen-neon',
@@ -677,6 +842,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         color: Color(0xFF66BB6A),
         baseWidth: 8,
         isHighlighter: true,
+        usePressure: false,
       ),
       const _DrawingTool(
         id: 'eraser',
@@ -685,9 +851,12 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         color: Colors.white,
         baseWidth: 18,
         isEraser: true,
+        usePressure: false,
       ),
     ];
     _selectedToolId = _tools.first.id;
+    _toolPreferencesStore = const _ToolPreferencesStore();
+    unawaited(_loadPersistedTools());
   }
 
   @override
@@ -758,9 +927,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       return;
     }
 
+    final double pressure = _pressureForEvent(details, tool);
     final newPoint = DrawingPoint(
       position: details.localPosition,
-      pressure: details.pressure,
+      pressure: pressure,
     );
 
     _ensureCanvasHeightForPosition(newPoint.position.dy);
@@ -823,9 +993,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       return;
     }
 
+    final double pressure = _pressureForEvent(details, tool);
     final newPoint = DrawingPoint(
       position: details.localPosition,
-      pressure: details.pressure,
+      pressure: pressure,
     );
 
     _ensureCanvasHeightForPosition(newPoint.position.dy);
@@ -1415,6 +1586,7 @@ class _DrawingTool {
     required this.baseWidth,
     this.isHighlighter = false,
     this.isEraser = false,
+    this.usePressure = true,
   });
 
   final String id;
@@ -1424,6 +1596,7 @@ class _DrawingTool {
   final double baseWidth;
   final bool isHighlighter;
   final bool isEraser;
+  final bool usePressure;
 
   _DrawingTool copyWith({
     String? label,
@@ -1432,6 +1605,7 @@ class _DrawingTool {
     double? baseWidth,
     bool? isHighlighter,
     bool? isEraser,
+    bool? usePressure,
   }) => _DrawingTool(
     id: id,
     label: label ?? this.label,
@@ -1440,7 +1614,125 @@ class _DrawingTool {
     baseWidth: baseWidth ?? this.baseWidth,
     isHighlighter: isHighlighter ?? this.isHighlighter,
     isEraser: isEraser ?? this.isEraser,
+    usePressure: usePressure ?? this.usePressure,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'icon': icon.codePoint,
+    'iconFontFamily': icon.fontFamily,
+    'iconFontPackage': icon.fontPackage,
+    'iconMatchTextDirection': icon.matchTextDirection,
+    'color': color.toARGB32(),
+    'baseWidth': baseWidth,
+    'isHighlighter': isHighlighter,
+    'isEraser': isEraser,
+    'usePressure': usePressure,
+  };
+
+  factory _DrawingTool.fromJson(Map<String, dynamic> json) => _DrawingTool(
+    id: json['id'] as String,
+    label: json['label'] as String,
+    icon: IconData(
+      json['icon'] as int,
+      fontFamily: json['iconFontFamily'] as String?,
+      fontPackage: json['iconFontPackage'] as String?,
+      matchTextDirection: json['iconMatchTextDirection'] as bool? ?? false,
+    ),
+    color: Color(json['color'] as int),
+    baseWidth: (json['baseWidth'] as num).toDouble(),
+    isHighlighter: json['isHighlighter'] as bool? ?? false,
+    isEraser: json['isEraser'] as bool? ?? false,
+    usePressure: json['usePressure'] as bool? ?? true,
+  );
+}
+
+class _ToolIconOption {
+  const _ToolIconOption({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+}
+
+class _ToolPreferencesStore {
+  const _ToolPreferencesStore();
+
+  static const String _storageKey = 'drawing_tools_v1';
+
+  Future<List<_DrawingTool>> load(List<_DrawingTool> defaults) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? raw = prefs.getString(_storageKey);
+      if (raw == null) {
+        return defaults;
+      }
+      final dynamic decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return defaults;
+      }
+      final List<_DrawingTool> stored = <_DrawingTool>[];
+      for (final dynamic entry in decoded) {
+        if (entry is! Map<String, dynamic>) {
+          continue;
+        }
+        try {
+          stored.add(_DrawingTool.fromJson(entry));
+        } catch (error) {
+          debugPrint(
+            'Fehler beim Parsen eines gespeicherten Werkzeugs: $error',
+          );
+        }
+      }
+      if (stored.isEmpty) {
+        return defaults;
+      }
+      return _mergeWithDefaults(defaults, stored);
+    } catch (error) {
+      debugPrint('Fehler beim Laden der Werkzeug-Voreinstellungen: $error');
+      return defaults;
+    }
+  }
+
+  Future<void> save(List<_DrawingTool> tools) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String payload = jsonEncode(
+        tools.map((tool) => tool.toJson()).toList(growable: false),
+      );
+      await prefs.setString(_storageKey, payload);
+    } catch (error) {
+      debugPrint('Fehler beim Speichern der Werkzeug-Voreinstellungen: $error');
+    }
+  }
+
+  List<_DrawingTool> _mergeWithDefaults(
+    List<_DrawingTool> defaults,
+    List<_DrawingTool> stored,
+  ) => defaults
+      .map((tool) {
+        _DrawingTool? match;
+        for (final _DrawingTool candidate in stored) {
+          if (candidate.id == tool.id) {
+            match = candidate;
+            break;
+          }
+        }
+        if (match == null) {
+          return tool;
+        }
+        return _DrawingTool(
+          id: tool.id,
+          label: match.label,
+          icon: match.icon,
+          color: match.color,
+          baseWidth: match.baseWidth,
+          isHighlighter: tool.isHighlighter,
+          isEraser: tool.isEraser,
+          usePressure: match.usePressure,
+        );
+      })
+      .toList(growable: false);
 }
 
 class _PointerSettingsSheet extends StatefulWidget {
