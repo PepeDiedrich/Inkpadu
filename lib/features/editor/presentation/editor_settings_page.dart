@@ -22,6 +22,8 @@ class EditorSettingsPage extends StatelessWidget {
           builder: (context, _) {
             final current = settings.sidebarSide;
             final bool simplifierEnabled = settings.lineSimplifierEnabled;
+            final double simplifierStrength = settings.lineSimplifierStrength;
+            final double simplifierMinTol = settings.lineSimplifierMinTolerance;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -75,6 +77,55 @@ class EditorSettingsPage extends StatelessWidget {
                   value: simplifierEnabled,
                   onChanged: (value) =>
                       settings.update(lineSimplifierEnabled: value),
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 150),
+                  opacity: simplifierEnabled ? 1 : 0.4,
+                  child: IgnorePointer(
+                    ignoring: !simplifierEnabled,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Text(
+                          'Glättungsintensität (${simplifierStrength.toStringAsFixed(2)})',
+                          style: textTheme.bodyMedium,
+                        ),
+                        Slider.adaptive(
+                          value: simplifierStrength.clamp(0.05, 0.8),
+                          min: 0.1,
+                          max: 0.6,
+                          divisions: 10,
+                          label: simplifierStrength.toStringAsFixed(2),
+                          onChanged: (value) =>
+                              settings.update(lineSimplifierStrength: value),
+                        ),
+                        Text(
+                          'Niedrige Werte bewahren mehr Details, hohe Werte glätten stärker.',
+                          style: textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Mindest-Toleranz (${simplifierMinTol.toStringAsFixed(2)} px)',
+                          style: textTheme.bodyMedium,
+                        ),
+                        Slider.adaptive(
+                          value: simplifierMinTol.clamp(0.05, 1.5),
+                          min: 0.1,
+                          max: 1.2,
+                          divisions: 11,
+                          label: '${simplifierMinTol.toStringAsFixed(2)} px',
+                          onChanged: (value) => settings.update(
+                            lineSimplifierMinTolerance: value,
+                          ),
+                        ),
+                        Text(
+                          'Setzt die Untergrenze für das Glätten – höhere Werte filtern winzige Zacken.',
+                          style: textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             );

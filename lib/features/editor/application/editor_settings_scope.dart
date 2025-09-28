@@ -15,6 +15,8 @@ class EditorSettings extends ChangeNotifier {
   EditorSettings({
     this.sidebarSide = EditorSidebarSide.right,
     this.lineSimplifierEnabled = true,
+    this.lineSimplifierStrength = 0.25,
+    this.lineSimplifierMinTolerance = 0.3,
   });
 
   /// Aktuell gewählte Seite des Assistenz-Panels.
@@ -23,6 +25,14 @@ class EditorSettings extends ChangeNotifier {
   /// `true`, wenn der Linien-Simplifier aktiv ist.
   bool lineSimplifierEnabled;
 
+  /// Faktor zur Berechnung der Simplifier-Toleranz relativ zur Strichbreite.
+  /// Wertebereich: 0.05 (sehr weich) bis 0.8 (sehr hart).
+  double lineSimplifierStrength;
+
+  /// Minimaler Toleranzwert in Pixeln zur Vereinfachung.
+  /// Wertebereich: >= 0.05.
+  double lineSimplifierMinTolerance;
+
   /// Convenience: `true`, wenn das Panel links erscheinen soll.
   bool get isPanelOnLeft => sidebarSide == EditorSidebarSide.left;
 
@@ -30,7 +40,12 @@ class EditorSettings extends ChangeNotifier {
   bool get isPanelOnRight => sidebarSide == EditorSidebarSide.right;
 
   /// Aktualisiert einzelne Properties und benachrichtigt Listener.
-  void update({EditorSidebarSide? sidebarSide, bool? lineSimplifierEnabled}) {
+  void update({
+    EditorSidebarSide? sidebarSide,
+    bool? lineSimplifierEnabled,
+    double? lineSimplifierStrength,
+    double? lineSimplifierMinTolerance,
+  }) {
     var hasChanged = false;
     if (sidebarSide != null && sidebarSide != this.sidebarSide) {
       this.sidebarSide = sidebarSide;
@@ -39,6 +54,19 @@ class EditorSettings extends ChangeNotifier {
     if (lineSimplifierEnabled != null &&
         lineSimplifierEnabled != this.lineSimplifierEnabled) {
       this.lineSimplifierEnabled = lineSimplifierEnabled;
+      hasChanged = true;
+    }
+    if (lineSimplifierStrength != null &&
+        lineSimplifierStrength != this.lineSimplifierStrength) {
+      this.lineSimplifierStrength = lineSimplifierStrength.clamp(0.05, 0.8);
+      hasChanged = true;
+    }
+    if (lineSimplifierMinTolerance != null &&
+        lineSimplifierMinTolerance != this.lineSimplifierMinTolerance) {
+      this.lineSimplifierMinTolerance = lineSimplifierMinTolerance.clamp(
+        0.05,
+        double.infinity,
+      );
       hasChanged = true;
     }
     if (hasChanged) {

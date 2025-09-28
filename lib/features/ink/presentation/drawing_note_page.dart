@@ -30,6 +30,9 @@ class DrawingController extends ChangeNotifier {
   /// Stack für Wiederherstellen-Operationen.
   final List<Stroke> _redoStack = [];
 
+  double _simplifierStrength = 0.25;
+  double _simplifierMinTolerance = 0.3;
+
   /// Liefert eine unveränderliche Sicht auf alle gespeicherten Striche.
   List<Stroke> get strokes => List.unmodifiable(_strokes);
 
@@ -78,6 +81,57 @@ class DrawingController extends ChangeNotifier {
       points: List<DrawingPoint>.of(_currentStroke!.points)..add(point),
     );
     notifyListeners();
+  }
+
+  /// Entfernt Striche, deren Punkte innerhalb des gegebenen Radius liegen.
+  bool eraseAt(Offset position, {required double radius}) {
+    if (_strokes.isEmpty) {
+      return false;
+    }
+
+    final double radiusSquared = radius * radius;
+    final List<Stroke> retained = <Stroke>[];
+    var removedAny = false;
+
+    for (final stroke in _strokes) {
+      final bool shouldRemove = stroke.points.any((point) {
+        final double dx = point.position.dx - position.dx;
+        final double dy = point.position.dy - position.dy;
+        return (dx * dx + dy * dy) <= radiusSquared;
+      });
+
+      if (shouldRemove) {
+        removedAny = true;
+      } else {
+        retained.add(stroke);
+      }
+    }
+
+    if (!removedAny) {
+      return false;
+    }
+
+    _strokes = List<Stroke>.of(retained);
+    _redoStack.clear();
+    _strokesVersion++;
+    notifyListeners();
+    return true;
+  }
+
+  /// Aktualisiert die Parameter des Linien-Vereinfachers.
+  ///
+  /// [strength] steuert die relative Stärke der Vereinfachung und wird zwischen
+  /// `0.05` und `0.8` geklemmt. [minTolerance] definiert die Mindesttoleranz und
+  /// kann nicht unter `0.05` fallen.
+  void updateSimplifierSettings({double? strength, double? minTolerance}) {
+    if (strength != null) {
+      final double clamped = strength.clamp(0.05, 0.8);
+      _simplifierStrength = clamped;
+    }
+    if (minTolerance != null) {
+      final double clamped = minTolerance.clamp(0.05, double.infinity);
+      _simplifierMinTolerance = clamped;
+    }
   }
 
   /// Beendet den aktuellen Strich und speichert ihn dauerhaft.
@@ -161,8 +215,8 @@ class DrawingController extends ChangeNotifier {
   }
 
   double _simplificationToleranceFor(Stroke stroke) {
-    final effective = stroke.baseWidth * 0.2;
-    const minTolerance = 0.3;
+    final effective = stroke.baseWidth * _simplifierStrength;
+    final minTolerance = _simplifierMinTolerance;
     return effective < minTolerance ? minTolerance : effective;
   }
 
@@ -186,6 +240,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   late InkNote _note;
   late InkNotesController _inkNotesController;
   final DrawingController _drawingController = DrawingController();
+  late List<_DrawingTool> _tools;
+  late String _selectedToolId;
   static const double _minSidebarFraction = 0.0;
   static const double _minVisibleSidebarFraction = 0.15;
   static const double _maxSidebarFraction = 0.45;
@@ -205,6 +261,294 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   bool _isTwoFingerScrollActive = false;
   Offset? _lastTwoFingerFocalPoint;
   int? _activeDrawingPointerId;
+  String? _activeToolDuringStrokeId;
+  bool _didEraseDuringDrag = false;
+  static const List<Color> _defaultToolColors = [
+    Colors.black,
+    Color(0xFF424242),
+    Color(0xFF1E88E5),
+    Color(0xFF00897B),
+    Color(0xFF7CB342),
+    Color(0xFFFDD835),
+    Color(0xFFFFA726),
+    Color(0xFFE53935),
+    Color(0xFF8E24AA),
+    Color(0xFF6D4C41),
+    Color(0xFF607D8B),
+    Colors.white,
+  ];
+
+  _DrawingTool get _currentTool {
+    if (_tools.isEmpty) {
+      return const _DrawingTool(
+        id: 'default',
+        label: 'Standard',
+        icon: Icons.edit,
+        color: Colors.black,
+        baseWidth: 4.5,
+      );
+    }
+    return _tools.firstWhere(
+      (tool) => tool.id == _selectedToolId,
+      orElse: () => _tools.first,
+    );
+  }
+
+  _DrawingTool _toolById(String? id) {
+    if (id == null) {
+      return _currentTool;
+    }
+    final index = _tools.indexWhere((tool) => tool.id == id);
+    if (index == -1) {
+      return _currentTool;
+    }
+    return _tools[index];
+  }
+
+  double _eraserRadiusForTool(_DrawingTool tool) =>
+      math.max(tool.baseWidth * 0.6, 8);
+
+  bool _applyEraserPoint(Offset position, _DrawingTool tool) =>
+      _drawingController.eraseAt(position, radius: _eraserRadiusForTool(tool));
+
+  void _selectTool(String toolId) {
+    if (_selectedToolId == toolId) {
+      return;
+    }
+    if (!_tools.any((tool) => tool.id == toolId)) {
+      return;
+    }
+    setState(() {
+      _selectedToolId = toolId;
+    });
+  }
+
+  void _updateToolInList(_DrawingTool updatedTool) {
+    setState(() {
+      _tools = _tools
+          .map((tool) => tool.id == updatedTool.id ? updatedTool : tool)
+          .toList(growable: false);
+    });
+  }
+
+  Color _toolDisplayColor(_DrawingTool tool) {
+    if (tool.isEraser) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return colorScheme.surfaceContainerHighest.withValues(alpha: 0.9);
+    }
+    if (tool.isHighlighter) {
+      return tool.color.withValues(alpha: 0.45);
+    }
+    if (tool.color == Colors.white) {
+      return tool.color.withValues(alpha: 0.9);
+    }
+    return tool.color;
+  }
+
+  Color _toolForegroundColor(Color background) {
+    final Color opaque = background.a == 1
+        ? background
+        : background.withValues(alpha: 1);
+    final brightness = ThemeData.estimateBrightnessForColor(opaque);
+    return brightness == Brightness.dark ? Colors.white : Colors.black87;
+  }
+
+  Widget _buildToolSelector() => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    alignment: WrapAlignment.center,
+    children: _tools
+        .map((tool) => _buildToolChip(tool))
+        .toList(growable: false),
+  );
+
+  Widget _buildToolChip(_DrawingTool tool) {
+    final bool isSelected = tool.id == _selectedToolId;
+    final Color displayColor = _toolDisplayColor(tool);
+    final Color borderColor = isSelected
+        ? AppColors.primaryAccent
+        : tool.isEraser
+        ? Theme.of(context).colorScheme.outline
+        : displayColor.a < 1
+        ? Theme.of(context).colorScheme.outline
+        : Colors.transparent;
+    final Color iconColor = _toolForegroundColor(displayColor);
+    final tooltip = tool.isEraser
+        ? '${tool.label} · ${tool.baseWidth.toStringAsFixed(1)} px'
+        : '${tool.label} · ${tool.baseWidth.toStringAsFixed(1)} px';
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: () => _selectTool(tool.id),
+        onLongPress: () => _openToolConfigurator(tool),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: displayColor,
+            border: Border.all(color: borderColor, width: isSelected ? 3 : 1),
+          ),
+          child: Center(
+            child: Icon(
+              tool.icon,
+              size: 18,
+              color: tool.isHighlighter
+                  ? iconColor.withValues(alpha: 0.8)
+                  : tool.isEraser
+                  ? Theme.of(context).colorScheme.onSurfaceVariant
+                  : iconColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openToolConfigurator(_DrawingTool tool) async {
+    final updated = await showModalBottomSheet<_DrawingTool>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) {
+        _DrawingTool draft = tool;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final bool showColorPicker = !draft.isEraser;
+            final bool showHighlighterToggle = !draft.isEraser;
+            final double minWidth = draft.isEraser
+                ? 8
+                : draft.isHighlighter
+                ? 6
+                : 1;
+            final double maxWidth = draft.isEraser
+                ? 32
+                : draft.isHighlighter
+                ? 24
+                : 12;
+            final double sliderValue = draft.baseWidth.clamp(
+              minWidth,
+              maxWidth,
+            );
+            final theme = Theme.of(context);
+            return Padding(
+              padding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: 12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${tool.label} anpassen',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  if (showColorPicker) ...[
+                    const SizedBox(height: 16),
+                    Text('Farbe', style: theme.textTheme.labelLarge),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: _defaultToolColors.map((color) {
+                        final bool isActive = draft.color == color;
+                        return GestureDetector(
+                          onTap: () => setModalState(
+                            () => draft = draft.copyWith(color: color),
+                          ),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color,
+                              border: Border.all(
+                                color: isActive
+                                    ? AppColors.primaryAccent
+                                    : theme.colorScheme.outlineVariant,
+                                width: isActive ? 3 : 1,
+                              ),
+                            ),
+                            child: isActive
+                                ? Icon(
+                                    Icons.check,
+                                    color:
+                                        ThemeData.estimateBrightnessForColor(
+                                              color,
+                                            ) ==
+                                            Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black,
+                                    size: 18,
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  Text(
+                    draft.isEraser ? 'Radierbreite' : 'Linienstärke',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  Slider.adaptive(
+                    value: sliderValue,
+                    min: minWidth,
+                    max: maxWidth,
+                    divisions: math.max(1, ((maxWidth - minWidth) * 2).round()),
+                    label: '${sliderValue.toStringAsFixed(1)} px',
+                    onChanged: (value) => setModalState(
+                      () => draft = draft.copyWith(baseWidth: value),
+                    ),
+                  ),
+                  if (showHighlighterToggle) ...[
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Marker-Modus (durchscheinend)'),
+                      value: draft.isHighlighter,
+                      onChanged: (value) => setModalState(() {
+                        final double adjustedWidth = value
+                            ? math.max(draft.baseWidth, 6).toDouble()
+                            : draft.baseWidth.clamp(1, 12).toDouble();
+                        draft = draft.copyWith(
+                          isHighlighter: value,
+                          baseWidth: adjustedWidth,
+                        );
+                      }),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Abbrechen'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context, draft),
+                        child: const Text('Übernehmen'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (updated != null) {
+      _updateToolInList(updated);
+    }
+  }
 
   double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
     var maxY = 0.0;
@@ -253,10 +597,17 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   }
 
   void _abortDrawing() {
-    if (_activeDrawingPointerId != null) {
-      _drawingController.cancelCurrentStroke();
-      _activeDrawingPointerId = null;
+    if (_activeDrawingPointerId == null) {
+      return;
     }
+    final tool = _toolById(_activeToolDuringStrokeId);
+    if (tool.isEraser) {
+      _didEraseDuringDrag = false;
+    } else {
+      _drawingController.cancelCurrentStroke();
+    }
+    _activeDrawingPointerId = null;
+    _activeToolDuringStrokeId = null;
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
@@ -289,6 +640,54 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   void initState() {
     super.initState();
     _canvasScrollController = ScrollController();
+    _tools = [
+      const _DrawingTool(
+        id: 'pen-fineliner',
+        label: 'Fineliner',
+        icon: Icons.edit,
+        color: Colors.black,
+        baseWidth: 3.5,
+      ),
+      const _DrawingTool(
+        id: 'pen-ink',
+        label: 'Tintenroller',
+        icon: Icons.create,
+        color: Color(0xFF1E88E5),
+        baseWidth: 4.5,
+      ),
+      const _DrawingTool(
+        id: 'pen-fountain',
+        label: 'Füller',
+        icon: Icons.draw,
+        color: Color(0xFFD32F2F),
+        baseWidth: 5.5,
+      ),
+      const _DrawingTool(
+        id: 'pen-marker',
+        label: 'Marker',
+        icon: Icons.brush,
+        color: Color(0xFFFFC107),
+        baseWidth: 11,
+        isHighlighter: true,
+      ),
+      const _DrawingTool(
+        id: 'pen-neon',
+        label: 'Neon',
+        icon: Icons.highlight,
+        color: Color(0xFF66BB6A),
+        baseWidth: 8,
+        isHighlighter: true,
+      ),
+      const _DrawingTool(
+        id: 'eraser',
+        label: 'Radierer',
+        icon: Icons.auto_fix_off,
+        color: Colors.white,
+        baseWidth: 18,
+        isEraser: true,
+      ),
+    ];
+    _selectedToolId = _tools.first.id;
   }
 
   @override
@@ -346,6 +745,19 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
     settings.register(kind);
 
+    final tool = _currentTool;
+    _activeToolDuringStrokeId = tool.id;
+    _didEraseDuringDrag = false;
+
+    if (tool.isEraser) {
+      _activeDrawingPointerId = details.pointer;
+      final bool erased = _applyEraserPoint(details.localPosition, tool);
+      if (erased) {
+        _didEraseDuringDrag = true;
+      }
+      return;
+    }
+
     final newPoint = DrawingPoint(
       position: details.localPosition,
       pressure: details.pressure,
@@ -355,8 +767,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
     _drawingController.startStroke(
       newPoint,
-      color: Colors.amber,
-      baseWidth: 6.0,
+      color: tool.color,
+      baseWidth: tool.baseWidth,
+      isHighlighter: tool.isHighlighter,
     );
     _activeDrawingPointerId = details.pointer;
   }
@@ -392,9 +805,21 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       }
     }
 
-    if (_activeDrawingPointerId != details.pointer ||
-        _drawingController.currentStroke == null ||
-        !details.down) {
+    if (_activeDrawingPointerId != details.pointer || !details.down) {
+      return;
+    }
+
+    final tool = _toolById(_activeToolDuringStrokeId);
+
+    if (tool.isEraser) {
+      final bool erased = _applyEraserPoint(details.localPosition, tool);
+      if (erased) {
+        _didEraseDuringDrag = true;
+      }
+      return;
+    }
+
+    if (_drawingController.currentStroke == null) {
       return;
     }
 
@@ -418,8 +843,26 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       return;
     }
 
+    final tool = _toolById(_activeToolDuringStrokeId);
     _activeDrawingPointerId = null;
-    final bool simplify = EditorSettingsScope.of(context).lineSimplifierEnabled;
+    _activeToolDuringStrokeId = null;
+
+    if (tool.isEraser) {
+      if (_didEraseDuringDrag) {
+        _persistDrawing();
+      }
+      _didEraseDuringDrag = false;
+      return;
+    }
+
+    _didEraseDuringDrag = false;
+
+    final editorSettings = EditorSettingsScope.of(context);
+    _drawingController.updateSimplifierSettings(
+      strength: editorSettings.lineSimplifierStrength,
+      minTolerance: editorSettings.lineSimplifierMinTolerance,
+    );
+    final bool simplify = editorSettings.lineSimplifierEnabled;
     _drawingController.endStroke(simplify: simplify).then((accepted) {
       if (accepted) {
         _persistDrawing();
@@ -434,8 +877,14 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
 
     if (_activeDrawingPointerId == details.pointer) {
-      _drawingController.cancelCurrentStroke();
+      final tool = _toolById(_activeToolDuringStrokeId);
+      if (tool.isEraser) {
+        _didEraseDuringDrag = false;
+      } else {
+        _drawingController.cancelCurrentStroke();
+      }
       _activeDrawingPointerId = null;
+      _activeToolDuringStrokeId = null;
     }
   }
 
@@ -502,7 +951,26 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       leading: const BackButton(),
-      title: Text(_note.title),
+      centerTitle: true,
+      toolbarHeight: 94,
+      titleSpacing: 0,
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _note.title,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
+            child: _buildToolSelector(),
+          ),
+        ],
+      ),
       actions: [
         AnimatedBuilder(
           animation: _drawingController,
@@ -526,6 +994,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             ],
           ),
         ),
+        const SizedBox(width: 8),
       ],
     ),
     body: LayoutBuilder(
@@ -935,6 +1404,43 @@ class _DrawingScrollBehavior extends MaterialScrollBehavior {
     PointerDeviceKind.mouse,
     PointerDeviceKind.unknown,
   };
+}
+
+class _DrawingTool {
+  const _DrawingTool({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.baseWidth,
+    this.isHighlighter = false,
+    this.isEraser = false,
+  });
+
+  final String id;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final double baseWidth;
+  final bool isHighlighter;
+  final bool isEraser;
+
+  _DrawingTool copyWith({
+    String? label,
+    IconData? icon,
+    Color? color,
+    double? baseWidth,
+    bool? isHighlighter,
+    bool? isEraser,
+  }) => _DrawingTool(
+    id: id,
+    label: label ?? this.label,
+    icon: icon ?? this.icon,
+    color: color ?? this.color,
+    baseWidth: baseWidth ?? this.baseWidth,
+    isHighlighter: isHighlighter ?? this.isHighlighter,
+    isEraser: isEraser ?? this.isEraser,
+  );
 }
 
 class _PointerSettingsSheet extends StatefulWidget {
