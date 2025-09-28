@@ -23,6 +23,7 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
 
 /// Malt alle abgeschlossenen Striche. Repaint nur wenn sich die Version ändert.
 class FinishedStrokesPainter extends CustomPainter {
+  /// Erstellt einen Painter für bereits abgeschlossene Striche.
   FinishedStrokesPainter({required List<Stroke> strokes, required this.version})
     : strokes = List<Stroke>.unmodifiable(strokes);
 
@@ -49,6 +50,7 @@ class FinishedStrokesPainter extends CustomPainter {
 /// Malt den aktuell entstehenden Strich. Repaint nur bei neuem Objekt oder
 /// veränderter Punktzahl (wächst während des Zeichnens).
 class CurrentStrokePainter extends CustomPainter {
+  /// Erstellt einen Painter für den aktuell entstehenden Strich.
   CurrentStrokePainter({required this.currentStroke, required this.pointCount});
 
   /// Der aktuell gezeichnete, noch nicht abgeschlossene Strich.

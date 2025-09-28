@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/shell/presentation/app_shell.dart';
@@ -8,7 +9,16 @@ import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 
 /// Entry point for the handwriting prototype application.
-void main() => runApp(const InkpaduApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations(
+    [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ],
+  );
+  runApp(const InkpaduApp());
+}
 
 /// Root widget that wires up shared theme and navigation.
 class InkpaduApp extends StatelessWidget {
