@@ -11,12 +11,10 @@ import 'package:ai_handwriting_app/features/input/application/pointer_settings_s
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations(
-    [
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ],
-  );
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
   runApp(const InkpaduApp());
 }
 
