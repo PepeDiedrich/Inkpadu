@@ -12,6 +12,7 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/pointer_settings_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:flutter/material.dart';
 
 /// Seite zum Bearbeiten / Zeichnen einer einzelnen handschriftlichen Notiz.
@@ -91,6 +92,26 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     if (controller.drawingController.clear()) {
       controller.persistDrawing();
     }
+  }
+
+  Future<void> _editMetadata() async {
+    final controller = _maybeController;
+    if (controller == null) return;
+    final note = controller.note;
+    final result = await showNoteMetadataDialog(
+      context,
+      initialTitle: note.title,
+      initialPaperStyle: note.paperStyle,
+      isEditing: true,
+    );
+    if (result == null) {
+      return;
+    }
+
+    controller.updateMetadata(
+      title: result.title,
+      paperStyle: result.paperStyle,
+    );
   }
 
   Future<void> _openToolConfigurator(DrawingTool tool) async {
@@ -183,6 +204,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             ),
             actions: [
               IconButton(
+                onPressed: _editMetadata,
+                tooltip: 'Titel & Papier anpassen',
+                icon: const Icon(Icons.edit_note),
+              ),
+              IconButton(
                 onPressed: _openPointerSettings,
                 tooltip: 'Eingabeoptionen',
                 icon: const Icon(Icons.tune),
@@ -230,6 +256,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                 resolveTool: controller.resolveTool,
                 eraserRadiusFor: controller.eraserRadiusFor,
                 onPersistDrawing: controller.persistDrawing,
+                onTwoFingerUndo: _handleUndo,
+                paperStyle: controller.note.paperStyle,
               );
 
               final double rawHandleOffset = math.max(

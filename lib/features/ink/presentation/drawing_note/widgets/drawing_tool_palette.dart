@@ -61,15 +61,6 @@ class _ToolChip extends StatefulWidget {
 }
 
 class _ToolChipState extends State<_ToolChip> {
-  bool _isLongPressActive = false;
-
-  void _setLongPressActive(bool value) {
-    if (_isLongPressActive == value) {
-      return;
-    }
-    setState(() => _isLongPressActive = value);
-  }
-
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -77,7 +68,9 @@ class _ToolChipState extends State<_ToolChip> {
     final Color borderColor = _borderColor(colorScheme, displayColor);
     final Color iconColor = _toolForegroundColor(displayColor, colorScheme);
 
-    final bool highlight = widget.isSelected || _isLongPressActive;
+    final bool isSelected = widget.isSelected;
+    final double targetScale = isSelected ? 1.08 : 1.0;
+    final bool highlight = isSelected;
 
     return Tooltip(
       message:
@@ -85,11 +78,8 @@ class _ToolChipState extends State<_ToolChip> {
       child: GestureDetector(
         onTap: widget.onPressed,
         onLongPress: widget.onLongPress,
-        onLongPressStart: (_) => _setLongPressActive(true),
-        onLongPressEnd: (_) => _setLongPressActive(false),
-        onLongPressCancel: () => _setLongPressActive(false),
         child: AnimatedScale(
-          scale: highlight ? 1.12 : 1,
+          scale: targetScale,
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
           child: AnimatedContainer(

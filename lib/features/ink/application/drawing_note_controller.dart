@@ -7,6 +7,7 @@ import 'package:ai_handwriting_app/features/ink/application/drawing_tool_prefere
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/foundation.dart';
 
@@ -155,6 +156,31 @@ class DrawingNoteController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Aktualisiert Metadaten der Notiz wie Titel und Papierstil.
+  void updateMetadata({
+    required String title,
+    required NotePaperStyle paperStyle,
+  }) {
+    final String trimmedTitle = title.trim();
+    final String nextTitle = trimmedTitle.isEmpty
+        ? InkNote.generateTitle()
+        : trimmedTitle;
+
+    if (nextTitle == _note.title && paperStyle == _note.paperStyle) {
+      return;
+    }
+
+    final updatedNote = _note.copyWith(
+      title: nextTitle,
+      paperStyle: paperStyle,
+      updatedAt: DateTime.now(),
+    );
+
+    _inkNotesController.upsert(updatedNote);
+    _note = updatedNote;
+    notifyListeners();
+  }
+
   /// Stellt sicher, dass eine Notiz für die [noteId] vorhanden ist.
   InkNote _ensureNote() {
     final idx = _inkNotesController.notes.indexWhere(
@@ -166,6 +192,7 @@ class DrawingNoteController extends ChangeNotifier {
         title: 'Fehlende Notiz',
         updatedAt: DateTime.now(),
         page: NotePage(strokes: const <Stroke>[]),
+        paperStyle: NotePaperStyle.plain,
       );
       _inkNotesController.upsert(placeholder);
       return placeholder;

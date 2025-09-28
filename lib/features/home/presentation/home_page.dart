@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
+import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.
 class HomePage extends StatefulWidget {
@@ -13,9 +16,21 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  void _createAndOpen() {
+  Future<void> _createAndOpen() async {
     final controller = InkNotesScope.of(context);
-    final note = controller.createEmpty();
+    final result = await showNoteMetadataDialog(
+      context,
+      initialTitle: InkNote.generateTitle(),
+      initialPaperStyle: NotePaperStyle.plain,
+    );
+    if (result == null) {
+      return;
+    }
+
+    final note = controller.createEmpty(
+      title: result.title,
+      paperStyle: result.paperStyle,
+    );
     _open(note.id);
   }
 
@@ -31,7 +46,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Notizen')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createAndOpen,
+        onPressed: () => _createAndOpen(),
         icon: const Icon(Icons.add),
         label: const Text('Neue Notiz'),
       ),
@@ -54,7 +69,7 @@ class _HomePageState extends State<HomePage> {
                   child: ListTile(
                     title: Text(n.title),
                     subtitle: Text(
-                      '${n.page.strokes.length} Striche · ${_fmt(n.updatedAt)}',
+                      '${n.page.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
                     ),
                     onTap: () => _open(n.id),
                     trailing: const Icon(Icons.chevron_right),

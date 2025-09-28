@@ -7,6 +7,8 @@ import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
+import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +24,8 @@ class DrawingCanvas extends StatefulWidget {
     required this.resolveTool,
     required this.eraserRadiusFor,
     required this.onPersistDrawing,
+    required this.onTwoFingerUndo,
+    required this.paperStyle,
     this.initialCanvasHeight = 1600,
     this.canvasBottomPadding = 600,
   });
@@ -41,6 +45,12 @@ class DrawingCanvas extends StatefulWidget {
   /// Wird aufgerufen, wenn eine Änderung persistiert werden soll.
   final VoidCallback onPersistDrawing;
 
+  /// Wird ausgelöst, wenn die Zwei-Finger-Tap-Geste erkannt wurde.
+  final VoidCallback onTwoFingerUndo;
+
+  /// Bestimmt den visuellen Hintergrund der Zeichenfläche.
+  final NotePaperStyle paperStyle;
+
   /// Mindesthöhe der Zeichenfläche.
   final double initialCanvasHeight;
 
@@ -56,6 +66,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   late double _canvasHeight;
   double _lastScrollExpansionTrigger = -1;
   final Map<int, Offset> _activeTouchPositions = HashMap<int, Offset>();
+  static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
+  static const double _twoFingerTapMaxMovement = 22;
+  DateTime? _twoFingerTapStart;
+  final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
   bool _isTwoFingerScrollActive = false;
   Offset? _lastTwoFingerFocalPoint;
   int? _activeDrawingPointerId;
@@ -154,11 +168,64 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   void _resetTwoFingerScrollState() {
     if (_activeTouchPositions.length < 2) {
-      _isTwoFingerScrollActive = false;
-      _lastTwoFingerFocalPoint = null;
+      _clearTwoFingerGestureState();
     } else {
       _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
     }
+  }
+
+  void _beginTwoFingerTapCandidate() {
+    _twoFingerTapStart = DateTime.now();
+    _twoFingerTapInitialPositions
+      ..clear()
+      ..addAll(_activeTouchPositions);
+    _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+    _isTwoFingerScrollActive = false;
+  }
+
+  void _cancelTwoFingerTapCandidate() {
+    _twoFingerTapStart = null;
+    _twoFingerTapInitialPositions.clear();
+  }
+
+  bool _isTwoFingerTapMovementWithinThreshold() {
+    if (_twoFingerTapStart == null || _twoFingerTapInitialPositions.isEmpty) {
+      return false;
+    }
+    final double maxSquared =
+        _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
+    for (final entry in _twoFingerTapInitialPositions.entries) {
+      final Offset? current = _activeTouchPositions[entry.key];
+      if (current == null) {
+        continue;
+      }
+      final double dx = current.dx - entry.value.dx;
+      final double dy = current.dy - entry.value.dy;
+      if ((dx * dx + dy * dy) > maxSquared) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _isTwoFingerTapWithinTimeWindow() {
+    if (_twoFingerTapStart == null) {
+      return false;
+    }
+    return DateTime.now().difference(_twoFingerTapStart!) <=
+        _twoFingerTapMaxDuration;
+  }
+
+  void _triggerTwoFingerUndo() {
+    _clearTwoFingerGestureState();
+    Feedback.forTap(context);
+    widget.onTwoFingerUndo();
+  }
+
+  void _clearTwoFingerGestureState() {
+    _isTwoFingerScrollActive = false;
+    _lastTwoFingerFocalPoint = null;
+    _cancelTwoFingerTapCandidate();
   }
 
   void _abortDrawing() {
@@ -204,16 +271,32 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void _start(PointerDownEvent details) {
     final settings = PointerSettingsScope.of(context);
     final kind = details.kind;
-    if (!settings.accept(kind)) return;
+    bool touchAllowsDrawing = true;
 
     if (kind == PointerDeviceKind.touch) {
       _activeTouchPositions[details.pointer] = details.localPosition;
-      if (_activeTouchPositions.length >= 2) {
+      if (_activeTouchPositions.length > 2) {
+        _cancelTwoFingerTapCandidate();
         _isTwoFingerScrollActive = true;
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
         _abortDrawing();
+        touchAllowsDrawing = false;
+      } else if (_activeTouchPositions.length == 2) {
+        _beginTwoFingerTapCandidate();
+        _abortDrawing();
+        touchAllowsDrawing = false;
+      }
+
+      if (!touchAllowsDrawing && !settings.accept(kind)) {
         return;
       }
+      if (!touchAllowsDrawing) {
+        return;
+      }
+    }
+
+    if (!settings.accept(kind)) {
+      return;
     }
 
     settings.register(kind);
@@ -255,26 +338,36 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeTouchPositions[details.pointer] = details.localPosition;
 
       final int touchCount = _activeTouchPositions.length;
-      if (touchCount >= 2 || _isTwoFingerScrollActive) {
-        _isTwoFingerScrollActive = true;
-        final Offset? focal = _computeTouchFocalPoint();
-        if (focal != null) {
-          if (_lastTwoFingerFocalPoint != null &&
-              _canvasScrollController.hasClients) {
-            final double delta = focal.dy - _lastTwoFingerFocalPoint!.dy;
-            final double currentOffset = _canvasScrollController.offset;
-            final double maxOffset =
-                _canvasScrollController.position.maxScrollExtent;
-            final double targetOffset = (currentOffset - delta).clamp(
-              0.0,
-              maxOffset,
-            );
-            if ((targetOffset - currentOffset).abs() > 0.01) {
-              _canvasScrollController.jumpTo(targetOffset);
-            }
+      if (touchCount >= 2) {
+        if (_twoFingerTapStart != null) {
+          final bool movedTooFar = !_isTwoFingerTapMovementWithinThreshold();
+          final bool timedOut = !_isTwoFingerTapWithinTimeWindow();
+          if (movedTooFar || timedOut) {
+            _cancelTwoFingerTapCandidate();
+            _isTwoFingerScrollActive = true;
           }
-          _lastTwoFingerFocalPoint = focal;
+        } else {
+          _isTwoFingerScrollActive = true;
         }
+
+        final Offset? focal = _computeTouchFocalPoint();
+        if (_isTwoFingerScrollActive &&
+            focal != null &&
+            _lastTwoFingerFocalPoint != null &&
+            _canvasScrollController.hasClients) {
+          final double delta = focal.dy - _lastTwoFingerFocalPoint!.dy;
+          final double currentOffset = _canvasScrollController.offset;
+          final double maxOffset =
+              _canvasScrollController.position.maxScrollExtent;
+          final double targetOffset = (currentOffset - delta).clamp(
+            0.0,
+            maxOffset,
+          );
+          if ((targetOffset - currentOffset).abs() > 0.01) {
+            _canvasScrollController.jumpTo(targetOffset);
+          }
+        }
+        _lastTwoFingerFocalPoint = focal ?? _lastTwoFingerFocalPoint;
         return;
       }
     }
@@ -310,8 +403,28 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   void _end(PointerUpEvent details) {
     if (details.kind == PointerDeviceKind.touch) {
+      _activeTouchPositions[details.pointer] = details.localPosition;
+
+      final bool candidateActive = _twoFingerTapStart != null;
+      final bool withinMovement =
+          candidateActive && _isTwoFingerTapMovementWithinThreshold();
+      final bool withinTime =
+          candidateActive && _isTwoFingerTapWithinTimeWindow();
+
       _activeTouchPositions.remove(details.pointer);
-      _resetTwoFingerScrollState();
+      final bool noMoreTouches = _activeTouchPositions.length < 2;
+
+      if (candidateActive &&
+          withinTime &&
+          withinMovement &&
+          noMoreTouches &&
+          !_isTwoFingerScrollActive) {
+        _triggerTwoFingerUndo();
+      } else if (noMoreTouches) {
+        _clearTwoFingerGestureState();
+      } else {
+        _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+      }
     }
 
     if (_activeDrawingPointerId != details.pointer) {
@@ -393,12 +506,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         child: SizedBox(
           width: double.infinity,
           height: _canvasHeight,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-            ),
+          child: NotePaperBackground(
+            paperStyle: widget.paperStyle,
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: _start,

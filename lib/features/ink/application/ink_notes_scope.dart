@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 
 /// Notifier verwaltet die in-memory Sammlung handschriftlicher Notizen.
 /// Controller verwaltet eine Sammlung von [InkNote] Objekten im Speicher.
@@ -11,8 +13,15 @@ class InkNotesController extends ChangeNotifier {
   List<InkNote> get notes => List.unmodifiable(_notes);
 
   /// Legt eine neue leere Notiz an und gibt sie zurück.
-  InkNote createEmpty() {
-    final note = InkNote.empty();
+  InkNote createEmpty({
+    String? title,
+    NotePaperStyle paperStyle = NotePaperStyle.plain,
+  }) {
+    final String? cleanedTitle = title?.trim();
+    final note = InkNote.empty(
+      title: (cleanedTitle?.isEmpty ?? true) ? null : cleanedTitle,
+      paperStyle: paperStyle,
+    );
     _notes.insert(0, note);
     _safelyNotifyListeners();
     return note;

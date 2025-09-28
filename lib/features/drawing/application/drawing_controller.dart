@@ -128,7 +128,10 @@ class DrawingController extends ChangeNotifier {
 
   /// Beendet den aktuellen Strich und speichert ihn dauerhaft.
   /// Gibt `true` zurück, wenn der Strich übernommen wurde.
-  Future<bool> endStroke({bool simplify = true}) async {
+  Future<bool> endStroke({
+    bool simplify = true,
+    Stroke Function(Stroke stroke)? transform,
+  }) async {
     if (_currentStroke == null) {
       return false;
     }
@@ -154,6 +157,14 @@ class DrawingController extends ChangeNotifier {
         return false;
       }
       strokeToStore = simplified;
+    }
+
+    if (transform != null) {
+      strokeToStore = transform(strokeToStore);
+      if (strokeToStore.points.length < 2) {
+        notifyListeners();
+        return false;
+      }
     }
 
     _strokes = List<Stroke>.of(_strokes)..add(strokeToStore);
