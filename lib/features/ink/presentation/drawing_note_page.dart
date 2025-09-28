@@ -1,4 +1,5 @@
-import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart' as async_simpl;
+import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart'
+    as async_simpl;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';

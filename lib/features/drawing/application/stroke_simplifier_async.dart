@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'stroke_simplifier.dart' show simplifyStrokePoints; // Reuse existing point simplification
-import '../domain/stroke.dart';
-import '../domain/drawing_point.dart';
+import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart'
+    show simplifyStrokePoints;
+import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 
 /// Asynchrone Vereinfachung eines [Stroke] mittels Isolate über [compute].
 ///
@@ -21,17 +22,22 @@ Future<Stroke> simplifyStrokeAsync(
 }) async {
   if (stroke.points.length < threshold || kIsWeb) {
     // Geringe Punktzahl: direkt synchron vereinfachen.
-    final simplified = simplifyStrokePoints(stroke.points, tolerance: tolerance);
+    final simplified = simplifyStrokePoints(
+      stroke.points,
+      tolerance: tolerance,
+    );
     return stroke.copyWith(points: simplified);
   }
   final payload = _SimplifyPayload(
     tolerance: tolerance,
-    color: stroke.color.value,
+    color: stroke.color.toARGB32(),
     width: stroke.baseWidth,
     isHighlighter: stroke.isHighlighter,
     id: stroke.id,
     points: stroke.points
-        .map((p) => _PointDTO(x: p.position.dx, y: p.position.dy, p: p.pressure))
+        .map(
+          (p) => _PointDTO(x: p.position.dx, y: p.position.dy, p: p.pressure),
+        )
         .toList(growable: false),
   );
   final result = await compute<_SimplifyPayload, _SimplifyResult>(

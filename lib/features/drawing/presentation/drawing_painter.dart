@@ -26,9 +26,14 @@ class FinishedStrokesPainter extends CustomPainter {
   FinishedStrokesPainter({required List<Stroke> strokes, required this.version})
     : strokes = List<Stroke>.unmodifiable(strokes);
 
+  /// Alle abgeschlossenen Striche auf der Seite.
   final List<Stroke> strokes;
-  final int version; // Inkrementiert bei Änderungen an der Strichliste.
 
+  /// Version der Strichliste. Erhöht sich bei jeder strukturellen Änderung
+  /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
+  final int version;
+
+  /// Zeichnet alle abgeschlossenen Striche auf die Leinwand.
   @override
   void paint(Canvas canvas, Size size) {
     for (final stroke in strokes) {
@@ -46,9 +51,13 @@ class FinishedStrokesPainter extends CustomPainter {
 class CurrentStrokePainter extends CustomPainter {
   CurrentStrokePainter({required this.currentStroke, required this.pointCount});
 
+  /// Der aktuell gezeichnete, noch nicht abgeschlossene Strich.
   final Stroke? currentStroke;
+
+  /// Aktuelle Anzahl der Punkte im Strich. Wächst während des Zeichnens.
   final int pointCount;
 
+  /// Zeichnet den aktuell entstehenden Strich auf die Leinwand.
   @override
   void paint(Canvas canvas, Size size) {
     final stroke = currentStroke;
