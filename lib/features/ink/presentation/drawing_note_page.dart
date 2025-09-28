@@ -7,6 +7,7 @@ import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
@@ -191,6 +192,69 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   double? _previewSidebarFraction;
   bool _isResizing = false;
   _ResizeTrend _resizeTrend = _ResizeTrend.none;
+  static const double _initialCanvasHeight = 1600;
+  static const double _canvasBottomPadding = 600;
+  late final ScrollController _canvasScrollController;
+  double _canvasHeight = _initialCanvasHeight;
+  double _lastScrollExpansionTrigger = -1;
+
+  double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
+    var maxY = 0.0;
+    for (final stroke in strokes) {
+      for (final point in stroke.points) {
+        final y = point.position.dy;
+        if (y > maxY) {
+          maxY = y;
+        }
+      }
+    }
+    return math.max(_initialCanvasHeight, maxY + _canvasBottomPadding);
+  }
+
+  void _ensureCanvasHeightForPosition(double yPosition) {
+    final requiredHeight = math.max(
+      _initialCanvasHeight,
+      yPosition + _canvasBottomPadding,
+    );
+    if (requiredHeight <= _canvasHeight) {
+      return;
+    }
+    setState(() {
+      _canvasHeight = requiredHeight;
+    });
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    final metrics = notification.metrics;
+    if (metrics.extentAfter > _canvasBottomPadding * 0.5) {
+      return false;
+    }
+    if (metrics.pixels <= _lastScrollExpansionTrigger + 1) {
+      return false;
+    }
+
+    final double visibleExtent =
+        metrics.pixels + metrics.viewportDimension + _canvasBottomPadding;
+    if (visibleExtent <= _canvasHeight) {
+      return false;
+    }
+
+    _lastScrollExpansionTrigger = metrics.pixels;
+    setState(() {
+      _canvasHeight = math.max(_canvasHeight, visibleExtent);
+    });
+    return false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _canvasScrollController = ScrollController();
+  }
 
   @override
   void didChangeDependencies() {
@@ -214,12 +278,15 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     } else {
       _note = _inkNotesController.notes[idx];
     }
+    _lastScrollExpansionTrigger = -1;
+    _canvasHeight = _requiredCanvasHeightForStrokes(_note.page.strokes);
     _drawingController.initialize(_note.page.strokes);
   }
 
   @override
   void dispose() {
     _drawingController.dispose();
+    _canvasScrollController.dispose();
     super.dispose();
   }
 
@@ -233,6 +300,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       position: details.localPosition,
       pressure: details.pressure,
     );
+
+    _ensureCanvasHeightForPosition(newPoint.position.dy);
 
     _drawingController.startStroke(
       newPoint,
@@ -250,6 +319,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       position: details.localPosition,
       pressure: details.pressure,
     );
+
+    _ensureCanvasHeightForPosition(newPoint.position.dy);
 
     _drawingController.updateStroke(newPoint);
   }
@@ -299,6 +370,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     if (mounted) {
       setState(() {
         _note = updatedNote;
+        _canvasHeight = math.max(
+          _canvasHeight,
+          _requiredCanvasHeightForStrokes(updatedPage.strokes),
+        );
       });
     }
   }
@@ -369,41 +444,58 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         final double panelWidth = baseWidth * sidebarFraction;
         final double handlePreviewWidth = baseWidth * previewFraction;
         final bool isCollapsed = sidebarFraction < _minVisibleSidebarFraction;
-
-        final Widget canvas = Listener(
-          onPointerDown: _start,
-          onPointerMove: _update,
-          onPointerUp: _end,
-          onPointerCancel: _cancel,
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-            child: AnimatedBuilder(
-              animation: _drawingController,
-              builder: (context, child) => Stack(
-                children: [
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: FinishedStrokesPainter(
-                        strokes: _drawingController.strokes,
-                        version: _drawingController.strokesVersion,
+        final Widget canvas = ScrollConfiguration(
+          behavior: const _DrawingScrollBehavior(),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: SingleChildScrollView(
+              controller: _canvasScrollController,
+              physics: const ClampingScrollPhysics(),
+              padding: EdgeInsets.zero,
+              child: SizedBox(
+                width: double.infinity,
+                height: _canvasHeight,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.15),
+                  ),
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: _start,
+                    onPointerMove: _update,
+                    onPointerUp: _end,
+                    onPointerCancel: _cancel,
+                    child: AnimatedBuilder(
+                      animation: _drawingController,
+                      builder: (context, child) => Stack(
+                        children: [
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: FinishedStrokesPainter(
+                                strokes: _drawingController.strokes,
+                                version: _drawingController.strokesVersion,
+                              ),
+                            ),
+                          ),
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: CurrentStrokePainter(
+                                currentStroke: _drawingController.currentStroke,
+                                pointCount:
+                                    _drawingController
+                                        .currentStroke
+                                        ?.points
+                                        .length ??
+                                    0,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: CurrentStrokePainter(
-                        currentStroke: _drawingController.currentStroke,
-                        pointCount:
-                            _drawingController.currentStroke?.points.length ??
-                            0,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -732,6 +824,16 @@ class _SidebarResizeHandle extends StatelessWidget {
 }
 
 enum _ResizeTrend { none, expand, shrink }
+
+class _DrawingScrollBehavior extends MaterialScrollBehavior {
+  const _DrawingScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+  };
+}
 
 class _PointerSettingsSheet extends StatefulWidget {
   const _PointerSettingsSheet();
