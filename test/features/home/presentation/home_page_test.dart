@@ -4,17 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_handwriting_app/features/home/presentation/home_page.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 
 void main() {
   Widget wrapWithScopes(Widget child, {InkNotesController? controller}) {
     final notes = controller ?? InkNotesController();
     final pointer = PointerSettings();
+    final editorSettings = EditorSettings();
     return InkNotesScope(
       controller: notes,
       child: PointerSettingsScope(
         settings: pointer,
-        child: MaterialApp(home: child),
+        child: EditorSettingsScope(
+          settings: editorSettings,
+          child: MaterialApp(home: child),
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:ai_handwriting_app/app/shell/presentation/app_shell.dart';
 import 'package:ai_handwriting_app/app/theme/app_theme.dart';
 import 'package:ai_handwriting_app/features/onboarding/presentation/onboarding_page.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
+import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 
 /// Entry point for the handwriting prototype application.
@@ -27,21 +28,25 @@ class InkpaduApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final notesController = InkNotesController();
     final pointerSettings = PointerSettings();
+    final editorSettings = EditorSettings();
     return InkNotesScope(
       controller: notesController,
       child: PointerSettingsScope(
         settings: pointerSettings,
-        child: MaterialApp(
-          title: 'Inkpadu',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
-          themeMode: ThemeMode.light,
-          initialRoute: AppRoutes.onboarding,
-          routes: {
-            AppRoutes.shell: (context) => const AppShell(),
-            AppRoutes.onboarding: (context) => const OnboardingPage(),
-          },
+        child: EditorSettingsScope(
+          settings: editorSettings,
+          child: MaterialApp(
+            title: 'Inkpadu',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: ThemeMode.light,
+            initialRoute: AppRoutes.onboarding,
+            routes: {
+              AppRoutes.shell: (context) => const AppShell(),
+              AppRoutes.onboarding: (context) => const OnboardingPage(),
+            },
+          ),
         ),
       ),
     );

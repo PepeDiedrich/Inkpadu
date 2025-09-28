@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_page.dart';
+import 'package:ai_handwriting_app/features/editor/presentation/editor_settings_page.dart';
 
 /// Placeholder settings screen showcasing configurable sections.
 class SettingsPage extends StatelessWidget {
@@ -39,6 +40,12 @@ class SettingsPage extends StatelessWidget {
               subtitle: 'Stift · Touch · Maus',
               onTap: () => _openPointerSettings(context),
             ),
+            _SettingsTile(
+              icon: Icons.view_sidebar_outlined,
+              title: 'Notiz-Editor',
+              subtitle: 'Seitenpanel links · rechts',
+              onTap: () => _openEditorSettings(context),
+            ),
             const _SettingsTile(
               icon: Icons.brush_outlined,
               title: 'Stiftstärken',
@@ -75,6 +82,11 @@ class SettingsPage extends StatelessWidget {
       Navigator.of(
         context,
       ).push<void>(_PointerSettingsRoute(const PointerSettingsPage()));
+
+  static Future<void> _openEditorSettings(BuildContext context) =>
+      Navigator.of(context).push<void>(
+        _PointerSettingsRoute(const EditorSettingsPage()),
+      );
 }
 
 class _SettingsSection extends StatelessWidget {
