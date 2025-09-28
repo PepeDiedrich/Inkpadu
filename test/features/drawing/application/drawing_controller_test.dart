@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -178,7 +178,7 @@ void main() {
       expect(controller.strokes, hasLength(strokeCount));
       expect(controller.strokesVersion, strokeCount);
       expect(
-        controller.strokes.every((stroke) => stroke.points.length >= 2),
+        controller.strokes.every((Stroke stroke) => stroke.points.length >= 2),
         isTrue,
       );
 
