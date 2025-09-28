@@ -83,10 +83,9 @@ class SettingsPage extends StatelessWidget {
         context,
       ).push<void>(_PointerSettingsRoute(const PointerSettingsPage()));
 
-  static Future<void> _openEditorSettings(BuildContext context) =>
-      Navigator.of(context).push<void>(
-        _PointerSettingsRoute(const EditorSettingsPage()),
-      );
+  static Future<void> _openEditorSettings(BuildContext context) => Navigator.of(
+    context,
+  ).push<void>(_PointerSettingsRoute(const EditorSettingsPage()));
 }
 
 class _SettingsSection extends StatelessWidget {

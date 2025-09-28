@@ -53,9 +53,8 @@ class EditorSettingsPage extends StatelessWidget {
                     ),
                   ],
                   selected: <EditorSidebarSide>{current},
-                  onSelectionChanged: (selection) => settings.update(
-                    sidebarSide: selection.first,
-                  ),
+                  onSelectionChanged: (selection) =>
+                      settings.update(sidebarSide: selection.first),
                 ),
                 const SizedBox(height: 12),
                 Text(

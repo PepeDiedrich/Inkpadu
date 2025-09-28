@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart'
-  as async_simpl;
+    as async_simpl;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -338,9 +338,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
         final double maxWidth = constraints.maxWidth;
         final double baseWidth = maxWidth <= 0 ? 1 : maxWidth;
-        final double sidebarFraction =
-            _sidebarFraction.clamp(_minSidebarFraction, _maxSidebarFraction)
-                .toDouble();
+        final double sidebarFraction = _sidebarFraction
+            .clamp(_minSidebarFraction, _maxSidebarFraction)
+            .toDouble();
         final double panelWidth = baseWidth * sidebarFraction;
         final bool isCollapsed = sidebarFraction <= _collapsedThreshold;
 
@@ -352,10 +352,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           child: Container(
             width: double.infinity,
             height: double.infinity,
-            color: Theme.of(context)
-                .colorScheme
-                .surfaceContainerHighest
-                .withValues(alpha: 0.15),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
             child: AnimatedBuilder(
               animation: _drawingController,
               builder: (context, child) => Stack(
@@ -374,7 +373,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                         currentStroke: _drawingController.currentStroke,
                         pointCount:
                             _drawingController.currentStroke?.points.length ??
-                                0,
+                            0,
                       ),
                     ),
                   ),
@@ -384,10 +383,13 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           ),
         );
 
-    final double rawHandleOffset = math.max(panelWidth - _dragHandleWidth, 0);
-    final double handleOffset = rawHandleOffset > baseWidth
-      ? baseWidth
-      : rawHandleOffset;
+        final double rawHandleOffset = math.max(
+          panelWidth - _dragHandleWidth,
+          0,
+        );
+        final double handleOffset = rawHandleOffset > baseWidth
+            ? baseWidth
+            : rawHandleOffset;
         final double orientationFactor = panelOnRight ? 1 : -1;
 
         return Stack(
@@ -424,9 +426,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                     setState(() {
                       final double deltaFraction =
                           (delta / baseWidth) * orientationFactor;
-                      final double nextFraction = (_sidebarFraction - deltaFraction)
-                          .clamp(_minSidebarFraction, _maxSidebarFraction)
-                          .toDouble();
+                      final double nextFraction =
+                          (_sidebarFraction - deltaFraction)
+                              .clamp(_minSidebarFraction, _maxSidebarFraction)
+                              .toDouble();
                       if (nextFraction > _sidebarFraction) {
                         _resizeTrend = _ResizeTrend.expand;
                       } else if (nextFraction < _sidebarFraction) {
@@ -470,17 +473,21 @@ class _AssistantPanel extends StatelessWidget {
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     final bool panelOnRight = side == EditorSidebarSide.right;
-    final Color borderColor =
-        isActive ? AppColors.primaryAccent : colorScheme.outlineVariant;
-    final BorderSide highlightedBorder = BorderSide(color: borderColor, width: 2);
+    final Color borderColor = isActive
+        ? AppColors.primaryAccent
+        : colorScheme.outlineVariant;
+    final BorderSide highlightedBorder = BorderSide(
+      color: borderColor,
+      width: 2,
+    );
     final BorderRadius borderRadius = BorderRadius.horizontal(
       left: panelOnRight ? const Radius.circular(20) : Radius.zero,
       right: panelOnRight ? Radius.zero : const Radius.circular(20),
     );
 
     final int percentage = (widthFraction * 100).round();
-  final Color headerBadgeColor = colorScheme.primaryContainer;
-  final Color cardBackground = colorScheme.surfaceContainerHigh;
+    final Color headerBadgeColor = colorScheme.primaryContainer;
+    final Color cardBackground = colorScheme.surfaceContainerHigh;
     final Color indicatorBackground = colorScheme.inverseSurface;
     final Color indicatorTextColor = colorScheme.onInverseSurface;
 
@@ -544,8 +551,7 @@ class _AssistantPanel extends StatelessWidget {
                     ),
                     child: Center(
                       child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'Hier erscheinen später KI-Antworten zu deiner Notiz.',
                           textAlign: TextAlign.center,
@@ -580,7 +586,10 @@ class _AssistantPanel extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

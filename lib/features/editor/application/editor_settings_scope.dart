@@ -43,12 +43,14 @@ class EditorSettingsScope extends InheritedNotifier<EditorSettings> {
 
   /// Liefert die [EditorSettings] aus dem Kontext.
   static EditorSettings of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<EditorSettingsScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<EditorSettingsScope>();
     assert(scope != null, 'EditorSettingsScope nicht im Widget-Tree gefunden');
     return scope!.notifier!;
   }
 
   @override
-  bool updateShouldNotify(covariant InheritedNotifier<EditorSettings> oldWidget) => true;
+  bool updateShouldNotify(
+    covariant InheritedNotifier<EditorSettings> oldWidget,
+  ) => true;
 }
