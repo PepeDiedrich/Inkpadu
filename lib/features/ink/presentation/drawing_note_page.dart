@@ -82,7 +82,7 @@ class DrawingController extends ChangeNotifier {
 
   /// Beendet den aktuellen Strich und speichert ihn dauerhaft.
   /// Gibt `true` zurück, wenn der Strich übernommen wurde.
-  Future<bool> endStroke() async {
+  Future<bool> endStroke({bool simplify = true}) async {
     if (_currentStroke == null) {
       return false;
     }
@@ -95,18 +95,22 @@ class DrawingController extends ChangeNotifier {
       return false;
     }
 
-    // Asynchrone Vereinfachung (potentiell Isolate) basierend auf Punktanzahl.
-    final simplified = await async_simpl.simplifyStrokeAsync(
-      stroke,
-      tolerance: _simplificationToleranceFor(stroke),
-    );
+    Stroke strokeToStore = stroke;
 
-    if (simplified.points.length < 2) {
-      notifyListeners();
-      return false;
+    if (simplify) {
+      final Stroke simplified = await async_simpl.simplifyStrokeAsync(
+        stroke,
+        tolerance: _simplificationToleranceFor(stroke),
+      );
+
+      if (simplified.points.length < 2) {
+        notifyListeners();
+        return false;
+      }
+      strokeToStore = simplified;
     }
 
-    _strokes = List<Stroke>.of(_strokes)..add(simplified);
+    _strokes = List<Stroke>.of(_strokes)..add(strokeToStore);
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -157,8 +161,8 @@ class DrawingController extends ChangeNotifier {
   }
 
   double _simplificationToleranceFor(Stroke stroke) {
-    final effective = stroke.baseWidth * 0.35;
-    const minTolerance = 0.5;
+    final effective = stroke.baseWidth * 0.2;
+    const minTolerance = 0.3;
     return effective < minTolerance ? minTolerance : effective;
   }
 
@@ -197,6 +201,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   late final ScrollController _canvasScrollController;
   double _canvasHeight = _initialCanvasHeight;
   double _lastScrollExpansionTrigger = -1;
+  final Map<int, Offset> _activeTouchPositions = <int, Offset>{};
+  bool _isTwoFingerScrollActive = false;
+  Offset? _lastTwoFingerFocalPoint;
+  int? _activeDrawingPointerId;
 
   double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
     var maxY = 0.0;
@@ -222,6 +230,33 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     setState(() {
       _canvasHeight = requiredHeight;
     });
+  }
+
+  Offset? _computeTouchFocalPoint() {
+    if (_activeTouchPositions.isEmpty) {
+      return null;
+    }
+    var focal = Offset.zero;
+    for (final position in _activeTouchPositions.values) {
+      focal += position;
+    }
+    return focal / _activeTouchPositions.length.toDouble();
+  }
+
+  void _resetTwoFingerScrollState() {
+    if (_activeTouchPositions.length < 2) {
+      _isTwoFingerScrollActive = false;
+      _lastTwoFingerFocalPoint = null;
+    } else {
+      _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+    }
+  }
+
+  void _abortDrawing() {
+    if (_activeDrawingPointerId != null) {
+      _drawingController.cancelCurrentStroke();
+      _activeDrawingPointerId = null;
+    }
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
@@ -278,6 +313,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     } else {
       _note = _inkNotesController.notes[idx];
     }
+    _activeTouchPositions.clear();
+    _isTwoFingerScrollActive = false;
+    _lastTwoFingerFocalPoint = null;
+    _activeDrawingPointerId = null;
     _lastScrollExpansionTrigger = -1;
     _canvasHeight = _requiredCanvasHeightForStrokes(_note.page.strokes);
     _drawingController.initialize(_note.page.strokes);
@@ -294,6 +333,17 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     final settings = PointerSettingsScope.of(context);
     final kind = details.kind;
     if (!settings.accept(kind)) return;
+
+    if (kind == PointerDeviceKind.touch) {
+      _activeTouchPositions[details.pointer] = details.localPosition;
+      if (_activeTouchPositions.length >= 2) {
+        _isTwoFingerScrollActive = true;
+        _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+        _abortDrawing();
+        return;
+      }
+    }
+
     settings.register(kind);
 
     final newPoint = DrawingPoint(
@@ -308,10 +358,43 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       color: Colors.amber,
       baseWidth: 6.0,
     );
+    _activeDrawingPointerId = details.pointer;
   }
 
   void _update(PointerMoveEvent details) {
-    if (_drawingController.currentStroke == null || !details.down) {
+    final kind = details.kind;
+
+    if (kind == PointerDeviceKind.touch) {
+      _activeTouchPositions[details.pointer] = details.localPosition;
+
+      final int touchCount = _activeTouchPositions.length;
+      if (touchCount >= 2 || _isTwoFingerScrollActive) {
+        _isTwoFingerScrollActive = true;
+        final Offset? focal = _computeTouchFocalPoint();
+        if (focal != null) {
+          if (_lastTwoFingerFocalPoint != null &&
+              _canvasScrollController.hasClients) {
+            final double delta = focal.dy - _lastTwoFingerFocalPoint!.dy;
+            final double currentOffset = _canvasScrollController.offset;
+            final double maxOffset =
+                _canvasScrollController.position.maxScrollExtent;
+            final double targetOffset = (currentOffset - delta).clamp(
+              0.0,
+              maxOffset,
+            );
+            if ((targetOffset - currentOffset).abs() > 0.01) {
+              _canvasScrollController.jumpTo(targetOffset);
+            }
+          }
+          _lastTwoFingerFocalPoint = focal;
+        }
+        return;
+      }
+    }
+
+    if (_activeDrawingPointerId != details.pointer ||
+        _drawingController.currentStroke == null ||
+        !details.down) {
       return;
     }
 
@@ -326,7 +409,18 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   }
 
   void _end(PointerUpEvent details) {
-    _drawingController.endStroke().then((accepted) {
+    if (details.kind == PointerDeviceKind.touch) {
+      _activeTouchPositions.remove(details.pointer);
+      _resetTwoFingerScrollState();
+    }
+
+    if (_activeDrawingPointerId != details.pointer) {
+      return;
+    }
+
+    _activeDrawingPointerId = null;
+    final bool simplify = EditorSettingsScope.of(context).lineSimplifierEnabled;
+    _drawingController.endStroke(simplify: simplify).then((accepted) {
       if (accepted) {
         _persistDrawing();
       }
@@ -334,7 +428,15 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   }
 
   void _cancel(PointerCancelEvent details) {
-    _drawingController.cancelCurrentStroke();
+    if (details.kind == PointerDeviceKind.touch) {
+      _activeTouchPositions.remove(details.pointer);
+      _resetTwoFingerScrollState();
+    }
+
+    if (_activeDrawingPointerId == details.pointer) {
+      _drawingController.cancelCurrentStroke();
+      _activeDrawingPointerId = null;
+    }
   }
 
   void _handleUndo() {
@@ -830,8 +932,8 @@ class _DrawingScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => const {
-    PointerDeviceKind.touch,
     PointerDeviceKind.mouse,
+    PointerDeviceKind.unknown,
   };
 }
 

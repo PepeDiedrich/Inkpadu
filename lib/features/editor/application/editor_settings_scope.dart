@@ -11,11 +11,17 @@ enum EditorSidebarSide {
 
 /// Einstellungen für den Notiz-Editor.
 class EditorSettings extends ChangeNotifier {
-  /// Erstellt neue [EditorSettings] mit optionaler Vorgabe.
-  EditorSettings({this.sidebarSide = EditorSidebarSide.right});
+  /// Erstellt neue [EditorSettings] mit optionalen Vorgaben.
+  EditorSettings({
+    this.sidebarSide = EditorSidebarSide.right,
+    this.lineSimplifierEnabled = true,
+  });
 
   /// Aktuell gewählte Seite des Assistenz-Panels.
   EditorSidebarSide sidebarSide;
+
+  /// `true`, wenn der Linien-Simplifier aktiv ist.
+  bool lineSimplifierEnabled;
 
   /// Convenience: `true`, wenn das Panel links erscheinen soll.
   bool get isPanelOnLeft => sidebarSide == EditorSidebarSide.left;
@@ -24,9 +30,18 @@ class EditorSettings extends ChangeNotifier {
   bool get isPanelOnRight => sidebarSide == EditorSidebarSide.right;
 
   /// Aktualisiert einzelne Properties und benachrichtigt Listener.
-  void update({EditorSidebarSide? sidebarSide}) {
+  void update({EditorSidebarSide? sidebarSide, bool? lineSimplifierEnabled}) {
+    var hasChanged = false;
     if (sidebarSide != null && sidebarSide != this.sidebarSide) {
       this.sidebarSide = sidebarSide;
+      hasChanged = true;
+    }
+    if (lineSimplifierEnabled != null &&
+        lineSimplifierEnabled != this.lineSimplifierEnabled) {
+      this.lineSimplifierEnabled = lineSimplifierEnabled;
+      hasChanged = true;
+    }
+    if (hasChanged) {
       notifyListeners();
     }
   }

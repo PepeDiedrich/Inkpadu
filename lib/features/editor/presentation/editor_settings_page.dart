@@ -21,6 +21,7 @@ class EditorSettingsPage extends StatelessWidget {
           animation: settings,
           builder: (context, _) {
             final current = settings.sidebarSide;
+            final bool simplifierEnabled = settings.lineSimplifierEnabled;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -61,6 +62,19 @@ class EditorSettingsPage extends StatelessWidget {
                   'Rechtshänder:innen erreichen die Tools bequemer, wenn das Panel links sitzt. '
                   'Linkshänder:innen wählen dagegen die rechte Seite.',
                   style: textTheme.bodySmall,
+                ),
+                const SizedBox(height: 32),
+                Text('Zeichenfläche', style: textTheme.titleMedium),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Linien-Simplifier verwenden'),
+                  subtitle: const Text(
+                    'Glättet deine Striche automatisch, um ruhige Linien zu erhalten.',
+                  ),
+                  value: simplifierEnabled,
+                  onChanged: (value) =>
+                      settings.update(lineSimplifierEnabled: value),
                 ),
               ],
             );
