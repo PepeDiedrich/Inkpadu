@@ -185,7 +185,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   static const double _minVisibleSidebarFraction = 0.15;
   static const double _maxSidebarFraction = 0.45;
   static const double _dragHandleWidth = 12;
+  static const Duration _panelAnimationDuration = Duration(milliseconds: 220);
+  static const Curve _panelAnimationCurve = Curves.easeOutCubic;
   double _sidebarFraction = 0.3;
+  double? _previewSidebarFraction;
   bool _isResizing = false;
   _ResizeTrend _resizeTrend = _ResizeTrend.none;
 
@@ -300,6 +303,24 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
+  double _snapSidebarFraction(
+    double previousFraction,
+    double proposedFraction,
+  ) {
+    final double clamped = proposedFraction
+        .clamp(_minSidebarFraction, _maxSidebarFraction)
+        .toDouble();
+    if (clamped < _minVisibleSidebarFraction) {
+      if (clamped < previousFraction) {
+        return _minSidebarFraction;
+      }
+      if (clamped > previousFraction) {
+        return _minVisibleSidebarFraction;
+      }
+    }
+    return clamped;
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -341,7 +362,12 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         final double sidebarFraction = _sidebarFraction
             .clamp(_minSidebarFraction, _maxSidebarFraction)
             .toDouble();
+        final double previewFraction =
+            (_previewSidebarFraction ?? sidebarFraction)
+                .clamp(_minSidebarFraction, _maxSidebarFraction)
+                .toDouble();
         final double panelWidth = baseWidth * sidebarFraction;
+        final double handlePreviewWidth = baseWidth * previewFraction;
         final bool isCollapsed = sidebarFraction < _minVisibleSidebarFraction;
 
         final Widget canvas = Listener(
@@ -384,7 +410,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         );
 
         final double rawHandleOffset = math.max(
-          panelWidth - _dragHandleWidth,
+          handlePreviewWidth - _dragHandleWidth,
           0,
         );
         final double handleOffset = rawHandleOffset > baseWidth
@@ -395,20 +421,28 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         return Stack(
           children: [
             Positioned.fill(child: canvas),
-            if (!isCollapsed)
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: panelOnRight ? null : 0,
-                right: panelOnRight ? 0 : null,
-                width: panelWidth,
-                child: _AssistantPanel(
-                  isActive: _isResizing,
-                  widthFraction: sidebarFraction,
-                  resizeTrend: _resizeTrend,
-                  side: panelSide,
+            AnimatedPositioned(
+              duration: _panelAnimationDuration,
+              curve: _panelAnimationCurve,
+              top: 0,
+              bottom: 0,
+              left: panelOnRight ? null : 0,
+              right: panelOnRight ? 0 : null,
+              width: panelWidth,
+              child: IgnorePointer(
+                ignoring: isCollapsed,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 120),
+                  opacity: isCollapsed ? 0 : 1,
+                  child: _AssistantPanel(
+                    isActive: _isResizing,
+                    widthFraction: previewFraction,
+                    resizeTrend: _resizeTrend,
+                    side: panelSide,
+                  ),
                 ),
               ),
+            ),
             Positioned(
               top: 0,
               bottom: 0,
@@ -421,32 +455,27 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   side: panelSide,
                   onDragStart: () => setState(() {
                     _isResizing = true;
+                    _previewSidebarFraction = _sidebarFraction;
+                    _resizeTrend = _ResizeTrend.none;
                   }),
                   onDragUpdate: (delta) {
                     setState(() {
-                      final double previousFraction = _sidebarFraction;
+                      final double currentPreview =
+                          _previewSidebarFraction ?? _sidebarFraction;
                       final double deltaFraction =
                           (delta / baseWidth) * orientationFactor;
-                      final double clampedFraction =
-                          (previousFraction - deltaFraction)
-                              .clamp(_minSidebarFraction, _maxSidebarFraction)
-                              .toDouble();
+                      final double proposedFraction =
+                          currentPreview - deltaFraction;
+                      final double nextPreview = _snapSidebarFraction(
+                        currentPreview,
+                        proposedFraction,
+                      );
 
-                      double adjustedFraction = clampedFraction;
+                      _previewSidebarFraction = nextPreview;
 
-                      if (clampedFraction < _minVisibleSidebarFraction) {
-                        if (clampedFraction < previousFraction) {
-                          adjustedFraction = _minSidebarFraction;
-                        } else if (clampedFraction > previousFraction) {
-                          adjustedFraction = _minVisibleSidebarFraction;
-                        }
-                      }
-
-                      _sidebarFraction = adjustedFraction;
-
-                      if (_sidebarFraction > previousFraction) {
+                      if (nextPreview > currentPreview) {
                         _resizeTrend = _ResizeTrend.expand;
-                      } else if (_sidebarFraction < previousFraction) {
+                      } else if (nextPreview < currentPreview) {
                         _resizeTrend = _ResizeTrend.shrink;
                       } else {
                         _resizeTrend = _ResizeTrend.none;
@@ -454,6 +483,16 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                     });
                   },
                   onDragEnd: () => setState(() {
+                    final double previous = _sidebarFraction;
+                    final double target =
+                        _previewSidebarFraction ?? _sidebarFraction;
+                    final double adjustedTarget = _snapSidebarFraction(
+                      previous,
+                      target,
+                    );
+
+                    _sidebarFraction = adjustedTarget;
+                    _previewSidebarFraction = null;
                     _isResizing = false;
                     _resizeTrend = _ResizeTrend.none;
                   }),
