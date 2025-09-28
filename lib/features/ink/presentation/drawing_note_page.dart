@@ -182,8 +182,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   late InkNotesController _inkNotesController;
   final DrawingController _drawingController = DrawingController();
   static const double _minSidebarFraction = 0.0;
+  static const double _minVisibleSidebarFraction = 0.15;
   static const double _maxSidebarFraction = 0.45;
-  static const double _collapsedThreshold = 0.02;
   static const double _dragHandleWidth = 12;
   double _sidebarFraction = 0.3;
   bool _isResizing = false;
@@ -342,7 +342,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             .clamp(_minSidebarFraction, _maxSidebarFraction)
             .toDouble();
         final double panelWidth = baseWidth * sidebarFraction;
-        final bool isCollapsed = sidebarFraction <= _collapsedThreshold;
+        final bool isCollapsed = sidebarFraction < _minVisibleSidebarFraction;
 
         final Widget canvas = Listener(
           onPointerDown: _start,
@@ -424,20 +424,33 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   }),
                   onDragUpdate: (delta) {
                     setState(() {
+                      final double previousFraction = _sidebarFraction;
                       final double deltaFraction =
                           (delta / baseWidth) * orientationFactor;
-                      final double nextFraction =
-                          (_sidebarFraction - deltaFraction)
+                      final double clampedFraction =
+                          (previousFraction - deltaFraction)
                               .clamp(_minSidebarFraction, _maxSidebarFraction)
                               .toDouble();
-                      if (nextFraction > _sidebarFraction) {
+
+                      double adjustedFraction = clampedFraction;
+
+                      if (clampedFraction < _minVisibleSidebarFraction) {
+                        if (clampedFraction < previousFraction) {
+                          adjustedFraction = _minSidebarFraction;
+                        } else if (clampedFraction > previousFraction) {
+                          adjustedFraction = _minVisibleSidebarFraction;
+                        }
+                      }
+
+                      _sidebarFraction = adjustedFraction;
+
+                      if (_sidebarFraction > previousFraction) {
                         _resizeTrend = _ResizeTrend.expand;
-                      } else if (nextFraction < _sidebarFraction) {
+                      } else if (_sidebarFraction < previousFraction) {
                         _resizeTrend = _ResizeTrend.shrink;
                       } else {
                         _resizeTrend = _ResizeTrend.none;
                       }
-                      _sidebarFraction = nextFraction;
                     });
                   },
                   onDragEnd: () => setState(() {
