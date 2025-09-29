@@ -204,6 +204,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             ),
             actions: [
               IconButton(
+                onPressed: () => _openToolConfigurator(currentTool),
+                tooltip: 'Aktuelles Werkzeug bearbeiten',
+                icon: const Icon(Icons.design_services),
+              ),
+              IconButton(
                 onPressed: _editMetadata,
                 tooltip: 'Titel & Papier anpassen',
                 icon: const Icon(Icons.edit_note),

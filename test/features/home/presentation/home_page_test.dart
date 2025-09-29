@@ -39,8 +39,8 @@ void main() {
     // Neue Notiz via FAB
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
-    // Dialog sollte erscheinen
-    expect(find.byType(AlertDialog), findsOneWidget);
+  // Dialog sollte erscheinen
+  expect(find.byType(Dialog), findsOneWidget);
 
     // Dialog ohne Anpassungen bestätigen (leerer Titel führt zu Auto-Titel)
     await tester.tap(find.widgetWithText(FilledButton, 'Weiter'));

@@ -22,10 +22,12 @@ Future<NoteMetadataResult?> showNoteMetadataDialog(
   bool isEditing = false,
 }) => showDialog<NoteMetadataResult>(
   context: context,
-  builder: (context) => _NoteMetadataDialog(
-    initialTitle: initialTitle,
-    initialPaperStyle: initialPaperStyle,
-    isEditing: isEditing,
+  builder: (context) => Dialog.fullscreen(
+    child: _NoteMetadataDialog(
+      initialTitle: initialTitle,
+      initialPaperStyle: initialPaperStyle,
+      isEditing: isEditing,
+    ),
   ),
 );
 
@@ -80,54 +82,91 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
         )
         .toList(growable: false);
 
-    return AlertDialog(
-      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      title: Text(titleText),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(
-                hintText: 'Titel (optional)',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                isDense: true,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Abbrechen',
+          icon: const Icon(Icons.close),
+        ),
+        title: Text(titleText),
+        actions: [
+          TextButton(
+            onPressed: _submit,
+            child: Text(widget.isEditing ? 'Speichern' : 'Weiter'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                children: [
+                  TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
+                    decoration: const InputDecoration(
+                      labelText: 'Titel',
+                      hintText: 'Titel (optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Papierstil',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<NotePaperStyle>(
+                    segments: segments,
+                    selected: <NotePaperStyle>{_selectedStyle},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) {
+                      final next = selection.first;
+                      if (next != _selectedStyle) {
+                        setState(() => _selectedStyle = next);
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            SegmentedButton<NotePaperStyle>(
-              segments: segments,
-              selected: <NotePaperStyle>{_selectedStyle},
-              showSelectedIcon: false,
-              onSelectionChanged: (selection) {
-                final next = selection.first;
-                if (next != _selectedStyle) {
-                  setState(() => _selectedStyle = next);
-                }
-              },
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Abbrechen'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                onPressed: _submit,
+                child: Text(widget.isEditing ? 'Speichern' : 'Weiter'),
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(widget.isEditing ? 'Speichern' : 'Weiter'),
-        ),
-      ],
     );
   }
 }

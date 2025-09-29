@@ -30,11 +30,40 @@ class DrawingToolEditorSheet extends StatefulWidget {
 
 class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
   late DrawingTool _draft;
+  late final TextEditingController _labelController;
 
   @override
   void initState() {
     super.initState();
     _draft = widget.initialTool;
+    _labelController = TextEditingController(text: widget.initialTool.label)
+      ..addListener(_handleLabelChanged);
+  }
+
+  @override
+  void dispose() {
+    _labelController
+      ..removeListener(_handleLabelChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleLabelChanged() {
+    final String nextLabel = _labelController.text;
+    if (nextLabel == _draft.label) {
+      return;
+    }
+    setState(() {
+      _draft = _draft.copyWith(label: nextLabel);
+    });
+  }
+
+  void _handleApply() {
+    final String sanitizedLabel = _labelController.text.trim();
+    final String nextLabel = sanitizedLabel.isEmpty
+        ? widget.initialTool.label
+        : sanitizedLabel;
+    Navigator.pop(context, _draft.copyWith(label: nextLabel));
   }
 
   @override
@@ -59,6 +88,10 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
         : 12;
     final double sliderValue = _draft.baseWidth.clamp(minWidth, maxWidth);
 
+    final String displayName = _draft.label.trim().isEmpty
+        ? widget.initialTool.label
+        : _draft.label;
+
     return SafeArea(
       child: SizedBox(
         height: mediaQuery.size.height * 0.92,
@@ -73,8 +106,18 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${widget.initialTool.label} anpassen',
+                '$displayName anpassen',
                 style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _labelController,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  hintText: 'Werkzeugname',
+                  border: OutlineInputBorder(),
+                ),
               ),
               if (showColorPicker) ...[
                 const SizedBox(height: 16),
@@ -264,7 +307,7 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
-                    onPressed: () => Navigator.pop(context, _draft),
+                    onPressed: _handleApply,
                     child: const Text('Übernehmen'),
                   ),
                 ],
