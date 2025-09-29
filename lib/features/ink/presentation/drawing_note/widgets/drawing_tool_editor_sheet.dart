@@ -105,10 +105,7 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '$displayName anpassen',
-                style: theme.textTheme.titleMedium,
-              ),
+              Text('$displayName anpassen', style: theme.textTheme.titleMedium),
               const SizedBox(height: 16),
               TextField(
                 controller: _labelController,
