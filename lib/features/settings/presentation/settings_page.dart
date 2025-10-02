@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_page.dart';
 import 'package:ai_handwriting_app/features/editor/presentation/editor_settings_page.dart';
+import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 
 /// Placeholder settings screen showcasing configurable sections.
 class SettingsPage extends StatelessWidget {
@@ -74,6 +75,8 @@ class SettingsPage extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 32),
+        _LogoutSection(),
       ],
     ),
   );
@@ -86,6 +89,60 @@ class SettingsPage extends StatelessWidget {
   static Future<void> _openEditorSettings(BuildContext context) => Navigator.of(
     context,
   ).push<void>(_PointerSettingsRoute(const EditorSettingsPage()));
+}
+
+class _LogoutSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final auth = AuthScope.of(context);
+    final isLoggedIn = auth.isLoggedIn;
+    if (!isLoggedIn) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Konto',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        Material(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () async {
+              await auth.logout();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Abgemeldet')), );
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Abmelden',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _SettingsSection extends StatelessWidget {

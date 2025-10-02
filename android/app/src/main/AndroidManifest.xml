@@ -3,6 +3,16 @@
         android:label="ai_handwriting_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- OAuth2 Callback Activity (Appwrite) -->
+        <activity android:exported="true" android:name="com.linusu.flutter_web_auth_2.CallbackActivity" >
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Ersetze APPWRITE_PROJECT_ID durch deine Appwrite Projekt ID -->
+                <data android:scheme="appwrite-callback-68de6f340030cde53747" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="true"

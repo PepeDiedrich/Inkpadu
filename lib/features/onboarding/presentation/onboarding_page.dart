@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:appwrite/enums.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
+import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
+import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 
 /// Static onboarding screen that introduces the handwriting experience.
 class OnboardingPage extends StatelessWidget {
@@ -80,24 +83,7 @@ class OnboardingPage extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _openShell(context),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: const Text('Los geht’s'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      TextButton(
-                        onPressed: () => _openShell(context),
-                        child: const Text('Überspringen'),
-                      ),
-                    ],
-                  ),
+                  _ActionRow(),
                 ],
               ),
             ),
@@ -108,6 +94,68 @@ class OnboardingPage extends StatelessWidget {
   );
 }
 
+
+class _ActionRow extends StatefulWidget {
+  @override
+  State<_ActionRow> createState() => _ActionRowState();
+}
+
+class _ActionRowState extends State<_ActionRow> {
+  bool _loading = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = AuthScope.of(context);
+    return Column(
+      children: [
+        if (_error != null) ...[
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.login),
+                onPressed: _loading
+                    ? null
+                    : () async {
+                        setState(() {
+                          _loading = true;
+                          _error = null;
+                        });
+                        try {
+                          await auth.loginWithProvider(provider: OAuthProvider.github, scopes: const ['user:email']);
+                          if (mounted && auth.status == AuthStatus.authenticated) {
+                            _openShell(context);
+                          }
+                        } catch (e) {
+                          setState(() => _error = 'Login fehlgeschlagen');
+                        } finally {
+                          if (mounted) setState(() => _loading = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                label: Text(_loading ? 'Verbinde…' : 'Mit GitHub anmelden'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            TextButton(
+              onPressed: _loading ? null : () => _openShell(context),
+              child: const Text('Überspringen'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 void _openShell(BuildContext context) {
   Navigator.of(context).pushReplacementNamed(AppRoutes.shell);
 }

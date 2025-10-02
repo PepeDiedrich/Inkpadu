@@ -8,6 +8,8 @@ import 'package:ai_handwriting_app/features/onboarding/presentation/onboarding_p
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
+import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
@@ -29,7 +31,10 @@ class InkpaduApp extends StatelessWidget {
     final notesController = InkNotesController();
     final pointerSettings = PointerSettings();
     final editorSettings = EditorSettings();
-    return InkNotesScope(
+    final authController = AuthController()..initialize();
+    return AuthScope(
+      controller: authController,
+      child: InkNotesScope(
       controller: notesController,
       child: PointerSettingsScope(
         settings: pointerSettings,
@@ -48,6 +53,7 @@ class InkpaduApp extends StatelessWidget {
             },
           ),
         ),
+      ),
       ),
     );
   }
