@@ -10,7 +10,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <!-- Ersetze APPWRITE_PROJECT_ID durch deine Appwrite Projekt ID -->
-                <data android:scheme="appwrite-callback-68de6f340030cde53747" />
+                <data android:scheme="appwrite-callback-68de8b41001d59b1c2d0" />
             </intent-filter>
         </activity>
         <activity

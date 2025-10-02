@@ -8,8 +8,8 @@ class AppwriteConfig {
 
   static final Client _client = Client()
     // TODO: Passe Endpoint & Projekt-ID an.
-    ..setEndpoint('https://fra.cloud.appwrite.io/v1')
-    ..setProject('68de6f340030cde53747');
+    ..setEndpoint('https://appwrite.nebulium.info/v1')
+    ..setProject('68de8b41001d59b1c2d0');
 
   /// Gibt den global konfigurierten [Client] zurück.
   static Client get client => _client;

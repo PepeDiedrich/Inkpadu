@@ -104,6 +104,28 @@ class _ActionRowState extends State<_ActionRow> {
   bool _loading = false;
   String? _error;
 
+  Future<void> _handleLogin({
+    required AuthController auth,
+    required OAuthProvider provider,
+    required List<String> scopes,
+    required String label,
+  }) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await auth.loginWithProvider(provider: provider, scopes: scopes);
+      if (mounted && auth.status == AuthStatus.authenticated) {
+        _openShell(context);
+      }
+    } catch (e) {
+      setState(() => _error = 'Login ($label) fehlgeschlagen');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = AuthScope.of(context);
@@ -120,29 +142,33 @@ class _ActionRowState extends State<_ActionRow> {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.login),
-                onPressed: _loading
-                    ? null
-                    : () async {
-                        setState(() {
-                          _loading = true;
-                          _error = null;
-                        });
-                        try {
-                          await auth.loginWithProvider(provider: OAuthProvider.github, scopes: const ['user:email']);
-                          if (mounted && auth.status == AuthStatus.authenticated) {
-                            _openShell(context);
-                          }
-                        } catch (e) {
-                          setState(() => _error = 'Login fehlgeschlagen');
-                        } finally {
-                          if (mounted) setState(() => _loading = false);
-                        }
-                      },
+                icon: const Icon(Icons.code),
+                onPressed: _loading ? null : () => _handleLogin(
+                  auth: auth,
+                  provider: OAuthProvider.github,
+                  scopes: const ['user:email'],
+                  label: 'GitHub',
+                ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 label: Text(_loading ? 'Verbinde…' : 'Mit GitHub anmelden'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.g_mobiledata),
+                onPressed: _loading ? null : () => _handleLogin(
+                  auth: auth,
+                  provider: OAuthProvider.google,
+                  scopes: const ['email', 'profile'],
+                  label: 'Google',
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                label: Text(_loading ? 'Verbinde…' : 'Mit Google anmelden'),
               ),
             ),
             const SizedBox(width: 16),
