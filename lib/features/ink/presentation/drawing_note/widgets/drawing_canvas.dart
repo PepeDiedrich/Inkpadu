@@ -63,15 +63,21 @@ class DrawingCanvas extends StatefulWidget {
 
 class _DrawingCanvasState extends State<DrawingCanvas> {
   late final ScrollController _canvasScrollController;
+  late final TransformationController _zoomController;
   late double _canvasHeight;
   double _lastScrollExpansionTrigger = -1;
   final Map<int, Offset> _activeTouchPositions = HashMap<int, Offset>();
   static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
   static const double _twoFingerTapMaxMovement = 22;
+  static const double _pinchActivationThreshold = 8;
+  static const double _minZoomScale = 1.0;
+  static const double _maxZoomScale = 3.5;
   DateTime? _twoFingerTapStart;
   final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
   bool _isTwoFingerScrollActive = false;
+  bool _isPinchZoomActive = false;
   Offset? _lastTwoFingerFocalPoint;
+  double? _initialPinchDistance;
   int? _activeDrawingPointerId;
   String? _activeToolDuringStrokeId;
   bool _didEraseDuringDrag = false;
@@ -81,6 +87,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void initState() {
     super.initState();
     _canvasScrollController = ScrollController();
+    _zoomController = TransformationController();
     _canvasHeight = _requiredCanvasHeightForStrokes(
       widget.drawingController.strokes,
     );
@@ -98,6 +105,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _canvasHeight = _requiredCanvasHeightForStrokes(
         widget.drawingController.strokes,
       );
+      _zoomController.value = Matrix4.identity();
     } else if (oldWidget.currentTool.id != widget.currentTool.id) {
       setState(() {});
     }
@@ -107,6 +115,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void dispose() {
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
+    _zoomController.dispose();
     super.dispose();
   }
 
@@ -166,11 +175,22 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return focal / _activeTouchPositions.length.toDouble();
   }
 
+  double? _currentTouchDistance() {
+    if (_activeTouchPositions.length < 2) {
+      return null;
+    }
+    final List<Offset> positions = _activeTouchPositions.values.toList(
+      growable: false,
+    );
+    return (positions[0] - positions[1]).distance;
+  }
+
   void _resetTwoFingerScrollState() {
     if (_activeTouchPositions.length < 2) {
       _clearTwoFingerGestureState();
     } else {
       _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+      _initialPinchDistance = _currentTouchDistance();
     }
   }
 
@@ -181,6 +201,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       ..addAll(_activeTouchPositions);
     _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
     _isTwoFingerScrollActive = false;
+    _isPinchZoomActive = false;
+    _initialPinchDistance = _currentTouchDistance();
   }
 
   void _cancelTwoFingerTapCandidate() {
@@ -226,6 +248,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _isTwoFingerScrollActive = false;
     _lastTwoFingerFocalPoint = null;
     _cancelTwoFingerTapCandidate();
+    _isPinchZoomActive = false;
+    _initialPinchDistance = null;
   }
 
   void _abortDrawing() {
@@ -279,6 +303,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _cancelTwoFingerTapCandidate();
         _isTwoFingerScrollActive = true;
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+        _isPinchZoomActive = false;
+        _initialPinchDistance = null;
         _abortDrawing();
         touchAllowsDrawing = false;
       } else if (_activeTouchPositions.length == 2) {
@@ -339,6 +365,17 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
       final int touchCount = _activeTouchPositions.length;
       if (touchCount >= 2) {
+        final double? currentDistance = _currentTouchDistance();
+        final double? initialDistance = _initialPinchDistance;
+        if (!_isPinchZoomActive &&
+            currentDistance != null &&
+            initialDistance != null &&
+            (currentDistance - initialDistance).abs() >
+                _pinchActivationThreshold) {
+          _isPinchZoomActive = true;
+          _cancelTwoFingerTapCandidate();
+        }
+
         if (_twoFingerTapStart != null) {
           final bool movedTooFar = !_isTwoFingerTapMovementWithinThreshold();
           final bool timedOut = !_isTwoFingerTapWithinTimeWindow();
@@ -346,8 +383,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             _cancelTwoFingerTapCandidate();
             _isTwoFingerScrollActive = true;
           }
-        } else {
+        } else if (!_isPinchZoomActive) {
           _isTwoFingerScrollActive = true;
+        } else {
+          _isTwoFingerScrollActive = false;
         }
 
         final Offset? focal = _computeTouchFocalPoint();
@@ -368,6 +407,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           }
         }
         _lastTwoFingerFocalPoint = focal ?? _lastTwoFingerFocalPoint;
+        if (_isPinchZoomActive) {
+          return;
+        }
         return;
       }
     }
@@ -418,12 +460,19 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           withinTime &&
           withinMovement &&
           noMoreTouches &&
-          !_isTwoFingerScrollActive) {
+          !_isTwoFingerScrollActive &&
+          !_isPinchZoomActive) {
         _triggerTwoFingerUndo();
       } else if (noMoreTouches) {
         _clearTwoFingerGestureState();
       } else {
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+      }
+      if (noMoreTouches) {
+        _isPinchZoomActive = false;
+        _initialPinchDistance = null;
+      } else {
+        _initialPinchDistance = _currentTouchDistance();
       }
     }
 
@@ -464,6 +513,12 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (details.kind == PointerDeviceKind.touch) {
       _activeTouchPositions.remove(details.pointer);
       _resetTwoFingerScrollState();
+      if (_activeTouchPositions.length < 2) {
+        _isPinchZoomActive = false;
+        _initialPinchDistance = null;
+      } else {
+        _initialPinchDistance = _currentTouchDistance();
+      }
     }
 
     if (_activeDrawingPointerId == details.pointer) {
@@ -506,41 +561,53 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         child: SizedBox(
           width: double.infinity,
           height: _canvasHeight,
-          child: NotePaperBackground(
-            paperStyle: widget.paperStyle,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: _start,
-              onPointerMove: _update,
-              onPointerUp: _end,
-              onPointerCancel: _cancel,
-              child: AnimatedBuilder(
-                animation: widget.drawingController,
-                builder: (context, child) => Stack(
-                  children: [
-                    RepaintBoundary(
-                      child: CustomPaint(
-                        painter: FinishedStrokesPainter(
-                          strokes: widget.drawingController.strokes,
-                          version: widget.drawingController.strokesVersion,
+          child: InteractiveViewer(
+            transformationController: _zoomController,
+            minScale: _minZoomScale,
+            maxScale: _maxZoomScale,
+            panEnabled: false,
+            boundaryMargin: const EdgeInsets.symmetric(
+              horizontal: 120,
+              vertical: 120,
+            ),
+            alignment: Alignment.topCenter,
+            child: NotePaperBackground(
+              paperStyle: widget.paperStyle,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: _start,
+                onPointerMove: _update,
+                onPointerUp: _end,
+                onPointerCancel: _cancel,
+                child: AnimatedBuilder(
+                  animation: widget.drawingController,
+                  builder: (context, child) => Stack(
+                    children: [
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          painter: FinishedStrokesPainter(
+                            strokes: widget.drawingController.strokes,
+                            version: widget.drawingController.strokesVersion,
+                          ),
                         ),
                       ),
-                    ),
-                    RepaintBoundary(
-                      child: CustomPaint(
-                        painter: CurrentStrokePainter(
-                          currentStroke: widget.drawingController.currentStroke,
-                          pointCount:
-                              widget
-                                  .drawingController
-                                  .currentStroke
-                                  ?.points
-                                  .length ??
-                              0,
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          painter: CurrentStrokePainter(
+                            currentStroke:
+                                widget.drawingController.currentStroke,
+                            pointCount:
+                                widget
+                                    .drawingController
+                                    .currentStroke
+                                    ?.points
+                                    .length ??
+                                0,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
