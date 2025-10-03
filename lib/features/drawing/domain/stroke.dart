@@ -53,13 +53,25 @@ class Stroke {
   };
 
   /// Erstellt einen Strich aus einer JSON-Map.
-  factory Stroke.fromJson(Map<String, dynamic> json) => Stroke(
-    id: json['id'] as String,
-    points: (json['points'] as List)
-        .map((p) => DrawingPoint.fromJson(p as Map<String, dynamic>))
-        .toList(),
-    color: Color(json['color'] as int),
-    baseWidth: json['width'] as double,
-    isHighlighter: json['isHighlighter'] as bool,
-  );
+  factory Stroke.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> rawPoints = (json['points'] as List?) ?? const [];
+    final Color resolvedColor = Color(
+      (json['color'] as int?) ?? Colors.black.toARGB32(),
+    );
+    final double resolvedWidth = (json['width'] is num)
+        ? (json['width'] as num).toDouble()
+        : 4.0;
+    final bool resolvedHighlighter = json['isHighlighter'] as bool? ?? false;
+
+    return Stroke(
+      id: json['id'] as String?,
+      points: rawPoints
+          .whereType<Map<String, dynamic>>()
+          .map(DrawingPoint.fromJson)
+          .toList(growable: false),
+      color: resolvedColor,
+      baseWidth: resolvedWidth,
+      isHighlighter: resolvedHighlighter,
+    );
+  }
 }

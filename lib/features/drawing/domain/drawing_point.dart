@@ -19,8 +19,15 @@ class DrawingPoint {
   };
 
   /// Erstellt ein [DrawingPoint]-Objekt aus einer JSON-Map.
-  factory DrawingPoint.fromJson(Map<String, dynamic> json) => DrawingPoint(
-    position: Offset(json['x'] as double, json['y'] as double),
-    pressure: json['p'] as double,
-  );
+  factory DrawingPoint.fromJson(Map<String, dynamic> json) {
+    final double x = (json['x'] as num?)?.toDouble() ?? 0.0;
+    final double y = (json['y'] as num?)?.toDouble() ?? 0.0;
+    final double rawPressure = (json['p'] as num?)?.toDouble() ?? 0.5;
+    final double clampedPressure = rawPressure.clamp(0.0, 1.0).toDouble();
+
+    return DrawingPoint(
+      position: Offset(x, y),
+      pressure: clampedPressure,
+    );
+  }
 }
