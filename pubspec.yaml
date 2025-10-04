@@ -39,6 +39,7 @@ dependencies:
   flutter_colorpicker: ^1.0.3
   appwrite: ^20.0.0
   flutter_web_auth_2: ^4.1.0
+  connectivity_plus: ^6.1.2
 
 dev_dependencies:
   flutter_test:

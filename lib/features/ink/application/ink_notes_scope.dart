@@ -7,6 +7,7 @@ import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_note_sync_queue.dart';
 
 /// Notifier verwaltet die in-memory Sammlung handschriftlicher Notizen und
 /// synchronisiert sie optional mit Appwrite.
@@ -18,8 +19,10 @@ class InkNotesController extends ChangeNotifier {
   InkNotesController({
     InkNotesSync? syncService,
     InkNotesAuth? auth,
+    InkNoteSyncQueue? syncQueue,
   })  : _syncService = syncService,
-        _auth = auth {
+        _auth = auth,
+        _syncQueue = syncQueue {
     final authBridge = _auth;
     if (_syncService != null && authBridge != null) {
       authBridge.addListener(_handleAuthChanged);
@@ -30,6 +33,7 @@ class InkNotesController extends ChangeNotifier {
   final List<InkNote> _notes = [];
   final InkNotesSync? _syncService;
   final InkNotesAuth? _auth;
+  final InkNoteSyncQueue? _syncQueue;
 
   InkNotesRealtimeSubscription? _realtimeSubscription;
   String? _activeUserId;
@@ -120,6 +124,7 @@ class InkNotesController extends ChangeNotifier {
     }
 
     _activeUserId = userId;
+    _syncQueue?.setUserId(userId);
     unawaited(_synchronizeWithRemote(userId));
   }
 
@@ -186,27 +191,26 @@ class InkNotesController extends ChangeNotifier {
   }
 
   void _syncIfPossible(InkNote note) {
-    final service = _syncService;
-    final userId = _activeUserId;
-    if (service == null || userId == null) {
+    final queue = _syncQueue;
+    if (queue == null || _activeUserId == null) {
       return;
     }
-    unawaited(service.upsertNote(note, userId));
+    queue.enqueueUpsert(note);
   }
 
   void _deleteIfPossible(String noteId) {
-    final service = _syncService;
-    final userId = _activeUserId;
-    if (service == null || userId == null) {
+    final queue = _syncQueue;
+    if (queue == null || _activeUserId == null) {
       return;
     }
-    unawaited(service.deleteNote(noteId, userId));
+    queue.enqueueDelete(noteId);
   }
 
   @override
   void dispose() {
     _auth?.removeListener(_handleAuthChanged);
     unawaited(_realtimeSubscription?.cancel());
+    unawaited(_syncQueue?.dispose());
     super.dispose();
   }
 }

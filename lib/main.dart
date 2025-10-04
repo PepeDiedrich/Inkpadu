@@ -9,6 +9,7 @@ import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_note_sync_queue.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
@@ -32,10 +33,12 @@ class InkpaduApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final authController = AuthController()..initialize();
     final notesSyncService = InkNotesSyncService();
+    final syncQueue = InkNoteSyncQueue(syncService: notesSyncService);
     final authBridge = AuthControllerInkNotesAuth(authController);
     final notesController = InkNotesController(
       syncService: notesSyncService,
       auth: authBridge,
+      syncQueue: syncQueue,
     );
     final pointerSettings = PointerSettings();
     final editorSettings = EditorSettings();
