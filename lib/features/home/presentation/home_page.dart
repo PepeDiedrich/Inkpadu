@@ -40,6 +40,31 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _deleteNote(String id, String title) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notiz löschen'),
+        content: Text('Möchten Sie "$title" wirklich löschen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final controller = InkNotesScope.of(context);
+      controller.delete(id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notes = InkNotesScope.of(context).notes;
@@ -72,7 +97,17 @@ class _HomePageState extends State<HomePage> {
                       '${n.page.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
                     ),
                     onTap: () => _open(n.id),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _deleteNote(n.id, n.title),
+                          tooltip: 'Notiz löschen',
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
                   ),
                 );
               },
