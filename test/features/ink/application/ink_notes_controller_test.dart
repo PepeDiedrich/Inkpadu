@@ -145,5 +145,23 @@ void main() {
 
       expect(controller.notes.map((n) => n.id), contains('remote-live'));
     });
+
+    test('löscht Notiz und synchronisiert mit Backend', () async {
+      auth.setSession(userId: 'user-99', email: 'delete@example.com');
+      await pumpEventQueue();
+
+      final note = InkNote.empty(title: 'Zu löschen');
+      controller.upsert(note);
+      await pumpEventQueue();
+
+      expect(controller.notes.length, 1);
+
+      controller.delete(note.id);
+      await pumpEventQueue();
+
+      expect(controller.notes.length, 0);
+      final deleted = sync.deletedNotes['user-99'] ?? <String>[];
+      expect(deleted, contains(note.id));
+    });
   });
 }

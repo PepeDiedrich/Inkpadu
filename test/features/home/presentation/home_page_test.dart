@@ -76,4 +76,66 @@ void main() {
     await tester.pump();
     expect(find.byType(ListTile), findsNWidgets(2));
   });
+
+  testWidgets('Löschen-Button löscht Notiz nach Bestätigung', (tester) async {
+    final controller = InkNotesController();
+    final note = InkNote.empty(title: 'Test Notiz');
+    controller.upsert(note);
+
+    await tester.pumpWidget(
+      wrapWithScopes(const HomePage(), controller: controller),
+    );
+    await tester.pump();
+
+    // Notiz sollte vorhanden sein
+    expect(find.text('Test Notiz'), findsOneWidget);
+    expect(controller.notes.length, 1);
+
+    // Löschen-Button finden und drücken
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    // Bestätigungsdialog sollte erscheinen
+    expect(find.text('Notiz löschen'), findsOneWidget);
+    expect(find.text('Möchten Sie "Test Notiz" wirklich löschen?'), findsOneWidget);
+
+    // Bestätigen
+    await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
+    await tester.pumpAndSettle();
+
+    // Notiz sollte gelöscht sein
+    expect(controller.notes.length, 0);
+    expect(find.text('Test Notiz'), findsNothing);
+    expect(find.text('Noch keine handschriftlichen Notizen'), findsOneWidget);
+  });
+
+  testWidgets('Löschen-Button behält Notiz nach Abbruch', (tester) async {
+    final controller = InkNotesController();
+    final note = InkNote.empty(title: 'Behalte mich');
+    controller.upsert(note);
+
+    await tester.pumpWidget(
+      wrapWithScopes(const HomePage(), controller: controller),
+    );
+    await tester.pump();
+
+    // Notiz sollte vorhanden sein
+    expect(find.text('Behalte mich'), findsOneWidget);
+    expect(controller.notes.length, 1);
+
+    // Löschen-Button drücken
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    // Bestätigungsdialog erscheint
+    expect(find.text('Notiz löschen'), findsOneWidget);
+
+    // Abbrechen
+    await tester.tap(find.widgetWithText(TextButton, 'Abbrechen'));
+    await tester.pumpAndSettle();
+
+    // Notiz sollte noch vorhanden sein
+    expect(controller.notes.length, 1);
+    expect(find.text('Behalte mich'), findsOneWidget);
+  });
 }
