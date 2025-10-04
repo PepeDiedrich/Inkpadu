@@ -18,6 +18,7 @@ class InkNotesController extends ChangeNotifier {
   InkNotesController({
     InkNotesSync? syncService,
     InkNotesAuth? auth,
+    this.debounceDuration = const Duration(seconds: 3),
   })  : _syncService = syncService,
         _auth = auth {
     final authBridge = _auth;
@@ -30,6 +31,13 @@ class InkNotesController extends ChangeNotifier {
   final List<InkNote> _notes = [];
   final InkNotesSync? _syncService;
   final InkNotesAuth? _auth;
+  // Debounce timers to avoid spamming the backend on rapid consecutive edits.
+  // Keyed by note id for upserts and by note id for deletes as well.
+  final Map<String, Timer> _debounceTimers = {};
+  // Debounce duration used for batching quick successive updates.
+  // Default is 3s (set via constructor). The timer is reset to this
+  // duration on each new local change for the same note id.
+  final Duration debounceDuration;
 
   InkNotesRealtimeSubscription? _realtimeSubscription;
   String? _activeUserId;
@@ -191,7 +199,14 @@ class InkNotesController extends ChangeNotifier {
     if (service == null || userId == null) {
       return;
     }
-    unawaited(service.upsertNote(note, userId));
+    // Debounce upsert operations per-note so rapid local edits don't trigger
+    // an immediate network call for each keystroke or small change.
+    final String id = note.id;
+    _debounceTimers[id]?.cancel();
+    _debounceTimers[id] = Timer(debounceDuration, () {
+      _debounceTimers.remove(id);
+      unawaited(service.upsertNote(note, userId));
+    });
   }
 
   void _deleteIfPossible(String noteId) {
@@ -200,13 +215,25 @@ class InkNotesController extends ChangeNotifier {
     if (service == null || userId == null) {
       return;
     }
-    unawaited(service.deleteNote(noteId, userId));
+    // Debounce deletes as well. If a note is rapidly recreated/updated,
+    // cancelling a pending delete avoids accidental data loss.
+    _debounceTimers[noteId]?.cancel();
+    _debounceTimers[noteId] = Timer(debounceDuration, () {
+      _debounceTimers.remove(noteId);
+      unawaited(service.deleteNote(noteId, userId));
+    });
   }
 
   @override
   void dispose() {
     _auth?.removeListener(_handleAuthChanged);
     unawaited(_realtimeSubscription?.cancel());
+    // Cancel any pending debounce timers to avoid firing network requests
+    // after the controller has been disposed.
+    for (final timer in _debounceTimers.values) {
+      timer.cancel();
+    }
+    _debounceTimers.clear();
     super.dispose();
   }
 }
