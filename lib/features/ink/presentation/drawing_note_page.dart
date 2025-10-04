@@ -15,6 +15,7 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/pointer_settings_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/sync_status_indicator.dart';
 import 'package:flutter/material.dart';
 
 /// Seite zum Bearbeiten / Zeichnen einer einzelnen handschriftlichen Notiz.
@@ -186,6 +187,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             controller.drawingController;
         final DrawingTool currentTool = controller.currentTool;
 
+        final InkNotesController notesController = InkNotesScope.of(context);
+        
         return Scaffold(
           appBar: AppBar(
             leading: const BackButton(),
@@ -195,12 +198,25 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             title: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  controller.note.title,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        controller.note.title,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SyncStatusIndicator(
+                      syncQueue: notesController.syncQueue,
+                      noteId: widget.noteId,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 ConstrainedBox(

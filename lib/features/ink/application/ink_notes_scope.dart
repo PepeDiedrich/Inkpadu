@@ -42,6 +42,9 @@ class InkNotesController extends ChangeNotifier {
   /// Unveränderliche Sicht auf alle Notizen.
   List<InkNote> get notes => List.unmodifiable(_notes);
 
+  /// Zugriff auf die Sync-Queue (optional).
+  InkNoteSyncQueue? get syncQueue => _syncQueue;
+
   /// Legt eine neue leere Notiz an und gibt sie zurück.
   InkNote createEmpty({
     String? title,
