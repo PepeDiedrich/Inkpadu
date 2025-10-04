@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:appwrite/appwrite.dart';
+// ignore: implementation_imports
+import 'package:appwrite/src/enums.dart' show HttpMethod;
 import 'package:flutter/foundation.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
@@ -85,18 +87,35 @@ class InkNotesSyncService implements InkNotesSync {
 
   @override
   Future<List<InkNote>> fetchNotes(String userId) async {
+    final queries = <String>[
+      Query.equal('user_id', userId),
+      Query.orderDesc('updated_at'),
+    ];
+
     try {
       final documents = await _databases.listDocuments(
         databaseId: databaseId,
         collectionId: collectionId,
-        queries: [
-          Query.equal('user_id', userId),
-          Query.orderDesc('updated_at'),
-        ],
+        queries: queries,
       );
       return documents.documents
           .map((doc) => InkNoteDto.fromDocument(doc).toDomain())
           .toList(growable: false);
+    } on TypeError catch (error, stackTrace) {
+      // TypeError kommt z.B. wenn das SDK versucht, null in ein int zu casten
+      debugPrint('Appwrite fetchNotes parsing error: $error');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'InkNotesSyncService',
+        informationCollector: () => <DiagnosticsNode>[
+          DiagnosticsNode.message(
+            'Fallback auf roh geladene Dokumente für user $userId aktiviert',
+          ),
+        ],
+      ));
+
+      return _fetchNotesWithRawDocuments(userId: userId, queries: queries);
     } on AppwriteException catch (error, stackTrace) {
       debugPrint('Appwrite fetchNotes failed: ${error.message}');
       FlutterError.reportError(FlutterErrorDetails(
@@ -108,6 +127,152 @@ class InkNotesSyncService implements InkNotesSync {
         ],
       ));
       rethrow;
+    }
+  }
+
+  Future<List<InkNote>> _fetchNotesWithRawDocuments({
+    required String userId,
+    required List<String> queries,
+  }) async {
+    try {
+      final response = await _databases.client.call(
+        HttpMethod.get,
+        path:
+            '/databases/${Uri.encodeComponent(databaseId)}/collections/${Uri.encodeComponent(collectionId)}/documents',
+        params: <String, dynamic>{'queries': queries},
+      );
+
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        debugPrint('InkNotesSyncService: Unerwartetes Antwortformat ${data.runtimeType}');
+        return const <InkNote>[];
+      }
+
+      final documents = data['documents'];
+      if (documents is! List) {
+        debugPrint('InkNotesSyncService: "documents" fehlt oder ist kein Listentyp.');
+        return const <InkNote>[];
+      }
+
+      final notes = <InkNote>[];
+      for (var index = 0; index < documents.length; index++) {
+        final rawDoc = documents[index];
+        if (rawDoc is! Map) {
+          debugPrint('InkNotesSyncService: Dokument an Index $index ist kein Map und wird übersprungen.');
+          continue;
+        }
+
+        final normalized = _normalizeRawDocument(
+          rawDoc.map((key, value) => MapEntry(key.toString(), value)),
+          index,
+        );
+
+        final note = _tryBuildInkNoteFromRaw(normalized);
+        if (note != null) {
+          notes.add(note);
+        }
+      }
+
+      return notes.toList(growable: false);
+    } on AppwriteException {
+      rethrow;
+    } catch (error, stackTrace) {
+      debugPrint('InkNotesSyncService: Fehler beim Rohabruf der Dokumente: $error');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'InkNotesSyncService',
+        informationCollector: () => <DiagnosticsNode>[
+          DiagnosticsNode.message('Fehler beim Rohabruf der Dokumente für user $userId'),
+        ],
+      ));
+      return const <InkNote>[];
+    }
+  }
+
+  Map<String, dynamic> _normalizeRawDocument(
+    Map<String, dynamic> doc,
+    int fallbackSequence,
+  ) {
+    final normalized = Map<String, dynamic>.from(doc);
+
+    normalized[r'$sequence'] = _resolveSequence(doc[r'$sequence'], fallbackSequence);
+
+    final permissions = doc[r'$permissions'];
+    if (permissions is List) {
+      normalized[r'$permissions'] =
+          permissions.whereType<String>().toList(growable: false);
+    } else {
+      normalized[r'$permissions'] = const <String>[];
+    }
+
+    normalized[r'$createdAt'] ??= DateTime.now().toUtc().toIso8601String();
+    normalized[r'$updatedAt'] ??= normalized[r'$createdAt'];
+    return normalized;
+  }
+
+  int _resolveSequence(Object? value, int fallback) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+    return fallback;
+  }
+
+  InkNote? _tryBuildInkNoteFromRaw(Map<String, dynamic> doc) {
+    final id = doc[r'$id']?.toString();
+    final userId = doc['user_id'];
+    final title = doc['title'];
+    final paperStyle = doc['paper_style'];
+    final pageData = doc['page_data'];
+    final updatedAtRaw = doc['updated_at'];
+
+    if (id == null ||
+        userId is! String ||
+        title is! String ||
+        paperStyle is! String ||
+        pageData is! String ||
+        updatedAtRaw is! String) {
+      debugPrint(
+        'InkNotesSyncService: Dokument ${doc[r'$id']} übersprungen (fehlende oder invalide Felder).',
+      );
+      return null;
+    }
+
+    final updatedAt = DateTime.tryParse(updatedAtRaw);
+    if (updatedAt == null) {
+      debugPrint('InkNotesSyncService: Dokument $id hat ungültiges Datum "$updatedAtRaw".');
+      return null;
+    }
+
+    try {
+      return InkNoteDto(
+        id: id,
+        userId: userId,
+        title: title,
+        paperStyle: paperStyle,
+        pageData: pageData,
+        updatedAt: updatedAt.toUtc(),
+      ).toDomain();
+    } catch (error, stackTrace) {
+      debugPrint('InkNotesSyncService: Fehler beim Konvertieren von Dokument $id: $error');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'InkNotesSyncService',
+        informationCollector: () => <DiagnosticsNode>[
+          DiagnosticsNode.message('Fehler beim Konvertieren des Rohdokuments $id'),
+        ],
+      ));
+      return null;
     }
   }
 
