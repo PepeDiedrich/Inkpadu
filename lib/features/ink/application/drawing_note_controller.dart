@@ -24,8 +24,7 @@ class DrawingNoteController extends ChangeNotifier {
   }) : _inkNotesController = inkNotesController,
        drawingController = drawingController ?? DrawingController(),
        _toolPreferencesRepository =
-           toolPreferencesRepository ??
-           const DrawingToolPreferencesRepository(),
+           toolPreferencesRepository ?? DrawingToolPreferencesRepository(),
        _defaultTools = defaultTools ?? DrawingToolDefaults.palette;
 
   /// ID der verwalteten Notiz.
@@ -123,7 +122,12 @@ class DrawingNoteController extends ChangeNotifier {
     }
     _selectedToolId = toolId;
     notifyListeners();
-    unawaited(_toolPreferencesRepository.saveSelectedToolId(toolId));
+    unawaited(
+      _toolPreferencesRepository.saveSelectedToolId(
+        toolId,
+        currentTools: _tools,
+      ),
+    );
   }
 
   /// Aktualisiert ein Werkzeug und speichert die Konfiguration.
@@ -133,14 +137,23 @@ class DrawingNoteController extends ChangeNotifier {
         .toList(growable: false);
     if (!_tools.any((tool) => tool.id == _selectedToolId)) {
       _selectedToolId = _tools.first.id;
-      unawaited(_toolPreferencesRepository.saveSelectedToolId(_selectedToolId));
+      unawaited(
+        _toolPreferencesRepository.saveSelectedToolId(
+          _selectedToolId,
+          currentTools: _tools,
+        ),
+      );
     }
     notifyListeners();
-    await _toolPreferencesRepository.save(_tools);
+    await _toolPreferencesRepository.save(
+      _tools,
+      selectedToolId: _selectedToolId,
+    );
   }
 
   /// Persistiert die aktuelle Werkzeugliste im Repository.
-  Future<void> saveTools() => _toolPreferencesRepository.save(_tools);
+  Future<void> saveTools() =>
+      _toolPreferencesRepository.save(_tools, selectedToolId: _selectedToolId);
 
   /// Persistiert den aktuellen Zeichenstand in der Notizsammlung.
   void persistDrawing() {

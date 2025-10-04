@@ -13,6 +13,12 @@ class AuthScope extends InheritedNotifier<AuthController> {
     return scope!.notifier!;
   }
 
+  /// Gibt den [AuthController] zurück oder `null`, falls kein Scope verfügbar ist.
+  static AuthController? maybeOf(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<AuthScope>();
+    return scope?.notifier;
+  }
+
   @override
   bool updateShouldNotify(covariant AuthScope oldWidget) => notifier != oldWidget.notifier;
 }

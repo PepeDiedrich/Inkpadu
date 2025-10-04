@@ -1,18 +1,29 @@
 import 'dart:convert';
 
+import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Persistiert benutzerdefinierte Zeichenwerkzeuge.
 class DrawingToolPreferencesRepository {
-  /// Erstellt das Repository und erlaubt ein optionales [SharedPreferences]
-  ///-Mock für Tests.
-  const DrawingToolPreferencesRepository({SharedPreferences? sharedPreferences})
-    : _sharedPreferences = sharedPreferences;
+  /// Erstellt das Repository und erlaubt optionale Test-Doubles.
+  DrawingToolPreferencesRepository({
+    SharedPreferences? sharedPreferences,
+    AuthController? authController,
+    DrawingToolPreferencesSync? syncService,
+  }) : _sharedPreferences = sharedPreferences,
+       _authController = authController,
+       _syncService = syncService;
 
   /// Überschreibt die verwendete [SharedPreferences]-Instanz (z. B. in Tests).
   final SharedPreferences? _sharedPreferences;
+
+  final AuthController? _authController;
+  final DrawingToolPreferencesSync? _syncService;
+
+  DrawingToolPreferencesRemoteModel? _remoteCache;
 
   static const String _storageKey = 'drawing_tools_v1';
   static const String _selectedToolKey = 'drawing_selected_tool_v1';
@@ -20,37 +31,30 @@ class DrawingToolPreferencesRepository {
   /// Lädt gespeicherte Werkzeuge und merged sie mit den [defaults].
   Future<List<DrawingTool>> load(List<DrawingTool> defaults) async {
     try {
-      final SharedPreferences prefs =
-          _sharedPreferences ?? await SharedPreferences.getInstance();
-      final String? raw = prefs.getString(_storageKey);
-      if (raw == null) {
-        return defaults;
-      }
+      final SharedPreferences prefs = await _prefs;
+      final List<DrawingTool>? local = _readToolsFromPrefs(prefs);
 
-      final dynamic decoded = jsonDecode(raw);
-      if (decoded is! List) {
-        return defaults;
-      }
+      List<DrawingTool> result = local == null
+          ? defaults
+          : _mergeWithDefaults(defaults, local);
 
-      final List<DrawingTool> stored = <DrawingTool>[];
-      for (final dynamic entry in decoded) {
-        if (entry is! Map<String, dynamic>) {
-          continue;
-        }
-        try {
-          stored.add(DrawingTool.fromJson(entry));
-        } catch (error, stackTrace) {
-          debugPrint(
-            'Fehler beim Parsen eines gespeicherten Werkzeugs: $error\n$stackTrace',
+      final DrawingToolPreferencesRemoteModel? remote =
+          await _loadRemotePreferences();
+      if (remote != null) {
+        final List<DrawingTool> remoteTools = _decodeTools(remote.toolsJson);
+        if (remoteTools.isNotEmpty) {
+          result = _mergeWithDefaults(defaults, remoteTools);
+          await _persistLocalState(
+            prefs,
+            tools: result,
+            selectedToolId: remote.selectedToolId,
           );
+        } else if (remote.selectedToolId != null) {
+          await prefs.setString(_selectedToolKey, remote.selectedToolId!);
         }
       }
 
-      if (stored.isEmpty) {
-        return defaults;
-      }
-
-      return _mergeWithDefaults(defaults, stored);
+      return result;
     } catch (error, stackTrace) {
       debugPrint(
         'Fehler beim Laden der Werkzeug-Voreinstellungen: $error\n$stackTrace',
@@ -59,15 +63,16 @@ class DrawingToolPreferencesRepository {
     }
   }
 
-  /// Speichert die übergebenen [tools] persistent.
-  Future<void> save(List<DrawingTool> tools) async {
+  /// Speichert die übergebenen [tools] persistent und synchronisiert optional remote.
+  Future<void> save(List<DrawingTool> tools, {String? selectedToolId}) async {
     try {
-      final SharedPreferences prefs =
-          _sharedPreferences ?? await SharedPreferences.getInstance();
-      final String payload = jsonEncode(
-        tools.map((tool) => tool.toJson()).toList(growable: false),
+      final SharedPreferences prefs = await _prefs;
+      await _persistLocalState(
+        prefs,
+        tools: tools,
+        selectedToolId: selectedToolId,
       );
-      await prefs.setString(_storageKey, payload);
+      await _syncRemoteState(tools: tools, selectedToolId: selectedToolId);
     } catch (error, stackTrace) {
       debugPrint(
         'Fehler beim Speichern der Werkzeug-Voreinstellungen: $error\n$stackTrace',
@@ -76,11 +81,16 @@ class DrawingToolPreferencesRepository {
   }
 
   /// Speichert die aktuell ausgewählte Werkzeug-ID persistent.
-  Future<void> saveSelectedToolId(String toolId) async {
+  Future<void> saveSelectedToolId(
+    String toolId, {
+    List<DrawingTool>? currentTools,
+  }) async {
     try {
-      final SharedPreferences prefs =
-          _sharedPreferences ?? await SharedPreferences.getInstance();
+      final SharedPreferences prefs = await _prefs;
       await prefs.setString(_selectedToolKey, toolId);
+      final List<DrawingTool> tools =
+          currentTools ?? _readToolsFromPrefs(prefs) ?? const <DrawingTool>[];
+      await _syncRemoteState(tools: tools, selectedToolId: toolId);
     } catch (error, stackTrace) {
       debugPrint(
         'Fehler beim Speichern der Werkzeugauswahl: $error\n$stackTrace',
@@ -91,13 +101,149 @@ class DrawingToolPreferencesRepository {
   /// Lädt die zuletzt gespeicherte Werkzeug-ID.
   Future<String?> loadSelectedToolId() async {
     try {
-      final SharedPreferences prefs =
-          _sharedPreferences ?? await SharedPreferences.getInstance();
-      return prefs.getString(_selectedToolKey);
+      final SharedPreferences prefs = await _prefs;
+      final String? local = prefs.getString(_selectedToolKey);
+      if (local != null) {
+        return local;
+      }
+      final DrawingToolPreferencesRemoteModel? remote =
+          await _loadRemotePreferences();
+      if (remote?.selectedToolId != null) {
+        await prefs.setString(_selectedToolKey, remote!.selectedToolId!);
+      }
+      return remote?.selectedToolId;
     } catch (error, stackTrace) {
       debugPrint('Fehler beim Laden der Werkzeugauswahl: $error\n$stackTrace');
       return null;
     }
+  }
+
+  Future<SharedPreferences> get _prefs async =>
+      _sharedPreferences ?? await SharedPreferences.getInstance();
+
+  List<DrawingTool>? _readToolsFromPrefs(SharedPreferences prefs) {
+    final String? raw = prefs.getString(_storageKey);
+    if (raw == null) {
+      return null;
+    }
+    final List<DrawingTool> decoded = _decodeTools(raw);
+    return decoded.isEmpty ? null : decoded;
+  }
+
+  List<DrawingTool> _decodeTools(String raw) {
+    try {
+      final dynamic decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return const <DrawingTool>[];
+      }
+
+      final List<DrawingTool> stored = <DrawingTool>[];
+      for (final dynamic entry in decoded) {
+        if (entry is Map<String, dynamic>) {
+          stored.add(DrawingTool.fromJson(entry));
+          continue;
+        }
+        if (entry is Map) {
+          final map = entry.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          stored.add(DrawingTool.fromJson(map));
+          continue;
+        }
+        debugPrint('Unbekannter Werkzeugeintrag vom Typ ${entry.runtimeType}');
+      }
+      return stored;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Fehler beim Dekodieren der Werkzeugliste: $error\n$stackTrace',
+      );
+      return const <DrawingTool>[];
+    }
+  }
+
+  Future<void> _persistLocalState(
+    SharedPreferences prefs, {
+    required List<DrawingTool> tools,
+    String? selectedToolId,
+  }) async {
+    final String payload = _encodeTools(tools);
+    await prefs.setString(_storageKey, payload);
+    if (selectedToolId != null) {
+      await prefs.setString(_selectedToolKey, selectedToolId);
+    }
+  }
+
+  String _encodeTools(List<DrawingTool> tools) =>
+      jsonEncode(tools.map((tool) => tool.toJson()).toList(growable: false));
+
+  Future<void> _syncRemoteState({
+    required List<DrawingTool> tools,
+    required String? selectedToolId,
+  }) async {
+    final DrawingToolPreferencesSync? sync = _syncService;
+    final String? userId = _resolveUserId();
+    if (sync == null || userId == null) {
+      return;
+    }
+
+    final String toolsJson = _encodeTools(tools);
+    final DrawingToolPreferencesUpsertPayload payload =
+        DrawingToolPreferencesUpsertPayload(
+          userId: userId,
+          toolsJson: toolsJson,
+          selectedToolId: selectedToolId,
+          updatedAt: DateTime.now().toUtc(),
+        );
+
+    try {
+      await sync.upsertPreferences(payload);
+      _remoteCache = DrawingToolPreferencesRemoteModel(
+        userId: userId,
+        toolsJson: toolsJson,
+        selectedToolId: selectedToolId,
+        updatedAt: payload.updatedAt,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Fehler beim Synchronisieren der Werkzeug-Voreinstellungen: $error\n$stackTrace',
+      );
+    }
+  }
+
+  Future<DrawingToolPreferencesRemoteModel?> _loadRemotePreferences() async {
+    final DrawingToolPreferencesSync? sync = _syncService;
+    final String? userId = _resolveUserId();
+    if (sync == null || userId == null) {
+      return null;
+    }
+
+    final DrawingToolPreferencesRemoteModel? cached = _remoteCache;
+    if (cached != null && cached.userId == userId) {
+      return cached;
+    }
+
+    try {
+      final DrawingToolPreferencesRemoteModel? remote = await sync
+          .fetchPreferences(userId);
+      if (remote != null) {
+        _remoteCache = remote;
+      }
+      return remote;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Fehler beim Laden der entfernten Werkzeug-Voreinstellungen: $error\n$stackTrace',
+      );
+      return null;
+    }
+  }
+
+  String? _resolveUserId() {
+    final AuthController? auth = _authController;
+    if (auth == null || !auth.isLoggedIn) {
+      return null;
+    }
+    final user = auth.user;
+    return user?.$id;
   }
 
   List<DrawingTool> _mergeWithDefaults(

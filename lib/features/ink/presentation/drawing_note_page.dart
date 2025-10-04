@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
+import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
@@ -35,10 +37,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   static const Duration _panelAnimationDuration = Duration(milliseconds: 220);
   static const Curve _panelAnimationCurve = Curves.easeOutCubic;
 
-  final DrawingToolPreferencesRepository _toolPreferencesRepository =
-      const DrawingToolPreferencesRepository();
-
+  DrawingToolPreferencesRepository? _toolPreferencesRepository;
   DrawingNoteController? _controller;
+  bool _repositoryInitialized = false;
   bool _controllerInitialized = false;
 
   double _sidebarFraction = 0.3;
@@ -49,14 +50,25 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_repositoryInitialized) {
+      final authController = AuthScope.maybeOf(context);
+      _toolPreferencesRepository = DrawingToolPreferencesRepository(
+        authController: authController,
+        syncService: DrawingToolPreferencesSyncService(),
+      );
+      _repositoryInitialized = true;
+    }
+
     if (_controllerInitialized) {
       return;
     }
     final InkNotesController notesController = InkNotesScope.of(context);
+    final DrawingToolPreferencesRepository repository =
+        _toolPreferencesRepository!;
     _controller = DrawingNoteController(
       noteId: widget.noteId,
       inkNotesController: notesController,
-      toolPreferencesRepository: _toolPreferencesRepository,
+      toolPreferencesRepository: repository,
     );
     _controllerInitialized = true;
     _controller!.initialize();
