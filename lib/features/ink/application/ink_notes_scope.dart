@@ -6,7 +6,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/connectivity_service.dart';
 
 /// Notifier verwaltet die in-memory Sammlung handschriftlicher Notizen und
 /// synchronisiert sie optional mit Appwrite.
@@ -16,32 +19,50 @@ class InkNotesController extends ChangeNotifier {
   /// Notizen automatisch für angemeldete E-Mail-Nutzer mit Appwrite
   /// synchronisiert.
   InkNotesController({
+    InkNotesRepository? repository,
     InkNotesSync? syncService,
     InkNotesAuth? auth,
     this.debounceDuration = const Duration(seconds: 3),
-  })  : _syncService = syncService,
+  })  : _repository = repository ?? InkNotesRepository(localStorage: InkNotesLocalStorage(), syncService: syncService),
         _auth = auth {
     final authBridge = _auth;
-    if (_syncService != null && authBridge != null) {
+    if (authBridge != null) {
       authBridge.addListener(_handleAuthChanged);
-      _handleAuthChanged();
     }
+    // Load local notes immediately regardless of auth
+    unawaited(_loadLocalNotes());
+    // Start connectivity monitoring and auto-sync when online
+    _connectivityService = ConnectivityService(repository: _repository);
+    _connectivityService!.startMonitoring();
+    _connectivitySubscription = _connectivityService!.isOnline.listen((online) async {
+      if (online && _activeUserId != null) {
+        await _repository.syncAll(userId: _activeUserId!);
+        await _repository.processQueueOnce(userId: _activeUserId!);
+        // reload local notes after sync
+        _notes
+          ..clear()
+          ..addAll(await _repository.getLocalNotes())
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        _safelyNotifyListeners();
+      }
+    });
   }
 
   final List<InkNote> _notes = [];
-  final InkNotesSync? _syncService;
+  final InkNotesRepository _repository;
   final InkNotesAuth? _auth;
   // Debounce timers to avoid spamming the backend on rapid consecutive edits.
   // Keyed by note id for upserts and by note id for deletes as well.
   final Map<String, Timer> _debounceTimers = {};
-  // Debounce duration used for batching quick successive updates.
-  // Default is 3s (set via constructor). The timer is reset to this
-  // duration on each new local change for the same note id.
+  /// Verzögerung für Debounce-Operationen beim Synchronisieren von Notizen.
+  /// Standardmäßig 3 Sekunden; wird nach jeder Änderung für dieselbe Notiz-ID zurückgesetzt.
   final Duration debounceDuration;
 
   InkNotesRealtimeSubscription? _realtimeSubscription;
   String? _activeUserId;
   bool _applyingRemoteUpdate = false;
+  ConnectivityService? _connectivityService;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   /// Unveränderliche Sicht auf alle Notizen.
   List<InkNote> get notes => List.unmodifiable(_notes);
@@ -104,7 +125,7 @@ class InkNotesController extends ChangeNotifier {
 
   void _handleAuthChanged() {
     final auth = _auth;
-    if (_syncService == null || auth == null) {
+    if (auth == null) {
       return;
     }
     if (!auth.isLoggedIn || auth.userId == null) {
@@ -132,46 +153,35 @@ class InkNotesController extends ChangeNotifier {
   }
 
   Future<void> _synchronizeWithRemote(String userId) async {
-    final service = _syncService;
-    if (service == null) return;
+    // Initialize repository and try a full sync
+    await _repository.init();
 
-    List<InkNote> remoteNotes = const [];
-    try {
-      remoteNotes = await service.fetchNotes(userId);
-    } catch (error) {
-      debugPrint('Fehler beim Laden der Notizen aus Appwrite: $error');
-    }
-
-    final Map<String, InkNote> merged = {
-      for (final note in remoteNotes) note.id: note,
-    };
-
-    final Map<String, InkNote> toUpload = {};
-    for (final local in _notes) {
-      final remote = merged[local.id];
-      if (remote == null || local.updatedAt.isAfter(remote.updatedAt)) {
-        merged[local.id] = local;
-        toUpload[local.id] = local;
-      }
-    }
-
-    final List<InkNote> nextNotes = merged.values.toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
+    // Load local notes
     _notes
       ..clear()
-      ..addAll(nextNotes);
+      ..addAll(await _repository.getLocalNotes())
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _safelyNotifyListeners();
 
-    for (final note in toUpload.values) {
-      _syncIfPossible(note);
-    }
+    // Trigger repository sync which will attempt to upload pending items and merge
+    await _repository.syncAll(userId: userId);
 
-    await _realtimeSubscription?.cancel();
-    _realtimeSubscription = service.observeUserNotes(
-      userId: userId,
-      onEvent: _handleRemoteEvent,
-    );
+    // After sync, reload local notes
+    _notes
+      ..clear()
+      ..addAll(await _repository.getLocalNotes())
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    _safelyNotifyListeners();
+
+    // If repository exposes underlying syncService, set up realtime if available
+    final service = _repository.syncService;
+    if (service != null) {
+      await _realtimeSubscription?.cancel();
+      _realtimeSubscription = service.observeUserNotes(
+        userId: userId,
+        onEvent: _handleRemoteEvent,
+      );
+    }
   }
 
   void _handleRemoteEvent(InkNotesRemoteEvent event) {
@@ -194,33 +204,26 @@ class InkNotesController extends ChangeNotifier {
   }
 
   void _syncIfPossible(InkNote note) {
-    final service = _syncService;
     final userId = _activeUserId;
-    if (service == null || userId == null) {
-      return;
-    }
-    // Debounce upsert operations per-note so rapid local edits don't trigger
-    // an immediate network call for each keystroke or small change.
+    if (userId == null) return;
+    // Save locally and schedule repository sync via debounce
     final String id = note.id;
     _debounceTimers[id]?.cancel();
     _debounceTimers[id] = Timer(debounceDuration, () {
       _debounceTimers.remove(id);
-      unawaited(service.upsertNote(note, userId));
+      unawaited(_repository.upsertNote(note, userId: userId));
     });
   }
 
   void _deleteIfPossible(String noteId) {
-    final service = _syncService;
     final userId = _activeUserId;
-    if (service == null || userId == null) {
-      return;
-    }
+    if (userId == null) return;
     // Debounce deletes as well. If a note is rapidly recreated/updated,
     // cancelling a pending delete avoids accidental data loss.
     _debounceTimers[noteId]?.cancel();
     _debounceTimers[noteId] = Timer(debounceDuration, () {
       _debounceTimers.remove(noteId);
-      unawaited(service.deleteNote(noteId, userId));
+      unawaited(_repository.deleteNote(noteId, userId: userId));
     });
   }
 
@@ -228,6 +231,8 @@ class InkNotesController extends ChangeNotifier {
   void dispose() {
     _auth?.removeListener(_handleAuthChanged);
     unawaited(_realtimeSubscription?.cancel());
+    unawaited(_connectivitySubscription?.cancel());
+    unawaited(_connectivityService?.stopMonitoring());
     // Cancel any pending debounce timers to avoid firing network requests
     // after the controller has been disposed.
     for (final timer in _debounceTimers.values) {
@@ -236,18 +241,26 @@ class InkNotesController extends ChangeNotifier {
     _debounceTimers.clear();
     super.dispose();
   }
+
+  Future<void> _loadLocalNotes() async {
+    try {
+      await _repository.init();
+      _notes
+        ..clear()
+        ..addAll(await _repository.getLocalNotes())
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _safelyNotifyListeners();
+    } catch (_) {
+      // ignore
+    }
+  }
 }
 
-/// InheritedWidget für einfachen Zugriff im Widget-Tree.
 /// Inherited Scope für Zugriff auf [InkNotesController].
-/// Ein [InheritedNotifier] zum Verwalten des Zustands von handschriftlichen Notizen.
 class InkNotesScope extends InheritedNotifier<InkNotesController> {
-  /// Erstellt eine neue [InkNotesScope].
-  const InkNotesScope({
-    super.key,
-    required InkNotesController controller,
-    required super.child,
-  }) : super(notifier: controller);
+  /// Erstellt eine neue [InkNotesScope] mit dem gegebenen Controller.
+  const InkNotesScope({super.key, required InkNotesController controller, required super.child})
+      : super(notifier: controller);
 
   /// Liefert den [InkNotesController] aus dem Kontext.
   static InkNotesController of(BuildContext context) {
@@ -256,9 +269,12 @@ class InkNotesScope extends InheritedNotifier<InkNotesController> {
     return scope!.notifier!;
   }
 
+  /// Liefert den [InkNotesController] oder `null`, falls er nicht gefunden wird.
+  static InkNotesController? maybeOf(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<InkNotesScope>();
+    return scope?.notifier;
+  }
+
   @override
-  @override
-  bool updateShouldNotify(
-    covariant InheritedNotifier<InkNotesController> oldWidget,
-  ) => true;
+  bool updateShouldNotify(covariant InkNotesScope oldWidget) => notifier != oldWidget.notifier;
 }

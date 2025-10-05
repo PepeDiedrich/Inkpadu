@@ -31,10 +31,10 @@ class AuthControllerInkNotesAuth implements InkNotesAuth {
   bool get isLoggedIn => _authController.isLoggedIn;
 
   @override
-  String? get userId => _authController.user?.$id;
+  String? get userId => _authController.userId;
 
   @override
-  String? get email => _authController.user?.email;
+  String? get email => _authController.email;
 
   @override
   void addListener(VoidCallback listener) => _authController.addListener(listener);

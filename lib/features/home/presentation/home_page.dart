@@ -23,6 +23,9 @@ class _HomePageState extends State<HomePage> {
       initialTitle: InkNote.generateTitle(),
       initialPaperStyle: NotePaperStyle.plain,
     );
+    if (!mounted) {
+      return;
+    }
     if (result == null) {
       return;
     }
@@ -59,10 +62,12 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      final controller = InkNotesScope.of(context);
-      controller.delete(id);
+    if (!mounted || confirmed != true) {
+      return;
     }
+
+    final controller = InkNotesScope.of(context);
+    controller.delete(id);
   }
 
   @override

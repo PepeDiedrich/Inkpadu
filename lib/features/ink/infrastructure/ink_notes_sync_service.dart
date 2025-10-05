@@ -34,8 +34,9 @@ class InkNotesRemoteDelete extends InkNotesRemoteEvent {
 }
 
 /// Wrapper around the Appwrite realtime subscription to ensure clean disposal.
-class InkNotesRealtimeSubscription {
-  InkNotesRealtimeSubscription(this._subscription, this._listener);
+  class InkNotesRealtimeSubscription {
+    /// Erstellt ein Realtime-Abonnement mit optionalem [RealtimeSubscription].
+    InkNotesRealtimeSubscription(this._subscription, this._listener);
 
   final RealtimeSubscription? _subscription;
   final StreamSubscription<dynamic> _listener;
@@ -65,6 +66,9 @@ abstract class InkNotesSync {
   });
 }
 
+/// Service zur Synchronisation von handschriftlichen Notizen mit Appwrite Databases API.
+/// Verwaltet das Laden, Speichern und Löschen von Notizen sowie Realtime-Updates.
+/// Implementiert die [InkNotesSync] Schnittstelle für die Kommunikation mit Appwrite.
 /// Handles communication with the Appwrite Databases API for syncing ink notes.
 class InkNotesSyncService implements InkNotesSync {
   /// Erstellt einen neuen Service zum Synchronisieren mit Appwrite.
@@ -85,6 +89,7 @@ class InkNotesSyncService implements InkNotesSync {
   /// Appwrite Collection-ID innerhalb der Datenbank.
   final String collectionId;
 
+  /// Lädt und konvertiert alle Notizen für den angegebenen Nutzer aus Appwrite.
   @override
   Future<List<InkNote>> fetchNotes(String userId) async {
     final queries = <String>[
@@ -276,6 +281,7 @@ class InkNotesSyncService implements InkNotesSync {
     }
   }
 
+  /// Speichert eine Notiz in Appwrite oder aktualisiert sie bei Bedarf.
   @override
   Future<void> upsertNote(InkNote note, String userId) async {
     final dto = InkNoteDto.fromDomain(note, userId: userId);
@@ -311,6 +317,7 @@ class InkNotesSyncService implements InkNotesSync {
     }
   }
 
+  /// Entfernt eine Notiz aus Appwrite für den angegebenen Nutzer.
   @override
   Future<void> deleteNote(String noteId, String userId) async {
     try {
@@ -328,6 +335,7 @@ class InkNotesSyncService implements InkNotesSync {
     }
   }
 
+  /// Beobachtet Realtime-Events für einen Nutzer und meldet Änderungen.
   @override
   InkNotesRealtimeSubscription observeUserNotes({
     required String userId,

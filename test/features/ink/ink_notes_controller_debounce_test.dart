@@ -70,8 +70,8 @@ void main() {
 
     // Rapid updates
     controller.upsert(note.copyWith(title: 'a', updatedAt: DateTime.now()));
-    controller.upsert(note.copyWith(title: 'b', updatedAt: DateTime.now().add(Duration(milliseconds: 1))));
-    controller.upsert(note.copyWith(title: 'c', updatedAt: DateTime.now().add(Duration(milliseconds: 2))));
+  controller.upsert(note.copyWith(title: 'b', updatedAt: DateTime.now().add(const Duration(milliseconds: 1))));
+  controller.upsert(note.copyWith(title: 'c', updatedAt: DateTime.now().add(const Duration(milliseconds: 2))));
 
     // Wait longer than debounceDuration
     await Future<void>.delayed(const Duration(milliseconds: 350));

@@ -171,11 +171,7 @@ class _ActionRowState extends State<_ActionRow> {
                 label: Text(_loading ? 'Verbinde…' : 'Mit Google anmelden'),
               ),
             ),
-            const SizedBox(width: 16),
-            TextButton(
-              onPressed: _loading ? null : () => _openShell(context),
-              child: const Text('Überspringen'),
-            ),
+            // Note: "Überspringen" button intentionally removed. User must sign in.
           ],
         ),
       ],

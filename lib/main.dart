@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/shell/presentation/app_shell.dart';
@@ -10,12 +11,22 @@ import 'package:ai_handwriting_app/features/editor/application/editor_settings_s
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
+import 'package:ai_handwriting_app/background/sync_background.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // initialize background dispatcher before runApp
+  Workmanager().initialize(callbackDispatcher);
+  // register periodic task (every 15 minutes is minimum on Android)
+  Workmanager().registerPeriodicTask(
+    'inkpadu_periodic_sync',
+    backgroundSyncTask,
+  );
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -24,43 +35,78 @@ Future<void> main() async {
 }
 
 /// Root widget that wires up shared theme and navigation.
-class InkpaduApp extends StatelessWidget {
+class InkpaduApp extends StatefulWidget {
   /// Creates a new [InkpaduApp] instance.
   const InkpaduApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authController = AuthController()..initialize();
+  State<InkpaduApp> createState() => _InkpaduAppState();
+}
+
+class _InkpaduAppState extends State<InkpaduApp> {
+  late final AuthController _authController;
+  late final InkNotesRepository _repository;
+  late final InkNotesController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _authController = AuthController();
+    _authController.addListener(_onAuthChanged);
+    _authController.initialize();
+
     final notesSyncService = InkNotesSyncService();
-    final authBridge = AuthControllerInkNotesAuth(authController);
-    final notesController = InkNotesController(
-      syncService: notesSyncService,
-      auth: authBridge,
-    );
+    final localStorage = InkNotesLocalStorage();
+    _repository = InkNotesRepository(localStorage: localStorage, syncService: notesSyncService);
+    final authBridge = AuthControllerInkNotesAuth(_authController);
+    _notesController = InkNotesController(repository: _repository, auth: authBridge);
+  }
+
+  void _onAuthChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _authController.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final pointerSettings = PointerSettings();
     final editorSettings = EditorSettings();
+
+    // If user isn't authenticated (and no cached user), force onboarding/login.
+    
+
     return AuthScope(
-      controller: authController,
+      controller: _authController,
       child: InkNotesScope(
-      controller: notesController,
-      child: PointerSettingsScope(
-        settings: pointerSettings,
-        child: EditorSettingsScope(
-          settings: editorSettings,
-          child: MaterialApp(
-            title: 'Inkpadu',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.light(),
-            darkTheme: AppTheme.dark(),
-            themeMode: ThemeMode.light,
-            initialRoute: AppRoutes.onboarding,
-            routes: {
-              AppRoutes.shell: (context) => const AppShell(),
-              AppRoutes.onboarding: (context) => const OnboardingPage(),
-            },
+        controller: _notesController,
+        child: PointerSettingsScope(
+          settings: pointerSettings,
+          child: EditorSettingsScope(
+            settings: editorSettings,
+            child: MaterialApp(
+              title: 'Inkpadu',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light(),
+              darkTheme: AppTheme.dark(),
+              themeMode: ThemeMode.light,
+              // Decide home based on current auth state or whether the user has ever logged in.
+              // This ensures onboarding is skipped after a successful login even if session
+              // needs to be restored later.
+              home: Builder(
+                builder: (context) {
+                  final shouldShowOnboarding = !_authController.isLoggedIn && !_authController.hasLoggedIn;
+                  return shouldShowOnboarding ? const OnboardingPage() : const AppShell();
+                },
+              ),
+              routes: {
+                AppRoutes.onboarding: (context) => const OnboardingPage(),
+              },
+            ),
           ),
         ),
-      ),
       ),
     );
   }

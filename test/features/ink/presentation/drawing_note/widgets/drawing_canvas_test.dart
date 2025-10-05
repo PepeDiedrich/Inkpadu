@@ -42,9 +42,7 @@ void main() {
     eraserRadiusFor = (DrawingTool tool) => tool.baseWidth;
   });
 
-  tearDown(() {
-    controller.dispose();
-  });
+  tearDown(controller.dispose);
 
   Widget createTestWidget({
     required DrawingController controller,
@@ -56,29 +54,27 @@ void main() {
     NotePaperStyle paperStyle = NotePaperStyle.plain,
     double initialCanvasHeight = 1600,
     double canvasBottomPadding = 600,
-  }) {
-    return MaterialApp(
-      home: Scaffold(
-        body: PointerSettingsScope(
-          settings: PointerSettings(),
-          child: EditorSettingsScope(
-            settings: EditorSettings(),
-            child: DrawingCanvas(
-              drawingController: controller,
-              currentTool: currentTool,
-              resolveTool: resolveTool,
-              eraserRadiusFor: eraserRadiusFor,
-              onPersistDrawing: onPersistDrawing,
-              onTwoFingerUndo: onTwoFingerUndo,
-              paperStyle: paperStyle,
-              initialCanvasHeight: initialCanvasHeight,
-              canvasBottomPadding: canvasBottomPadding,
+  }) => MaterialApp(
+        home: Scaffold(
+          body: PointerSettingsScope(
+            settings: PointerSettings(),
+            child: EditorSettingsScope(
+              settings: EditorSettings(),
+              child: DrawingCanvas(
+                drawingController: controller,
+                currentTool: currentTool,
+                resolveTool: resolveTool,
+                eraserRadiusFor: eraserRadiusFor,
+                onPersistDrawing: onPersistDrawing,
+                onTwoFingerUndo: onTwoFingerUndo,
+                paperStyle: paperStyle,
+                initialCanvasHeight: initialCanvasHeight,
+                canvasBottomPadding: canvasBottomPadding,
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
 
   group('DrawingCanvas', () {
     testWidgets('rendert korrekt mit Standardparametern', (WidgetTester tester) async {
@@ -192,7 +188,6 @@ void main() {
       // Erstelle tiefe Striche
       final deepStrokes = List.generate(10, (i) => Stroke(
         points: [DrawingPoint(position: Offset(100, 2000 + i * 100), pressure: 1.0)],
-        color: Colors.black,
         baseWidth: 2.0,
       ));
 

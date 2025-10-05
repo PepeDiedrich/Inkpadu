@@ -1,12 +1,14 @@
 import 'package:flutter/widgets.dart';
 
-import 'auth_controller.dart';
+import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 
 /// Stellt den [AuthController] niedrigschwellig im Widget-Baum bereit.
 class AuthScope extends InheritedNotifier<AuthController> {
-  const AuthScope({super.key, required AuthController controller, required Widget child})
-      : super(notifier: controller, child: child);
+  /// Erstellt einen neuen [AuthScope] mit dem gegebenen Controller und Child.
+  const AuthScope({super.key, required AuthController controller, required super.child})
+    : super(notifier: controller);
 
+  /// Gibt den [AuthController] aus dem nächsten [AuthScope] im Kontext zurück.
   static AuthController of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AuthScope>();
     assert(scope != null, 'AuthScope not found in context');
