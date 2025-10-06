@@ -42,3 +42,12 @@ Scopes können pro Provider im Aufruf von `_handleLogin` (Onboarding) angepasst 
 
 ### Fehlerbehandlung
 Bei Fehlschlag erscheint eine kurze Fehlermeldung unter den Buttons (z.B. `Login (Google) fehlgeschlagen`). Logs können über `flutter run -v` weiter analysiert werden.
+
+## Ink-Datenformat & Synchronisation
+
+* Handschriftliche Seiten werden jetzt platzsparend serialisiert, bevor sie lokal oder in Appwrite gespeichert werden.
+* Der erste Punkt eines Strichs wird in Ganzzahlen (Skalierung ×1000) gespeichert, alle weiteren Punkte nutzen Delta-Kodierung.
+* Negative Deltas werden per ZigZag kodiert und als VarInts geschrieben, ehe der komplette Stream gzip-komprimiert und Base64-kodiert wird.
+* Strich-Metadaten (Farbe, Basisbreite, Marker-Flag) bleiben lesbar in JSON erhalten, lediglich die Punktliste liegt komprimiert vor.
+* Beim Dekodieren akzeptiert der Codec weiterhin alte JSON-Strukturen – hilfreich für Altdaten oder Debug Dumps.
+* Die Appwrite-Collection `ink-notes` enthält aktuell keine produktiven Dokumente; neue Einträge werden automatisch im neuen Format abgelegt.

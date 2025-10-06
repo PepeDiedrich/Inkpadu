@@ -143,7 +143,7 @@ class InkNotesLocalStorage {
       final id = row['id'] as String?;
       final title = row['title'] as String? ?? '';
       final paperStyle = row['paper_style'] as String? ?? 'plain';
-      final pageData = row['page_data'] as String? ?? '{}';
+  final pageData = row['page_data'] as String? ?? '';
       final updatedAtMs = row['updated_at'] as int? ?? 0;
 
       final updatedAt = DateTime.fromMillisecondsSinceEpoch(updatedAtMs).toLocal();
