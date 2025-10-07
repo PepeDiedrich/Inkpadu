@@ -1,11 +1,16 @@
+import 'dart:convert';
+
+import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
 import 'package:flutter/material.dart';
+import 'package:appwrite/appwrite.dart';
+import 'package:http/http.dart' as http;
 
 /// Zeigt den Platzhalter für den KI-Assistenten an und reagiert auf
 /// Größenänderungen der Sidebar.
-class AssistantPanel extends StatelessWidget {
+class AssistantPanel extends StatefulWidget {
   /// Erstellt ein Panel mit Statusanzeige für den Assistenten.
   const AssistantPanel({
     super.key,
@@ -28,12 +33,101 @@ class AssistantPanel extends StatelessWidget {
   final EditorSidebarSide side;
 
   @override
+  State<AssistantPanel> createState() => _AssistantPanelState();
+}
+
+class _AssistantPanelState extends State<AssistantPanel> {
+  final TextEditingController _promptController = TextEditingController();
+  bool _isLoading = false;
+  String _response = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
+
+  late final Functions _functions;
+
+  // TODO: Ersetze diese Platzhalter durch deine Werte.
+  static const String _functionId = 'REPLACE_WITH_FUNCTION_ID';
+  static const String _azureResourceName = 'REPLACE_WITH_AZURE_RESOURCE';
+  static const String _azureDeploymentName = 'REPLACE_WITH_DEPLOYMENT';
+  static const String _azureApiVersion = '2024-02-01';
+
+  @override
+  void initState() {
+    super.initState();
+    _functions = Functions(AppwriteConfig.client);
+  }
+
+  Future<void> _sendPrompt() async {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty || _isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _response = 'Hole Token und sende Anfrage…';
+    });
+
+    try {
+      // 1) Appwrite Function aufrufen, um temporären Azure Token zu erhalten
+      final execution = await _functions.createExecution(
+        functionId: _functionId,
+      );
+    final Map<String, dynamic> data =
+      json.decode(execution.responseBody) as Map<String, dynamic>;
+
+      if (data['success'] != true) {
+        throw Exception('Konnte Azure-Token nicht erhalten: ${data['error']}');
+      }
+
+      final String token = data['accessToken'] as String;
+
+      // 2) Anfrage direkt an Azure senden
+      final Uri url = Uri.parse(
+        'https://$_azureResourceName.openai.azure.com/openai/deployments/$_azureDeploymentName/chat/completions?api-version=$_azureApiVersion',
+      );
+
+      final http.Response azureRes = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'messages': [
+            {
+              'role': 'system',
+              'content': 'Du bist ein hilfreicher Assistent innerhalb einer Notiz-App.'
+            },
+            {'role': 'user', 'content': prompt},
+          ],
+          'max_tokens': 200,
+        }),
+      );
+
+      if (azureRes.statusCode == 200) {
+        final Map<String, dynamic> body =
+            json.decode(utf8.decode(azureRes.bodyBytes)) as Map<String, dynamic>;
+        setState(() {
+          _response =
+              body['choices']?[0]?['message']?['content']?.toString() ?? 'Keine Antwort erhalten.';
+        });
+      } else {
+        throw Exception('Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}');
+      }
+    } catch (e) {
+      setState(() {
+        _response = 'Fehler: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final TextTheme textTheme = Theme.of(context).textTheme;
 
-    final bool panelOnRight = side == EditorSidebarSide.right;
-    final Color borderColor = isActive
+    final bool panelOnRight = widget.side == EditorSidebarSide.right;
+  final Color borderColor = widget.isActive
         ? AppColors.primaryAccent
         : colorScheme.outlineVariant;
     final BorderSide highlightedBorder = BorderSide(
@@ -45,7 +139,7 @@ class AssistantPanel extends StatelessWidget {
       right: panelOnRight ? Radius.zero : const Radius.circular(20),
     );
 
-    final int percentage = (widthFraction * 100).round();
+    final int percentage = (widget.widthFraction * 100).round();
     final Color headerBadgeColor = colorScheme.primaryContainer;
     final Color cardBackground = colorScheme.surfaceContainerHigh;
     final Color indicatorBackground = colorScheme.inverseSurface;
@@ -109,12 +203,11 @@ class AssistantPanel extends StatelessWidget {
                       color: cardBackground,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Hier erscheinen später KI-Antworten zu deiner Notiz.',
-                          textAlign: TextAlign.center,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          _response,
                           style: textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -124,10 +217,31 @@ class AssistantPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                OutlinedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.flash_on_outlined),
-                  label: const Text('Wird bald aktiviert'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _promptController,
+                        decoration: const InputDecoration(
+                          hintText: 'Frage an den KI-Assistenten…',
+                          border: OutlineInputBorder(),
+                        ),
+                        onSubmitted: (_) => _sendPrompt(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _sendPrompt,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                      label: Text(_isLoading ? 'Senden…' : 'Senden'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -139,7 +253,7 @@ class AssistantPanel extends StatelessWidget {
           left: panelOnRight ? null : 16,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 120),
-            opacity: isActive ? 1 : 0,
+            opacity: widget.isActive ? 1 : 0,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: indicatorBackground,
@@ -154,7 +268,7 @@ class AssistantPanel extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _trendIcon(panelOnRight, resizeTrend),
+                      _trendIcon(panelOnRight, widget.resizeTrend),
                       color: AppColors.primaryAccent,
                       size: 18,
                     ),
