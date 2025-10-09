@@ -7,6 +7,8 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 import 'package:http/http.dart' as http;
+import 'package:appwrite/models.dart' show Execution;
+import 'package:appwrite/enums.dart' as appwrite_enums;
 
 /// Zeigt den Platzhalter für den KI-Assistenten an und reagiert auf
 /// Größenänderungen der Sidebar.
@@ -43,11 +45,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   late final Functions _functions;
 
-  // TODO: Ersetze diese Platzhalter durch deine Werte.
-  static const String _functionId = 'REPLACE_WITH_FUNCTION_ID';
-  static const String _azureResourceName = 'REPLACE_WITH_AZURE_RESOURCE';
-  static const String _azureDeploymentName = 'REPLACE_WITH_DEPLOYMENT';
-  static const String _azureApiVersion = '2024-02-01';
+  // TODO: Ersetze diese Platzhalter durch deine Werte oder lade sie aus
+  // einer sicheren Konfiguration (Environment / Secrets).
+  // Hinweis: Für die URL, die du erwähnt hast, setze Deployment auf
+  // 'gpt-5-nano' und api-version auf '2025-01-01-preview'.
+  static const String _functionId = 'llm_auth';
+  static const String _azureResourceName = 'peped-mgjk16o0-eastus2';
+  static const String _azureDeploymentName = 'gpt-5-nano';
+  static const String _azureApiVersion = '2025-01-01-preview';
 
   @override
   void initState() {
@@ -65,11 +70,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     try {
       // 1) Appwrite Function aufrufen, um temporären Azure Token zu erhalten
-      final execution = await _functions.createExecution(
+      final Execution execution = await _functions.createExecution(
         functionId: _functionId,
+        xasync: false,
       );
-    final Map<String, dynamic> data =
-      json.decode(execution.responseBody) as Map<String, dynamic>;
+
+      final String responseBody = await _resolveExecutionResponse(execution);
+      final Map<String, dynamic> data =
+          json.decode(responseBody) as Map<String, dynamic>;
 
       if (data['success'] != true) {
         throw Exception('Konnte Azure-Token nicht erhalten: ${data['error']}');
@@ -110,6 +118,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
       } else {
         throw Exception('Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}');
       }
+    } on FormatException catch (e) {
+      setState(() {
+        _response = 'Fehler: ${e.message}';
+      });
     } catch (e) {
       setState(() {
         _response = 'Fehler: $e';
@@ -119,6 +131,67 @@ class _AssistantPanelState extends State<AssistantPanel> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<String> _resolveExecutionResponse(Execution execution) async {
+    if (execution.responseBody.trim().isNotEmpty) {
+      return execution.responseBody;
+    }
+
+    if (execution.errors.trim().isNotEmpty) {
+      throw FormatException(execution.errors.trim());
+    }
+
+    final Execution finalExecution = await _pollExecution(execution.$id);
+
+    if (finalExecution.responseBody.trim().isNotEmpty) {
+      return finalExecution.responseBody;
+    }
+
+    if (finalExecution.errors.trim().isNotEmpty) {
+      throw FormatException(finalExecution.errors.trim());
+    }
+
+    throw const FormatException('Server lieferte eine leere Antwort.');
+  }
+
+  Future<Execution> _pollExecution(String executionId) async {
+    Execution lastExecution = await _functions.getExecution(
+      functionId: _functionId,
+      executionId: executionId,
+    );
+
+    if (_hasTerminalResponse(lastExecution)) {
+      return lastExecution;
+    }
+
+    const int maxAttempts = 5;
+    const Duration pollInterval = Duration(milliseconds: 200);
+
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      await Future<void>.delayed(pollInterval);
+      lastExecution = await _functions.getExecution(
+        functionId: _functionId,
+        executionId: executionId,
+      );
+
+      if (_hasTerminalResponse(lastExecution)) {
+        return lastExecution;
+      }
+    }
+
+    return lastExecution;
+  }
+
+  bool _hasTerminalResponse(Execution execution) {
+    if (execution.responseBody.trim().isNotEmpty) {
+      return true;
+    }
+    if (execution.errors.trim().isNotEmpty) {
+      return true;
+    }
+    return execution.status == appwrite_enums.ExecutionStatus.completed ||
+        execution.status == appwrite_enums.ExecutionStatus.failed;
   }
 
   @override

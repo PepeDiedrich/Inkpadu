@@ -1,9 +1,9 @@
 // Package library entrypoint for `inkpadu_llm_auth`.
-// Appwrite imports `package:inkpadu_llm_auth/main.dart` and expects a
-// top-level `main(req, res)` function. This file provides a thin wrapper
-// that forwards the call to the implementation at the package root.
+// Appwrite importiert `package:inkpadu_llm_auth/main.dart` und erwartet eine
+// top-level `main(context)` Funktion. Wir leiten hier zum tatsächlichen
+// Implementierungs-Entrypoint aus dem Paket-Root weiter, ohne uns selbst zu
+// referenzieren, um Rekursionen zu vermeiden.
 
-import 'package:inkpadu_llm_auth/main.dart' as impl;
+import 'package:inkpadu_llm_auth/src/token_function.dart' as impl;
 
-/// Forwards the Appwrite `main(context)` invocation to the implementation.
-Future<dynamic> main(dynamic context) => impl.main(context);
+Future<dynamic> main(dynamic context) => impl.handleRequest(context);
