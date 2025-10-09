@@ -18,7 +18,9 @@ import 'package:http/http.dart' as http;
 /// Sicherheit:
 /// - Prüft, ob die Anfrage von einem angemeldeten Appwrite-User kommt
 ///   (Header: `x-appwrite-user-id`).
-Future<void> main(dynamic req, dynamic res) async {
+Future<void> main(dynamic context) async {
+	final dynamic req = context['req'];
+	final dynamic res = context['res'];
 	// 1) Secrets aus den Env Vars lesen
 	final env = Platform.environment;
 	final String? tenantId = env['AZURE_TENANT_ID'];

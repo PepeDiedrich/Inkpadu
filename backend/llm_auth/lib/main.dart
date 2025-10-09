@@ -5,5 +5,5 @@
 
 import 'package:inkpadu_llm_auth/main.dart' as impl;
 
-/// Forwards the Appwrite `main(req, res)` invocation to the implementation.
-Future<void> main(dynamic req, dynamic res) => impl.main(req, res);
+/// Forwards the Appwrite `main(context)` invocation to the implementation.
+Future<void> main(dynamic context) => impl.main(context);
