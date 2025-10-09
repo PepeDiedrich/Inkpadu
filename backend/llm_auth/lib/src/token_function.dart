@@ -8,8 +8,16 @@ import 'package:http/http.dart' as http;
 
 /// Handles the Azure OAuth2 token request and builds the Appwrite response.
 Future<dynamic> handleRequest(dynamic context) async {
-	final dynamic req = context['req'];
-	final dynamic res = context['res'];
+	final dynamic req = _contextMember(context, 'req');
+	final dynamic res = _contextMember(context, 'res');
+
+	if (req == null || res == null) {
+		stderr.writeln('Appwrite RuntimeContext ohne req/res erhalten: $context');
+		return {
+			'success': false,
+			'error': 'Invalid runtime context: missing request/response objects.',
+		};
+	}
 
 	final env = Platform.environment;
 	final String? tenantId = env['AZURE_TENANT_ID'];
@@ -103,4 +111,27 @@ Future<dynamic> handleRequest(dynamic context) async {
 			statusCode: 500,
 		);
 	}
+}
+
+dynamic _contextMember(dynamic context, String key) {
+	if (context == null) {
+		return null;
+	}
+
+	if (context is Map) {
+		return context[key];
+	}
+
+	try {
+		switch (key) {
+			case 'req':
+				return context.req;
+			case 'res':
+				return context.res;
+		}
+	} catch (_) {
+		// Ignorieren, wir probieren unten weiter
+	}
+
+	return null;
 }
