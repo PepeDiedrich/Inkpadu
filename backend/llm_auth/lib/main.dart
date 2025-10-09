@@ -1,5 +1,9 @@
-// Library entrypoint for the inkpadu_llm_auth package.
-// Exposes the Appwrite-compatible function `main(req, res)` so that
-// other tools can import `package:inkpadu_llm_auth/main.dart`.
+// Package library entrypoint for `inkpadu_llm_auth`.
+// Appwrite imports `package:inkpadu_llm_auth/main.dart` and expects a
+// top-level `main(req, res)` function. This file provides a thin wrapper
+// that forwards the call to the implementation at the package root.
 
-export '../main.dart';
+import 'package:inkpadu_llm_auth/main.dart' as impl;
+
+/// Forwards the Appwrite `main(req, res)` invocation to the implementation.
+Future<void> main(dynamic req, dynamic res) => impl.main(req, res);
