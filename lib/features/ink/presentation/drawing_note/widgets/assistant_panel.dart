@@ -53,6 +53,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
   static const String _azureResourceName = 'peped-mgjk16o0-eastus2';
   static const String _azureDeploymentName = 'gpt-5-nano';
   static const String _azureApiVersion = '2025-01-01-preview';
+  static const int _maxCompletionTokens = 768;
 
   @override
   void initState() {
@@ -104,16 +105,23 @@ class _AssistantPanelState extends State<AssistantPanel> {
             },
             {'role': 'user', 'content': prompt},
           ],
-          'max_tokens': 200,
+          'max_completion_tokens': _maxCompletionTokens,
+          'response_format': {'type': 'text'},
         }),
       );
 
       if (azureRes.statusCode == 200) {
         final Map<String, dynamic> body =
             json.decode(utf8.decode(azureRes.bodyBytes)) as Map<String, dynamic>;
+        final String? responseContent = _extractAssistantMessage(body);
+        final String? finishReason = _firstFinishReason(body);
+        final String displayContent = _prepareDisplayContent(
+          content: responseContent,
+          finishReason: finishReason,
+          rawBody: body,
+        );
         setState(() {
-          _response =
-              body['choices']?[0]?['message']?['content']?.toString() ?? 'Keine Antwort erhalten.';
+          _response = displayContent;
         });
       } else {
         throw Exception('Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}');
@@ -130,6 +138,148 @@ class _AssistantPanelState extends State<AssistantPanel> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  String? _extractAssistantMessage(Map<String, dynamic> body) {
+    final dynamic choices = body['choices'];
+    if (choices is! List || choices.isEmpty) {
+      return null;
+    }
+
+    final dynamic firstChoice = choices.first;
+    if (firstChoice is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final dynamic message = firstChoice['message'];
+    if (message is Map<String, dynamic>) {
+      final dynamic content = message['content'];
+      final String? extracted = _normalizeContent(content);
+      if (extracted != null) {
+        return extracted;
+      }
+    }
+
+    final dynamic delta = firstChoice['delta'];
+    if (delta is Map<String, dynamic>) {
+      final String? extracted = _normalizeContent(delta['content']);
+      if (extracted != null) {
+        return extracted;
+      }
+    }
+
+    return null;
+  }
+
+  String? _firstFinishReason(Map<String, dynamic> body) {
+    final dynamic choices = body['choices'];
+    if (choices is! List || choices.isEmpty) {
+      return null;
+    }
+
+    final dynamic firstChoice = choices.first;
+    if (firstChoice is Map<String, dynamic>) {
+      final dynamic reason = firstChoice['finish_reason'];
+      if (reason is String && reason.isNotEmpty) {
+        return reason;
+      }
+    }
+    return null;
+  }
+
+  String _prepareDisplayContent({
+    required String? content,
+    required String? finishReason,
+    required Map<String, dynamic> rawBody,
+  }) {
+    if (content != null) {
+      if (finishReason == 'length') {
+        return '''$content
+
+---
+⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten. Stell sicher, dass dein Prompt kürzer ist oder erhöhe das Limit.''';
+      }
+      return content;
+    }
+
+    if (finishReason == 'length') {
+      final String fallback =
+          _fallbackFromRawBody(rawBody) ?? 'Antwort konnte nicht gelesen werden.';
+      return '''⚠️ Das Modell hat das Tokenlimit ($_maxCompletionTokens) erreicht, bevor Text zurückgegeben wurde.
+
+$fallback''';
+    }
+
+    return _fallbackFromRawBody(rawBody) ?? 'Antwort konnte nicht gelesen werden.';
+  }
+
+  String? _normalizeContent(dynamic content) {
+    if (content is String) {
+      final String trimmed = content.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    if (content is List) {
+      final StringBuffer buffer = StringBuffer();
+      for (final dynamic entry in content) {
+        if (entry is Map<String, dynamic>) {
+          final String? textValue = _resolvedText(entry['text']) ??
+              _resolvedText(entry['content']) ??
+              _resolvedText(entry['value']);
+          if (textValue != null && textValue.isNotEmpty) {
+            if (buffer.isNotEmpty) {
+              buffer.writeln();
+            }
+            buffer.write(textValue);
+          }
+        } else if (entry is String && entry.trim().isNotEmpty) {
+          if (buffer.isNotEmpty) {
+            buffer.writeln();
+          }
+          buffer.write(entry.trim());
+        }
+      }
+
+      final String combined = buffer.toString().trim();
+      return combined.isEmpty ? null : combined;
+    }
+
+    return null;
+  }
+
+  String? _resolvedText(dynamic value) {
+    if (value is String) {
+      final String trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    if (value is Map<String, dynamic>) {
+      final String? inner = _resolvedText(
+        value['text'] ?? value['content'] ?? value['value'],
+      );
+      if (inner != null) {
+        return inner;
+      }
+
+      final dynamic parts = value['parts'] ?? value['content'] ?? value['segments'];
+      if (parts is List) {
+        return _normalizeContent(parts);
+      }
+    }
+
+    if (value is List) {
+      return _normalizeContent(value);
+    }
+
+    return null;
+  }
+
+  String? _fallbackFromRawBody(Map<String, dynamic> body) {
+    try {
+      return const JsonEncoder.withIndent('  ').convert(body);
+    } catch (_) {
+      return body.toString();
     }
   }
 
