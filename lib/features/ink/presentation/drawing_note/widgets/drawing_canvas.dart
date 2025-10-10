@@ -200,8 +200,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       ..clear()
       ..addAll(_activeTouchPositions);
     _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
-    _isTwoFingerScrollActive = false;
-    _isPinchZoomActive = false;
+    _setTwoFingerScrollActive(false);
+    _setPinchZoomActive(false);
     _initialPinchDistance = _currentTouchDistance();
   }
 
@@ -245,11 +245,34 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   }
 
   void _clearTwoFingerGestureState() {
-    _isTwoFingerScrollActive = false;
+    _setTwoFingerScrollActive(false);
     _lastTwoFingerFocalPoint = null;
     _cancelTwoFingerTapCandidate();
-    _isPinchZoomActive = false;
+    _setPinchZoomActive(false);
     _initialPinchDistance = null;
+  }
+
+  void _setTwoFingerScrollActive(bool value) {
+    if (_isTwoFingerScrollActive == value) {
+      return;
+    }
+    _isTwoFingerScrollActive = value;
+    if (value) {
+      _initialPinchDistance = _currentTouchDistance();
+      _setPinchZoomActive(false);
+    }
+  }
+
+  void _setPinchZoomActive(bool value) {
+    if (_isPinchZoomActive == value || !mounted) {
+      return;
+    }
+    if (value) {
+      _isTwoFingerScrollActive = false;
+    }
+    setState(() {
+      _isPinchZoomActive = value;
+    });
   }
 
   void _abortDrawing() {
@@ -301,9 +324,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeTouchPositions[details.pointer] = details.localPosition;
       if (_activeTouchPositions.length > 2) {
         _cancelTwoFingerTapCandidate();
-        _isTwoFingerScrollActive = true;
+        _setTwoFingerScrollActive(true);
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
-        _isPinchZoomActive = false;
         _initialPinchDistance = null;
         _abortDrawing();
         touchAllowsDrawing = false;
@@ -367,12 +389,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       if (touchCount >= 2) {
         final double? currentDistance = _currentTouchDistance();
         final double? initialDistance = _initialPinchDistance;
-        if (!_isPinchZoomActive &&
+    if (!_isPinchZoomActive &&
+      !_isTwoFingerScrollActive &&
             currentDistance != null &&
             initialDistance != null &&
             (currentDistance - initialDistance).abs() >
                 _pinchActivationThreshold) {
-          _isPinchZoomActive = true;
+          _setTwoFingerScrollActive(false);
+          _setPinchZoomActive(true);
           _cancelTwoFingerTapCandidate();
         }
 
@@ -381,12 +405,12 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           final bool timedOut = !_isTwoFingerTapWithinTimeWindow();
           if (movedTooFar || timedOut) {
             _cancelTwoFingerTapCandidate();
-            _isTwoFingerScrollActive = true;
+            _setTwoFingerScrollActive(true);
           }
         } else if (!_isPinchZoomActive) {
-          _isTwoFingerScrollActive = true;
+          _setTwoFingerScrollActive(true);
         } else {
-          _isTwoFingerScrollActive = false;
+          _setTwoFingerScrollActive(false);
         }
 
         final Offset? focal = _computeTouchFocalPoint();
@@ -469,7 +493,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       }
       if (noMoreTouches) {
-        _isPinchZoomActive = false;
+        _setPinchZoomActive(false);
         _initialPinchDistance = null;
       } else {
         _initialPinchDistance = _currentTouchDistance();
@@ -514,7 +538,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeTouchPositions.remove(details.pointer);
       _resetTwoFingerScrollState();
       if (_activeTouchPositions.length < 2) {
-        _isPinchZoomActive = false;
+        _setPinchZoomActive(false);
         _initialPinchDistance = null;
       } else {
         _initialPinchDistance = _currentTouchDistance();
@@ -566,6 +590,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             minScale: _minZoomScale,
             maxScale: _maxZoomScale,
             panEnabled: false,
+            scaleEnabled: _isPinchZoomActive,
             boundaryMargin: const EdgeInsets.symmetric(
               horizontal: 120,
               vertical: 120,
