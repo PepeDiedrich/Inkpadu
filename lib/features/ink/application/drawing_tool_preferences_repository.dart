@@ -186,13 +186,28 @@ class DrawingToolPreferencesRepository {
       return;
     }
 
+    DrawingToolPreferencesRemoteModel? remote = _remoteCache;
+    if (remote == null) {
+      try {
+        remote = await sync.fetchPreferences(userId);
+        if (remote != null) {
+          _remoteCache = remote;
+        }
+      } catch (_) {
+        remote = null;
+      }
+    }
+
+    final DateTime updatedAt = DateTime.now().toUtc();
+    final DateTime createdAt = remote?.createdAt ?? updatedAt;
     final String toolsJson = _encodeTools(tools);
     final DrawingToolPreferencesUpsertPayload payload =
         DrawingToolPreferencesUpsertPayload(
           userId: userId,
           toolsJson: toolsJson,
           selectedToolId: selectedToolId,
-          updatedAt: DateTime.now().toUtc(),
+          updatedAt: updatedAt,
+          createdAt: createdAt,
         );
 
     try {
@@ -201,6 +216,7 @@ class DrawingToolPreferencesRepository {
         userId: userId,
         toolsJson: toolsJson,
         selectedToolId: selectedToolId,
+        createdAt: createdAt,
         updatedAt: payload.updatedAt,
       );
     } catch (error, stackTrace) {

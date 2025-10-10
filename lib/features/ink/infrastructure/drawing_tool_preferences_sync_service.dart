@@ -15,6 +15,7 @@ class DrawingToolPreferencesRemoteModel {
     required this.userId,
     required this.toolsJson,
     required this.updatedAt,
+    required this.createdAt,
     this.selectedToolId,
   });
 
@@ -30,6 +31,9 @@ class DrawingToolPreferencesRemoteModel {
   /// Zeitstempel der letzten Aktualisierung.
   final DateTime updatedAt;
 
+  /// Zeitstempel der Erstellung.
+  final DateTime createdAt;
+
   /// Baut ein Modell aus einem Appwrite Dokument.
   factory DrawingToolPreferencesRemoteModel.fromDocument(
     appwrite_models.Document document,
@@ -37,6 +41,7 @@ class DrawingToolPreferencesRemoteModel {
     final candidate = DrawingToolPreferencesRemoteModel.tryFromMap(
       Map<String, dynamic>.from(document.data),
       fallbackUpdatedAt: document.$updatedAt,
+      fallbackCreatedAt: document.$createdAt,
     );
     if (candidate == null) {
       throw StateError(
@@ -50,6 +55,7 @@ class DrawingToolPreferencesRemoteModel {
   static DrawingToolPreferencesRemoteModel? tryFromMap(
     Map<String, dynamic> data, {
     Object? fallbackUpdatedAt,
+    Object? fallbackCreatedAt,
   }) {
     final String? userId = _stringOrNull(data['user_id']);
     if (userId == null) {
@@ -67,10 +73,18 @@ class DrawingToolPreferencesRemoteModel {
                 DateTime.now().toUtc())
             .toUtc();
 
+    final DateTime createdAt =
+        (_parseTimestamp(data['created_at']) ??
+                _parseTimestamp(fallbackCreatedAt) ??
+                _parseTimestamp(fallbackUpdatedAt) ??
+                updatedAt)
+            .toUtc();
+
     return DrawingToolPreferencesRemoteModel(
       userId: userId,
       toolsJson: toolsJson,
       selectedToolId: selectedToolId,
+      createdAt: createdAt,
       updatedAt: updatedAt,
     );
   }
@@ -125,6 +139,7 @@ class DrawingToolPreferencesUpsertPayload {
     required this.userId,
     required this.toolsJson,
     required this.updatedAt,
+    required this.createdAt,
     this.selectedToolId,
   });
 
@@ -140,12 +155,16 @@ class DrawingToolPreferencesUpsertPayload {
   /// Zeitstempel der letzten Aktualisierung.
   final DateTime updatedAt;
 
+  /// Zeitstempel der Erstellung.
+  final DateTime createdAt;
+
   /// Map für Appwrite.
   Map<String, dynamic> toMap() => <String, dynamic>{
     'user_id': userId,
     'tools_json': toolsJson,
     'selected_tool_id': selectedToolId,
     'updated_at': updatedAt.toUtc().toIso8601String(),
+    'created_at': createdAt.toUtc().toIso8601String(),
   };
 }
 
@@ -262,6 +281,8 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
         normalized,
         fallbackUpdatedAt:
             normalized['updated_at'] ?? normalized[r'$updatedAt'],
+        fallbackCreatedAt:
+            normalized['created_at'] ?? normalized[r'$createdAt'],
       );
 
       if (model == null) {
@@ -327,6 +348,8 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
 
     normalized[r'$createdAt'] ??= DateTime.now().toUtc().toIso8601String();
     normalized[r'$updatedAt'] ??= normalized[r'$createdAt'];
+    normalized['created_at'] ??= normalized[r'$createdAt'];
+    normalized['updated_at'] ??= normalized[r'$updatedAt'];
 
     return normalized;
   }

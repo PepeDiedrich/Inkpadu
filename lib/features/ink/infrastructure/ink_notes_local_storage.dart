@@ -101,7 +101,7 @@ class InkNotesLocalStorage {
   Future<void> saveNote(InkNote note, {LocalSyncStatus status = LocalSyncStatus.pending, String? userId}) async {
     await init();
     final dto = InkNoteDto.fromDomain(note, userId: userId ?? '');
-    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final createdAt = (dto.createdAt ?? dto.updatedAt).toUtc().millisecondsSinceEpoch;
     final map = <String, Object?>{
       'id': dto.id,
       'user_id': dto.userId,
@@ -111,7 +111,7 @@ class InkNotesLocalStorage {
       'updated_at': dto.updatedAt.toUtc().millisecondsSinceEpoch,
       'sync_status': status.name,
       'remote_updated_at': null,
-      'created_at': now,
+      'created_at': createdAt,
     };
 
     await _db!.insert(_notesTable, map, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -147,6 +147,11 @@ class InkNotesLocalStorage {
       final updatedAtMs = row['updated_at'] as int? ?? 0;
 
       final updatedAt = DateTime.fromMillisecondsSinceEpoch(updatedAtMs).toLocal();
+      final createdAtMs = row['created_at'] as int?;
+      final createdAt = createdAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(createdAtMs, isUtc: true);
+
       final dto = InkNoteDto(
         id: id ?? '',
         userId: row['user_id'] as String? ?? '',
@@ -154,6 +159,7 @@ class InkNotesLocalStorage {
         paperStyle: paperStyle,
         pageData: pageData,
         updatedAt: updatedAt.toUtc(),
+        createdAt: createdAt,
       );
       return dto.toDomain();
     } catch (e) {

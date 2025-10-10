@@ -13,6 +13,7 @@ class InkNoteDto {
     required this.paperStyle,
     required this.pageData,
     required this.updatedAt,
+    this.createdAt,
   });
 
   /// Erzeugt ein neues DTO aus einem [InkNote]-Domänenobjekt.
@@ -24,6 +25,7 @@ class InkNoteDto {
         paperStyle: note.paperStyle.name,
         pageData: InkNotePageCodec.encode(note.page),
         updatedAt: note.updatedAt.toUtc(),
+        createdAt: note.updatedAt.toUtc(),
       );
 
   /// Baut ein DTO aus einem Appwrite-[Document].
@@ -34,6 +36,10 @@ class InkNoteDto {
     paperStyle: doc.data['paper_style'] as String,
     pageData: doc.data['page_data'] as String,
     updatedAt: DateTime.parse(doc.data['updated_at'] as String).toUtc(),
+    createdAt: _parseCreatedAt(
+      doc.data['created_at'],
+      fallback: doc.$createdAt,
+    ),
   );
 
   /// Baut ein DTO aus einer Realtime-Payload.
@@ -44,6 +50,7 @@ class InkNoteDto {
     paperStyle: payload['paper_style'] as String,
     pageData: payload['page_data'] as String,
     updatedAt: DateTime.parse(payload['updated_at'] as String).toUtc(),
+    createdAt: _parseCreatedAt(payload['created_at']),
   );
 
   /// Eindeutige Kennung der Notiz.
@@ -63,6 +70,9 @@ class InkNoteDto {
 
   /// Zeitpunkt der letzten Änderung in UTC.
   final DateTime updatedAt;
+
+  /// Zeitpunkt der Erstellung in UTC.
+  final DateTime? createdAt;
 
   /// Wandelt das DTO zurück in ein [InkNote]-Domänenobjekt.
   InkNote toDomain() {
@@ -89,5 +99,25 @@ class InkNoteDto {
     'paper_style': paperStyle,
     'page_data': pageData,
     'updated_at': updatedAt.toIso8601String(),
+    'created_at': (createdAt ?? updatedAt).toIso8601String(),
   };
+
+  static DateTime? _parseCreatedAt(
+    Object? value, {
+    Object? fallback,
+  }) {
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value)?.toUtc();
+    }
+    if (value is DateTime) {
+      return value.toUtc();
+    }
+    if (fallback is String && fallback.isNotEmpty) {
+      return DateTime.tryParse(fallback)?.toUtc();
+    }
+    if (fallback is DateTime) {
+      return fallback.toUtc();
+    }
+    return null;
+  }
 }
