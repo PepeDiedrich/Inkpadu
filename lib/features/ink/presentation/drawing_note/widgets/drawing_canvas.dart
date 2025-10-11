@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -10,6 +12,7 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -87,6 +90,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   final Map<int, Offset> _activeTouchPositions = HashMap<int, Offset>();
   static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
   static const double _twoFingerTapMaxMovement = 22;
+  static const Duration _hullDebounceDuration = Duration(milliseconds: 500);
   
   DateTime? _twoFingerTapStart;
   final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
@@ -96,6 +100,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   String? _activeToolDuringStrokeId;
   bool _didEraseDuringDrag = false;
   int _lastObservedVersion = 0;
+  Timer? _hullDebounceTimer;
+  List<List<Offset>> _convexHulls = const [];
 
   @override
   void initState() {
@@ -117,6 +123,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _canvasScrollController.jumpTo(target);
       });
     }
+    _notifyDrawingActivity();
   }
 
   @override
@@ -137,6 +144,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   @override
   void dispose() {
+    _hullDebounceTimer?.cancel();
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
     super.dispose();
@@ -166,6 +174,51 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     } else {
       setState(() {});
     }
+    _notifyDrawingActivity();
+  }
+
+  void _notifyDrawingActivity() {
+    _hullDebounceTimer?.cancel();
+    _hullDebounceTimer = Timer(
+      _hullDebounceDuration,
+      _rebuildConvexHulls,
+    );
+  }
+
+  void _rebuildConvexHulls() {
+    if (!mounted) {
+      return;
+    }
+    final List<Stroke> allStrokes = List<Stroke>.of(
+      widget.drawingController.strokes,
+    );
+    final Stroke? currentStroke = widget.drawingController.currentStroke;
+    if (currentStroke != null && currentStroke.points.length >= 2) {
+      allStrokes.add(currentStroke);
+    }
+  final List<List<Offset>> hulls =
+    ConvexHullCalculator.contoursForStrokes(allStrokes);
+    if (_hullsEqual(_convexHulls, hulls)) {
+      return;
+    }
+    setState(() {
+      _convexHulls = hulls;
+    });
+  }
+
+  bool _hullsEqual(List<List<Offset>> a, List<List<Offset>> b) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (!listEquals(a[i], b[i])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
@@ -403,6 +456,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       baseWidth: tool.baseWidth,
       isHighlighter: tool.isHighlighter,
     );
+    _notifyDrawingActivity();
     _activeDrawingPointerId = details.pointer;
     // Lock parent horizontal scrolling while drawing
     widget.onRequestParentScrollLock?.call(true);
@@ -477,6 +531,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _ensureCanvasHeightForPosition(newPoint.position.dy);
 
     widget.drawingController.updateStroke(newPoint);
+    _notifyDrawingActivity();
   }
 
   void _end(PointerUpEvent details) {
@@ -528,6 +583,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _handleControllerChanged();
       }
       _didEraseDuringDrag = false;
+      _notifyDrawingActivity();
       return;
     }
 
@@ -545,6 +601,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _handleControllerChanged();
       }
     });
+    _notifyDrawingActivity();
   }
 
   void _cancel(PointerCancelEvent details) {
@@ -564,11 +621,19 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeDrawingPointerId = null;
       _activeToolDuringStrokeId = null;
     }
+    _notifyDrawingActivity();
   }
 
-  bool _applyEraserPoint(Offset position, DrawingTool tool) => widget
-      .drawingController
-      .eraseAt(position, radius: widget.eraserRadiusFor(tool));
+  bool _applyEraserPoint(Offset position, DrawingTool tool) {
+    final bool erased = widget.drawingController.eraseAt(
+      position,
+      radius: widget.eraserRadiusFor(tool),
+    );
+    if (erased) {
+      _notifyDrawingActivity();
+    }
+    return erased;
+  }
 
   double _pressureForEvent(PointerEvent event, DrawingTool tool) {
     if (!tool.usePressure) {
@@ -647,6 +712,15 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                                     ?.points
                                     .length ??
                                 0,
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: ConvexHullsPainter(
+                              hulls: _convexHulls,
+                            ),
                           ),
                         ),
                       ),

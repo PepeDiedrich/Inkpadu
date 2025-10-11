@@ -72,3 +72,43 @@ class CurrentStrokePainter extends CustomPainter {
       oldDelegate.currentStroke != currentStroke ||
       oldDelegate.pointCount != pointCount;
 }
+
+/// Zeichnet konvexe Hüllen als Debug-Overlay.
+class ConvexHullsPainter extends CustomPainter {
+  /// Erstellt einen Painter zur Visualisierung konvexer Hüllen.
+  const ConvexHullsPainter({required this.hulls});
+
+  /// Liste konvexer Hüllen (jede Hülle ist eine geschlossene Polygonkette).
+  final List<List<Offset>> hulls;
+
+  static const Color _strokeColor = Color(0xFFFFC107);
+  static const Color _fillColor = Color(0x33FFC107);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (hulls.isEmpty) {
+      return;
+    }
+
+    final fillPaint = Paint()
+      ..color = _fillColor
+      ..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..color = _strokeColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    for (final hull in hulls) {
+      if (hull.length < 2) {
+        continue;
+      }
+      final path = Path()..addPolygon(hull, true);
+      canvas.drawPath(path, fillPaint);
+      canvas.drawPath(path, strokePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ConvexHullsPainter oldDelegate) =>
+      oldDelegate.hulls != hulls;
+}
