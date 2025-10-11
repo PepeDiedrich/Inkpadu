@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 
 /// Bündelt dekodierte Seitendaten und Zusatzinformationen.
 class InkNotePageBundle {
+  /// Erstellt ein neues Bundle aus [pages] mit dem zuletzt geöffneten Index
+  /// [lastOpenedPageIndex].
   const InkNotePageBundle({
     required this.pages,
     required this.lastOpenedPageIndex,
@@ -22,6 +24,11 @@ class InkNotePageBundle {
 }
 
 /// Codec zum Komprimieren und Dekomprimieren von [NotePage]-Sammlungen.
+///
+/// Verantwortlich für eine platzsparende Serialisierung (JSON + gzip + Base64)
+/// inklusive Metadaten wie dem zuletzt geöffneten Seitenindex. Versioniert
+/// mittels interner `v`-Kennzahl, unterstützt Fallbacks für Legacy-Formate
+/// und gibt unveränderliche Listen zurück.
 class InkNotePageCodec {
   const InkNotePageCodec._();
 

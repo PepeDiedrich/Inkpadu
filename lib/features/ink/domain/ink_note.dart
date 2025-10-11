@@ -75,7 +75,6 @@ class InkNote {
         NotePage(strokes: const <Stroke>[]),
       ]),
       paperStyle: paperStyle,
-      lastOpenedPageIndex: 0,
     );
   }
 

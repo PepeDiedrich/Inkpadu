@@ -114,7 +114,7 @@ void main() {
         id: 'remote-1',
         title: 'Remote',
         updatedAt: offlineNote.updatedAt.add(const Duration(minutes: 10)),
-        page: offlineNote.page,
+        pages: offlineNote.pages,
         paperStyle: NotePaperStyle.grid,
       );
       sync.setFetchResponse('user-1', [remoteNote]);
@@ -136,7 +136,7 @@ void main() {
         id: 'remote-live',
         title: 'Live',
         updatedAt: DateTime.now(),
-        page: InkNote.empty().page,
+        pages: InkNote.empty().pages,
         paperStyle: NotePaperStyle.plain,
       );
 

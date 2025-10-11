@@ -201,8 +201,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
         );
 
         return PopScope(
-          canPop: true,
-          onPopInvoked: (didPop) {
+          onPopInvokedWithResult: (didPop, result) {
             if (didPop) {
               // Sicherstellen, dass die aktuelle Seite und Striche persistiert werden,
               // damit beim nächsten Öffnen genau diese Seite wieder geladen wird.
@@ -546,26 +545,24 @@ class _AddPagePlaceholder extends StatelessWidget {
   final VoidCallback onAdd;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            iconSize: 48,
-            onPressed: onAdd,
-            icon: const Icon(Icons.note_add_outlined),
-            tooltip: 'Neue Seite hinzufügen',
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Neue Seite hinzufügen',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              iconSize: 48,
+              onPressed: onAdd,
+              icon: const Icon(Icons.note_add_outlined),
+              tooltip: 'Neue Seite hinzufügen',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Neue Seite hinzufügen',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
 }
 
 class _StaticNotePage extends StatelessWidget {

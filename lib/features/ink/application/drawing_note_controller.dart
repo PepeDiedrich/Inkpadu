@@ -51,6 +51,7 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Gibt an, ob der Controller vollständig initialisiert wurde.
   bool get isInitialized => _initialized;
+  /// Gibt an, ob die Werkzeuge aus dem Repository geladen wurden.
   bool get toolsLoaded => _toolsLoaded;
 
   /// Die aktuell bearbeitete Notiz.
@@ -218,7 +219,6 @@ class DrawingNoteController extends ChangeNotifier {
           <NotePage>[NotePage(strokes: const <Stroke>[])],
         ),
         paperStyle: NotePaperStyle.plain,
-        lastOpenedPageIndex: 0,
       );
       _inkNotesController.upsert(placeholder);
       return placeholder;
