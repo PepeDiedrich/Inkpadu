@@ -81,22 +81,17 @@ class DrawingCanvas extends StatefulWidget {
 
 class _DrawingCanvasState extends State<DrawingCanvas> {
   late final ScrollController _canvasScrollController;
-  late final TransformationController _zoomController;
   late double _canvasHeight;
   double? _desiredInitialOffset;
   double _lastScrollExpansionTrigger = -1;
   final Map<int, Offset> _activeTouchPositions = HashMap<int, Offset>();
   static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
   static const double _twoFingerTapMaxMovement = 22;
-  static const double _pinchActivationThreshold = 8;
-  static const double _minZoomScale = 1.0;
-  static const double _maxZoomScale = 3.5;
+  
   DateTime? _twoFingerTapStart;
   final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
   bool _isTwoFingerScrollActive = false;
-  bool _isPinchZoomActive = false;
   Offset? _lastTwoFingerFocalPoint;
-  double? _initialPinchDistance;
   int? _activeDrawingPointerId;
   String? _activeToolDuringStrokeId;
   bool _didEraseDuringDrag = false;
@@ -105,8 +100,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   @override
   void initState() {
     super.initState();
-    _canvasScrollController = ScrollController();
-    _zoomController = TransformationController();
+  _canvasScrollController = ScrollController();
     _canvasHeight = _requiredCanvasHeightForStrokes(
       widget.drawingController.strokes,
     );
@@ -135,7 +129,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _canvasHeight = _requiredCanvasHeightForStrokes(
         widget.drawingController.strokes,
       );
-      _zoomController.value = Matrix4.identity();
+      // reset any gesture-related state
     } else if (oldWidget.currentTool.id != widget.currentTool.id) {
       setState(() {});
     }
@@ -145,7 +139,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void dispose() {
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
-    _zoomController.dispose();
     super.dispose();
   }
 
@@ -215,22 +208,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return focal / _activeTouchPositions.length.toDouble();
   }
 
-  double? _currentTouchDistance() {
-    if (_activeTouchPositions.length < 2) {
-      return null;
-    }
-    final List<Offset> positions = _activeTouchPositions.values.toList(
-      growable: false,
-    );
-    return (positions[0] - positions[1]).distance;
-  }
+  // pinch distance calculation removed (no pinch-to-zoom)
 
   void _resetTwoFingerScrollState() {
     if (_activeTouchPositions.length < 2) {
       _clearTwoFingerGestureState();
     } else {
       _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
-      _initialPinchDistance = _currentTouchDistance();
+      // keep track of focal point for two-finger scroll
     }
   }
 
@@ -241,8 +226,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       ..addAll(_activeTouchPositions);
     _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
     _setTwoFingerScrollActive(false);
-    _setPinchZoomActive(false);
-    _initialPinchDistance = _currentTouchDistance();
+    // initialize two-finger tap candidate
   }
 
   void _cancelTwoFingerTapCandidate() {
@@ -288,8 +272,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _setTwoFingerScrollActive(false);
     _lastTwoFingerFocalPoint = null;
     _cancelTwoFingerTapCandidate();
-    _setPinchZoomActive(false);
-    _initialPinchDistance = null;
+    // clear pinch/initial distance state (pinch removed)
   }
 
   void _setTwoFingerScrollActive(bool value) {
@@ -298,22 +281,11 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
     _isTwoFingerScrollActive = value;
     if (value) {
-      _initialPinchDistance = _currentTouchDistance();
-      _setPinchZoomActive(false);
+      // prepare two-finger scroll; no pinch handling
     }
   }
 
-  void _setPinchZoomActive(bool value) {
-    if (_isPinchZoomActive == value || !mounted) {
-      return;
-    }
-    if (value) {
-      _isTwoFingerScrollActive = false;
-    }
-    setState(() {
-      _isPinchZoomActive = value;
-    });
-  }
+  // Pinch-to-zoom has been removed. Two-finger scroll and two-finger-tap remain.
 
   void _abortDrawing() {
     if (_activeDrawingPointerId == null) {
@@ -380,7 +352,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _cancelTwoFingerTapCandidate();
         _setTwoFingerScrollActive(true);
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
-        _initialPinchDistance = null;
         _abortDrawing();
         touchAllowsDrawing = false;
       } else if (_activeTouchPositions.length == 2) {
@@ -445,19 +416,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
       final int touchCount = _activeTouchPositions.length;
       if (touchCount >= 2) {
-        final double? currentDistance = _currentTouchDistance();
-        final double? initialDistance = _initialPinchDistance;
-    if (!_isPinchZoomActive &&
-      !_isTwoFingerScrollActive &&
-            currentDistance != null &&
-            initialDistance != null &&
-            (currentDistance - initialDistance).abs() >
-                _pinchActivationThreshold) {
-          _setTwoFingerScrollActive(false);
-          _setPinchZoomActive(true);
-          _cancelTwoFingerTapCandidate();
-        }
-
+        // Two-finger gestures: handle two-finger-tap candidate and two-finger scroll
         if (_twoFingerTapStart != null) {
           final bool movedTooFar = !_isTwoFingerTapMovementWithinThreshold();
           final bool timedOut = !_isTwoFingerTapWithinTimeWindow();
@@ -465,10 +424,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             _cancelTwoFingerTapCandidate();
             _setTwoFingerScrollActive(true);
           }
-        } else if (!_isPinchZoomActive) {
-          _setTwoFingerScrollActive(true);
         } else {
-          _setTwoFingerScrollActive(false);
+          _setTwoFingerScrollActive(true);
         }
 
         final Offset? focal = _computeTouchFocalPoint();
@@ -489,9 +446,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           }
         }
         _lastTwoFingerFocalPoint = focal ?? _lastTwoFingerFocalPoint;
-        if (_isPinchZoomActive) {
-          return;
-        }
         return;
       }
     }
@@ -538,12 +492,11 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeTouchPositions.remove(details.pointer);
       final bool noMoreTouches = _activeTouchPositions.length < 2;
 
-      if (candidateActive &&
+        if (candidateActive &&
           withinTime &&
           withinMovement &&
           noMoreTouches &&
-          !_isTwoFingerScrollActive &&
-          !_isPinchZoomActive) {
+          !_isTwoFingerScrollActive) {
         _triggerTwoFingerUndo();
       } else if (noMoreTouches) {
         _clearTwoFingerGestureState();
@@ -551,10 +504,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       }
       if (noMoreTouches) {
-        _setPinchZoomActive(false);
-        _initialPinchDistance = null;
+        // nothing to reset for pinch; keep two-finger state cleared
       } else {
-        _initialPinchDistance = _currentTouchDistance();
+        // update focal point for ongoing two-finger scroll
+        _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       }
     }
 
@@ -598,12 +551,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (details.kind == PointerDeviceKind.touch) {
       _activeTouchPositions.remove(details.pointer);
       _resetTwoFingerScrollState();
-      if (_activeTouchPositions.length < 2) {
-        _setPinchZoomActive(false);
-        _initialPinchDistance = null;
-      } else {
-        _initialPinchDistance = _currentTouchDistance();
-      }
+      // pinch removed: nothing else to do
     }
 
     if (_activeDrawingPointerId == details.pointer) {
@@ -659,11 +607,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           width: double.infinity,
           height: _canvasHeight,
           child: InteractiveViewer(
-            transformationController: _zoomController,
-            minScale: _minZoomScale,
-            maxScale: _maxZoomScale,
+            // Zoom disabled intentionally
             panEnabled: false,
-            scaleEnabled: _isPinchZoomActive,
+            scaleEnabled: false,
             boundaryMargin: const EdgeInsets.symmetric(
               horizontal: 120,
               vertical: 120,
