@@ -43,6 +43,7 @@ class DrawingNoteController extends ChangeNotifier {
   final DrawingController drawingController;
 
   late InkNote _note;
+  late int _currentPageIndex;
   List<DrawingTool> _tools = const [];
   late String _selectedToolId;
   bool _initialized = false;
@@ -50,12 +51,16 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Gibt an, ob der Controller vollständig initialisiert wurde.
   bool get isInitialized => _initialized;
-
-  /// Gibt an, ob Werkzeugdaten aus dem Repository geladen wurden.
   bool get toolsLoaded => _toolsLoaded;
 
   /// Die aktuell bearbeitete Notiz.
   InkNote get note => _note;
+
+  /// Alle Seiten der aktuellen Notiz.
+  List<NotePage> get pages => List<NotePage>.unmodifiable(_note.pages);
+
+  /// Index der aktuell aktiven Seite.
+  int get currentPageIndex => _currentPageIndex;
 
   /// Die verfügbaren Werkzeuge als unveränderliche Liste.
   List<DrawingTool> get tools => List.unmodifiable(_tools);
@@ -87,7 +92,15 @@ class DrawingNoteController extends ChangeNotifier {
   /// Führt die asynchrone Initialisierung der Notiz- und Werkzeugdaten aus.
   Future<void> initialize() async {
     _note = _ensureNote();
-    drawingController.initialize(_note.page.strokes);
+    if (_note.pages.isEmpty) {
+      _note = _note.copyWith(
+        pages: List<NotePage>.unmodifiable(
+          <NotePage>[NotePage(strokes: const <Stroke>[])],
+        ),
+      );
+    }
+    _currentPageIndex = _normalizePageIndex(_note.lastOpenedPageIndex);
+    drawingController.initialize(_note.pages[_currentPageIndex].strokes);
     _tools = List<DrawingTool>.of(_defaultTools);
     _selectedToolId = _tools.first.id;
     _initialized = true;
@@ -157,15 +170,12 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Persistiert den aktuellen Zeichenstand in der Notizsammlung.
   void persistDrawing() {
-    final updatedPage = _note.page.copyWith(strokes: drawingController.strokes);
-
-    final updatedNote = _note.copyWith(
-      page: updatedPage,
+    _persistCurrentPageStrokes();
+    _note = _note.copyWith(
+      lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
-
-    _inkNotesController.upsert(updatedNote);
-    _note = updatedNote;
+    _inkNotesController.upsert(_note);
     notifyListeners();
   }
 
@@ -204,13 +214,83 @@ class DrawingNoteController extends ChangeNotifier {
         id: noteId,
         title: 'Fehlende Notiz',
         updatedAt: DateTime.now(),
-        page: NotePage(strokes: const <Stroke>[]),
+        pages: List<NotePage>.unmodifiable(
+          <NotePage>[NotePage(strokes: const <Stroke>[])],
+        ),
         paperStyle: NotePaperStyle.plain,
+        lastOpenedPageIndex: 0,
       );
       _inkNotesController.upsert(placeholder);
       return placeholder;
     }
     return _inkNotesController.notes[idx];
+  }
+
+  /// Wechselt auf die Seite mit [pageIndex] und lädt deren Striche.
+  void setCurrentPage(int pageIndex) {
+    if (!_initialized) {
+      return;
+    }
+
+    final int normalizedIndex = _normalizePageIndex(pageIndex);
+    if (normalizedIndex == _currentPageIndex) {
+      return;
+    }
+
+    _persistCurrentPageStrokes();
+    _currentPageIndex = normalizedIndex;
+    drawingController.initialize(_note.pages[_currentPageIndex].strokes);
+    _note = _note.copyWith(
+      lastOpenedPageIndex: _currentPageIndex,
+      updatedAt: DateTime.now(),
+    );
+    _inkNotesController.upsert(_note);
+    notifyListeners();
+  }
+
+  /// Fügt nach der aktuellen Seite eine neue leere Seite ein und aktiviert sie.
+  int addPageAfterCurrent() {
+    _persistCurrentPageStrokes();
+
+    final List<NotePage> updatedPages = List<NotePage>.of(_note.pages)
+      ..insert(_currentPageIndex + 1, NotePage(strokes: const <Stroke>[]));
+
+    _currentPageIndex = (_currentPageIndex + 1).clamp(0, updatedPages.length - 1);
+    drawingController.initialize(updatedPages[_currentPageIndex].strokes);
+
+    _note = _note.copyWith(
+      pages: List<NotePage>.unmodifiable(updatedPages),
+      lastOpenedPageIndex: _currentPageIndex,
+      updatedAt: DateTime.now(),
+    );
+    _inkNotesController.upsert(_note);
+    notifyListeners();
+    return _currentPageIndex;
+  }
+
+  void _persistCurrentPageStrokes() {
+    if (!_initialized || _note.pages.isEmpty) {
+      return;
+    }
+    final List<NotePage> updatedPages = List<NotePage>.of(_note.pages);
+    updatedPages[_currentPageIndex] =
+        updatedPages[_currentPageIndex].copyWith(strokes: drawingController.strokes);
+    _note = _note.copyWith(
+      pages: List<NotePage>.unmodifiable(updatedPages),
+    );
+  }
+
+  int _normalizePageIndex(int index) {
+    if (_note.pages.isEmpty) {
+      return 0;
+    }
+    if (index < 0) {
+      return 0;
+    }
+    if (index >= _note.pages.length) {
+      return _note.pages.length - 1;
+    }
+    return index;
   }
 
   @override

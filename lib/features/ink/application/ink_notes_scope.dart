@@ -64,8 +64,23 @@ class InkNotesController extends ChangeNotifier {
   ConnectivityService? _connectivityService;
   StreamSubscription<bool>? _connectivitySubscription;
 
+  // Flüchtige Scroll-Offsets pro Notiz und Seite (nur zur Laufzeit im Speicher)
+  final Map<String, Map<int, double>> _scrollOffsets = <String, Map<int, double>>{};
+
   /// Unveränderliche Sicht auf alle Notizen.
   List<InkNote> get notes => List.unmodifiable(_notes);
+
+  /// Liefert den zuletzt bekannten Scroll-Offset für [noteId] und [pageIndex].
+  double? getScrollOffset(String noteId, int pageIndex) {
+    final Map<int, double>? pages = _scrollOffsets[noteId];
+    return pages?[pageIndex];
+  }
+
+  /// Setzt den Scroll-Offset für [noteId] und [pageIndex].
+  void setScrollOffset(String noteId, int pageIndex, double offset) {
+    final Map<int, double> pages = _scrollOffsets.putIfAbsent(noteId, () => <int, double>{});
+    pages[pageIndex] = offset;
+  }
 
   /// Legt eine neue leere Notiz an und gibt sie zurück.
   InkNote createEmpty({
@@ -98,6 +113,8 @@ class InkNotesController extends ChangeNotifier {
     _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _safelyNotifyListeners();
     if (!fromRemote) {
+      // Sofort lokal persistieren, damit z. B. lastOpenedPageIndex direkt gesichert ist.
+      unawaited(_repository.localStorage.saveNoteLocalOnly(note));
       _syncIfPossible(note);
     }
   }

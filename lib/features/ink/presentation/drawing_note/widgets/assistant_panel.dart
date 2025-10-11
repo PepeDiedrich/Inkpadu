@@ -429,6 +429,7 @@ $fallback''';
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: SingleChildScrollView(
+                        key: const PageStorageKey('assistant_panel_scroll'),
                         child: SelectableText(
                           _response,
                           style: textTheme.bodyMedium?.copyWith(

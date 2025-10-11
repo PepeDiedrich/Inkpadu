@@ -9,6 +9,7 @@ import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_note_dto.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/ink_page_codec.dart';
 
 /// Result of a realtime sync event from Appwrite for ink notes.
 sealed class InkNotesRemoteEvent {
@@ -259,12 +260,22 @@ class InkNotesSyncService implements InkNotesSync {
     }
 
     try {
+      final bundle = InkNotePageCodec.decode(pageData);
+      final lastOpenedRaw = doc['last_opened_page'];
+      final lastOpenedPageIndex = _resolveFlexiblePageIndex(
+        lastOpenedRaw,
+        pagesLength: bundle.pages.length,
+        fallback: bundle.lastOpenedPageIndex,
+      );
+
       return InkNoteDto(
         id: id,
         userId: userId,
         title: title,
         paperStyle: paperStyle,
         pageData: pageData,
+        lastOpenedPageIndex: lastOpenedPageIndex,
+        pages: bundle.pages,
         updatedAt: updatedAt.toUtc(),
       ).toDomain();
     } catch (error, stackTrace) {
@@ -279,6 +290,31 @@ class InkNotesSyncService implements InkNotesSync {
       ));
       return null;
     }
+  }
+
+  int _resolveFlexiblePageIndex(
+    Object? raw, {
+    required int pagesLength,
+    required int fallback,
+  }) {
+    int? value;
+    if (raw is int) {
+      value = raw;
+    } else if (raw is num) {
+      value = raw.toInt();
+    } else if (raw is String) {
+      value = int.tryParse(raw);
+    }
+    if (value == null) return fallback;
+    // Erst 0-basiert (Bestand), dann 1-basiert (neu)
+    if (pagesLength > 0 && value >= 0 && value < pagesLength) {
+      return value;
+    }
+    if (pagesLength > 0 && value >= 1 && value <= pagesLength) {
+      return value - 1; // 1-basiert -> 0-basiert
+    }
+    if (pagesLength <= 0) return 0;
+    return value.clamp(0, pagesLength - 1).toInt();
   }
 
   /// Speichert eine Notiz in Appwrite oder aktualisiert sie bei Bedarf.

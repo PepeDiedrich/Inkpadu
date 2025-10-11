@@ -2,20 +2,25 @@ import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
+import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/pointer_settings_sheet.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:flutter/material.dart';
+// import 'package:flutter/rendering.dart';
 
 /// Seite zum Bearbeiten / Zeichnen einer einzelnen handschriftlichen Notiz.
 class DrawingNotePage extends StatefulWidget {
@@ -41,6 +46,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   DrawingNoteController? _controller;
   bool _repositoryInitialized = false;
   bool _controllerInitialized = false;
+  PageController? _pageController;
+  bool _creatingPage = false;
+  bool _pageScrollLocked = false;
 
   double _sidebarFraction = 0.3;
   double? _previewSidebarFraction;
@@ -76,6 +84,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
   @override
   void dispose() {
+    _pageController?.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -186,7 +195,30 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             controller.drawingController;
         final DrawingTool currentTool = controller.currentTool;
 
-        return Scaffold(
+        // PageController beim ersten initialisierten Build anlegen
+        _pageController ??= PageController(
+          initialPage: controller.currentPageIndex,
+        );
+
+        return PopScope(
+          canPop: true,
+          onPopInvoked: (didPop) {
+            if (didPop) {
+              // Sicherstellen, dass die aktuelle Seite und Striche persistiert werden,
+              // damit beim nächsten Öffnen genau diese Seite wieder geladen wird.
+              controller.persistDrawing();
+              // Letzten geöffneten Seitenindex speichern
+              final notes = InkNotesScope.of(context);
+              final note = controller.note;
+              notes.upsert(
+                note.copyWith(
+                  lastOpenedPageIndex: controller.currentPageIndex,
+                  updatedAt: DateTime.now(),
+                ),
+              );
+            }
+          },
+          child: Scaffold(
           appBar: AppBar(
             leading: const BackButton(),
             centerTitle: true,
@@ -202,6 +234,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  'Seite ${controller.currentPageIndex + 1} / ${controller.pages.length}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(minHeight: 40),
@@ -215,6 +252,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               ],
             ),
             actions: [
+              IconButton(
+                onPressed: _createAndGoToNewPage,
+                tooltip: 'Neue Seite',
+                icon: const Icon(Icons.note_add_outlined),
+              ),
               IconButton(
                 onPressed: () => _openToolConfigurator(currentTool),
                 tooltip: 'Aktuelles Werkzeug bearbeiten',
@@ -267,6 +309,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               final bool isCollapsed =
                   sidebarFraction < _minVisibleSidebarFraction;
 
+              final notesScope = InkNotesScope.of(context);
+              final String noteId = controller.note.id;
+              final int pageIndex = controller.currentPageIndex;
+              final double? initOffset = notesScope.getScrollOffset(noteId, pageIndex);
+
               final Widget canvas = DrawingCanvas(
                 drawingController: drawingController,
                 currentTool: currentTool,
@@ -275,6 +322,22 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                 onPersistDrawing: controller.persistDrawing,
                 onTwoFingerUndo: _handleUndo,
                 paperStyle: controller.note.paperStyle,
+                onRequestParentScrollLock: (lock) {
+                  if (!mounted) return;
+                  if (_pageScrollLocked == lock) return;
+                  setState(() => _pageScrollLocked = lock);
+                },
+                scrollKey: PageStorageKey(
+                  'note_${controller.note.id}_page_${controller.currentPageIndex}_scroll',
+                ),
+                initScrollOffset: initOffset,
+                onScrollOffsetChanged: (offset) {
+                  final c = _maybeController;
+                  if (c == null || !c.isInitialized) return;
+                  final currentId = c.note.id;
+                  final currentPage = c.currentPageIndex;
+                  notesScope.setScrollOffset(currentId, currentPage, offset);
+                },
               );
 
               final double rawHandleOffset = math.max(
@@ -288,7 +351,74 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
               return Stack(
                 children: [
-                  Positioned.fill(child: canvas),
+                  Positioned.fill(
+                    child: PageView.builder(
+                      key: PageStorageKey('note_${controller.note.id}_page_view'),
+                      controller: _pageController,
+                      physics: _pageScrollLocked
+                          ? const NeverScrollableScrollPhysics()
+                          : const PageScrollPhysics(),
+                      onPageChanged: (index) {
+                        // Letztes Element ist der "+ Neue Seite"-Platzhalter.
+                        final int lastIndex = controller.pages.length;
+                        if (index == lastIndex) {
+                          if (!_creatingPage) {
+                            _creatingPage = true;
+                            final int newIndex = controller.addPageAfterCurrent();
+                            // Nach dem Erstellen zur neuen Seite animieren.
+                            if (_pageController?.hasClients == true) {
+                              _pageController!.animateToPage(
+                                newIndex,
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                              );
+                            }
+                            _creatingPage = false;
+                          }
+                          return;
+                        }
+                        if (index != controller.currentPageIndex) {
+                          // Beim Seitenwechsel: aktuellen Offset der alten Seite sichern
+                          final oldId = controller.note.id;
+                          final oldPage = controller.currentPageIndex;
+                          final scrollOffset =
+                              notesScope.getScrollOffset(oldId, oldPage) ?? 0.0;
+                          notesScope.setScrollOffset(oldId, oldPage, scrollOffset);
+
+                          controller.setCurrentPage(index);
+
+              // Für die neue Seite: der Canvas liest initScrollOffset
+              // beim Neuaufbau (siehe oben), daher kein direkter jumpTo nötig.
+                        }
+                      },
+                      itemCount: controller.pages.length + 1,
+                      itemBuilder: (context, index) {
+                        // Trailing Platzhalter zum Erstellen einer neuen Seite
+                        if (index == controller.pages.length) {
+                          return _AddPagePlaceholder(onAdd: _createAndGoToNewPage);
+                        }
+                        final page = controller.pages[index];
+                        final bool isActive = index == controller.currentPageIndex;
+                        if (isActive) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: canvas,
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _focusPage(index),
+                            child: _StaticNotePage(
+                              page: page,
+                              paperStyle: controller.note.paperStyle,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   AnimatedPositioned(
                     duration: _panelAnimationDuration,
                     curve: _panelAnimationCurve,
@@ -371,8 +501,114 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               );
             },
           ),
+        ),
         );
       },
+    );
+  }
+  void _focusPage(int index) {
+    final controller = _maybeController;
+    if (controller == null || !controller.isInitialized) {
+      return;
+    }
+    controller.setCurrentPage(index);
+    if (_pageController?.hasClients == true) {
+      _pageController!.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _createAndGoToNewPage() {
+    final controller = _maybeController;
+    if (controller == null || !controller.isInitialized) {
+      return;
+    }
+    if (_creatingPage) return;
+    _creatingPage = true;
+    final int newIndex = controller.addPageAfterCurrent();
+    if (_pageController?.hasClients == true) {
+      _pageController!.animateToPage(
+        newIndex,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    _creatingPage = false;
+  }
+}
+
+class _AddPagePlaceholder extends StatelessWidget {
+  const _AddPagePlaceholder({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            iconSize: 48,
+            onPressed: onAdd,
+            icon: const Icon(Icons.note_add_outlined),
+            tooltip: 'Neue Seite hinzufügen',
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Neue Seite hinzufügen',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaticNotePage extends StatelessWidget {
+  const _StaticNotePage({required this.page, required this.paperStyle});
+
+  final NotePage page;
+  final NotePaperStyle paperStyle;
+
+  static const double _initialCanvasHeight = 1600;
+  static const double _canvasBottomPadding = 600;
+
+  double _requiredCanvasHeight() {
+    var maxY = 0.0;
+    for (final stroke in page.strokes) {
+      for (final point in stroke.points) {
+        if (point.position.dy > maxY) {
+          maxY = point.position.dy;
+        }
+      }
+    }
+    return math.max(_initialCanvasHeight, maxY + _canvasBottomPadding);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double height = _requiredCanvasHeight();
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        width: double.infinity,
+        height: height,
+        child: NotePaperBackground(
+          paperStyle: paperStyle,
+          child: RepaintBoundary(
+            child: CustomPaint(
+              painter: FinishedStrokesPainter(
+                strokes: page.strokes,
+                version: page.strokes.hashCode,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

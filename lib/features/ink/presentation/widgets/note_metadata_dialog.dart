@@ -108,6 +108,7 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ListView(
+                key: const PageStorageKey('note_metadata_dialog_list'),
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 children: [
                   TextField(

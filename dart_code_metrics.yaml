@@ -11,6 +11,7 @@ metrics:
   lines-of-code: 120
   number-of-parameters: 4
   maximum-nesting-level: 5
+  
 
 rules:
   - avoid-border-all

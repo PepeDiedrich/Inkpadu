@@ -23,15 +23,16 @@ void main() {
           DrawingPoint(position: const Offset(25.777, -30.200), pressure: 0.91),
         ],
       );
-      final page = NotePage(strokes: <Stroke>[stroke]);
+  final page = NotePage(strokes: <Stroke>[stroke]);
 
-      final encoded = InkNotePageCodec.encode(page);
+  final encoded = InkNotePageCodec.encode(<NotePage>[page]);
       expect(encoded, isNotEmpty);
 
-      final decoded = InkNotePageCodec.decode(encoded);
-      expect(decoded.strokes, hasLength(1));
+  final bundle = InkNotePageCodec.decode(encoded);
+  expect(bundle.pages, hasLength(1));
+  expect(bundle.lastOpenedPageIndex, 0);
 
-      final decodedStroke = decoded.strokes.first;
+  final decodedStroke = bundle.pages.first.strokes.first;
       expect(decodedStroke.id, stroke.id);
       expect(decodedStroke.color.toARGB32(), stroke.color.toARGB32());
       expect(decodedStroke.baseWidth, closeTo(stroke.baseWidth, 1e-6));
@@ -63,10 +64,11 @@ void main() {
         ],
       });
 
-      final decoded = InkNotePageCodec.decode(legacy);
+  final bundle = InkNotePageCodec.decode(legacy);
 
-      expect(decoded.strokes, hasLength(1));
-      final stroke = decoded.strokes.first;
+  expect(bundle.pages, hasLength(1));
+  expect(bundle.lastOpenedPageIndex, 0);
+  final stroke = bundle.pages.first.strokes.first;
       expect(stroke.id, 'legacy');
       expect(stroke.points, hasLength(1));
       expect(stroke.points.first.pressure, closeTo(0.5, 1e-6));

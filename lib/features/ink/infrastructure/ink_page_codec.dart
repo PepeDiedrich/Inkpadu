@@ -7,21 +7,45 @@ import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 
-/// Codec zum Komprimieren und Dekomprimieren von [NotePage]-Daten.
+/// Bündelt dekodierte Seitendaten und Zusatzinformationen.
+class InkNotePageBundle {
+  const InkNotePageBundle({
+    required this.pages,
+    required this.lastOpenedPageIndex,
+  });
+
+  /// Alle Seiten der Notiz.
+  final List<NotePage> pages;
+
+  /// Index der Seite, die zuletzt geöffnet war.
+  final int lastOpenedPageIndex;
+}
+
+/// Codec zum Komprimieren und Dekomprimieren von [NotePage]-Sammlungen.
 class InkNotePageCodec {
   const InkNotePageCodec._();
 
-  static const int _version = 1;
+  static const int _version = 2;
   static const int _positionScale = 1000;
   static const int _pressureScale = 1000;
   static final GZipEncoder _gzipEncoder = GZipEncoder();
   static final GZipDecoder _gzipDecoder = GZipDecoder();
 
-  /// Kodiert eine [NotePage] nach Base64 (gzip-komprimiertes JSON).
-  static String encode(NotePage page) {
+  /// Kodiert eine Liste von Seiten nach Base64 (gzip-komprimiertes JSON).
+  static String encode(
+    List<NotePage> pages, {
+    int lastOpenedPageIndex = 0,
+  }) {
+    final List<NotePage> normalizedPages =
+        pages.isEmpty ? <NotePage>[NotePage(strokes: const <Stroke>[])] : pages;
+    final int clampedIndex = normalizedPages.isEmpty
+        ? 0
+        : lastOpenedPageIndex.clamp(0, normalizedPages.length - 1);
+
     final payload = <String, dynamic>{
       'v': _version,
-      's': page.strokes.map(_encodeStroke).toList(growable: false),
+      'p': normalizedPages.map(_encodePage).toList(growable: false),
+      'meta': <String, dynamic>{'lastPage': clampedIndex},
     };
 
     final jsonString = jsonEncode(payload);
@@ -32,10 +56,15 @@ class InkNotePageCodec {
     return base64Encode(compressed);
   }
 
-  /// Dekodiert eine komprimierte Repräsentation in eine [NotePage].
-  static NotePage decode(String data) {
+  /// Dekodiert eine komprimierte Repräsentation in mehrere Seiten.
+  static InkNotePageBundle decode(String data) {
     if (data.isEmpty) {
-      return NotePage(strokes: <Stroke>[]);
+      return InkNotePageBundle(
+        pages: List<NotePage>.unmodifiable(
+          <NotePage>[NotePage(strokes: const <Stroke>[])],
+        ),
+        lastOpenedPageIndex: 0,
+      );
     }
 
     try {
@@ -43,30 +72,81 @@ class InkNotePageCodec {
       final decompressed = _gzipDecoder.decodeBytes(compressed);
       final jsonPayload = utf8.decode(decompressed);
       final decoded = jsonDecode(jsonPayload) as Map<String, dynamic>;
-      final version = decoded['v'] as int? ?? _version;
-      if (version != _version) {
-        throw const FormatException('Unsupported ink note format version');
+      final version = decoded['v'] as int? ?? 1;
+
+      if (version <= 1) {
+        final strokes = (decoded['s'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(_decodeStroke)
+            .toList(growable: false);
+        return InkNotePageBundle(
+          pages: <NotePage>[NotePage(strokes: strokes)],
+          lastOpenedPageIndex: 0,
+        );
       }
 
-      final strokes = (decoded['s'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(_decodeStroke)
-          .toList(growable: false);
-      return NotePage(strokes: strokes);
+      final List<NotePage> pages =
+          (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(_decodePage)
+              .toList(growable: false);
+      final meta = decoded['meta'];
+      final lastPageRaw =
+          meta is Map<String, dynamic> ? meta['lastPage'] : null;
+      final int normalizedIndex = _parsePageIndex(
+        lastPageRaw,
+        pages.isEmpty ? 0 : pages.length - 1,
+      );
+
+    final List<NotePage> ensuredPages = pages.isEmpty
+      ? <NotePage>[NotePage(strokes: const <Stroke>[])]
+      : pages;
+    final List<NotePage> immutablePages =
+      List<NotePage>.unmodifiable(ensuredPages);
+      final int clampedIndex = ensuredPages.isEmpty
+          ? 0
+          : normalizedIndex.clamp(0, ensuredPages.length - 1);
+
+      return InkNotePageBundle(
+        pages: immutablePages,
+        lastOpenedPageIndex: clampedIndex,
+      );
     } on FormatException {
       // Fallback: Versuch, die ursprüngliche JSON-Struktur zu lesen.
       final legacy = jsonDecode(data);
       if (legacy is Map<String, dynamic>) {
-        return NotePage.fromJson(legacy);
+        return InkNotePageBundle(
+          pages: List<NotePage>.unmodifiable(
+            <NotePage>[NotePage.fromJson(legacy)],
+          ),
+          lastOpenedPageIndex: 0,
+        );
       }
       rethrow;
     } on Exception {
       final legacy = jsonDecode(data);
       if (legacy is Map<String, dynamic>) {
-        return NotePage.fromJson(legacy);
+        return InkNotePageBundle(
+          pages: List<NotePage>.unmodifiable(
+            <NotePage>[NotePage.fromJson(legacy)],
+          ),
+          lastOpenedPageIndex: 0,
+        );
       }
       rethrow;
     }
+  }
+
+  static Map<String, dynamic> _encodePage(NotePage page) => <String, dynamic>{
+    's': page.strokes.map(_encodeStroke).toList(growable: false),
+  };
+
+  static NotePage _decodePage(Map<String, dynamic> data) {
+    final strokes = (data['s'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(_decodeStroke)
+        .toList(growable: false);
+    return NotePage(strokes: strokes);
   }
 
   static Map<String, dynamic> _encodeStroke(Stroke stroke) {
@@ -204,6 +284,22 @@ class InkNotePageCodec {
   static int _encodeZigZag(int value) => (value << 1) ^ (value >> 63);
 
   static int _decodeZigZag(int value) => (value >> 1) ^ -(value & 1);
+
+  static int _parsePageIndex(Object? rawValue, int maxIndex) {
+    if (rawValue is int) {
+      return rawValue;
+    }
+    if (rawValue is num) {
+      return rawValue.toInt();
+    }
+    if (rawValue is String) {
+      final parsed = int.tryParse(rawValue);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+    return maxIndex;
+  }
 }
 
 class _VarintReader {

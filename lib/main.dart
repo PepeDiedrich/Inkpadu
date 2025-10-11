@@ -47,6 +47,8 @@ class _InkpaduAppState extends State<InkpaduApp> {
   late final AuthController _authController;
   late final InkNotesRepository _repository;
   late final InkNotesController _notesController;
+  // Globaler PageStorageBucket für persistente Scroll-Positionen
+  final PageStorageBucket _pageStorageBucket = PageStorageBucket();
 
   @override
   void initState() {
@@ -92,6 +94,12 @@ class _InkpaduAppState extends State<InkpaduApp> {
               theme: AppTheme.light(),
               darkTheme: AppTheme.dark(),
               themeMode: ThemeMode.light,
+              // Globaler PageStorage-Bucket, damit Scrollpositionen
+              // auch nach Schließen/erneutem Öffnen einer Route erhalten bleiben.
+              builder: (context, child) => PageStorage(
+                bucket: _pageStorageBucket,
+                child: child!,
+              ),
               // Decide home based on current auth state or whether the user has ever logged in.
               // This ensures onboarding is skipped after a successful login even if session
               // needs to be restored later.

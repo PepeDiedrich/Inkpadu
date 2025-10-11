@@ -96,6 +96,7 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
       child: SizedBox(
         height: mediaQuery.size.height * 0.92,
         child: SingleChildScrollView(
+          key: const PageStorageKey('drawing_tool_editor_sheet_scroll'),
           padding: EdgeInsets.only(
             left: 20,
             right: 20,

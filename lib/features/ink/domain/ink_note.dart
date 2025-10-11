@@ -1,4 +1,5 @@
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,8 +11,9 @@ class InkNote {
     required this.id,
     required this.title,
     required this.updatedAt,
-    required this.page,
+    required this.pages,
     required this.paperStyle,
+    this.lastOpenedPageIndex = 0,
   });
 
   /// Eindeutige ID.
@@ -23,8 +25,20 @@ class InkNote {
   /// Zeitpunkt der letzten Änderung.
   final DateTime updatedAt;
 
-  /// Die Seite, die alle Zeichenelemente enthält.
-  final NotePage page;
+  /// Alle Seiten der Notiz in Reihenfolge.
+  final List<NotePage> pages;
+
+  /// Index der Seite, die zuletzt geöffnet bzw. verlassen wurde.
+  final int lastOpenedPageIndex;
+
+  /// Liefert die aktuell aktive Seite basierend auf [lastOpenedPageIndex].
+  NotePage get currentPage {
+    if (pages.isEmpty) {
+      return NotePage(strokes: const <Stroke>[]);
+    }
+    final idx = lastOpenedPageIndex.clamp(0, pages.length - 1);
+    return pages[idx];
+  }
 
   /// Der gewählte Papier- bzw. Hintergrundstil.
   final NotePaperStyle paperStyle;
@@ -33,14 +47,16 @@ class InkNote {
   InkNote copyWith({
     String? title,
     DateTime? updatedAt,
-    NotePage? page,
+    List<NotePage>? pages,
     NotePaperStyle? paperStyle,
+    int? lastOpenedPageIndex,
   }) => InkNote(
     id: id,
     title: title ?? this.title,
     updatedAt: updatedAt ?? this.updatedAt,
-    page: page ?? this.page,
+    pages: pages ?? this.pages,
     paperStyle: paperStyle ?? this.paperStyle,
+    lastOpenedPageIndex: lastOpenedPageIndex ?? this.lastOpenedPageIndex,
   );
 
   /// Erzeugt eine leere neue Notiz mit generiertem Titel.
@@ -55,8 +71,11 @@ class InkNote {
       id: id ?? now.microsecondsSinceEpoch.toString(),
       title: title ?? generateTitle(now),
       updatedAt: now,
-      page: NotePage(strokes: []),
+      pages: List<NotePage>.unmodifiable(<NotePage>[
+        NotePage(strokes: const <Stroke>[]),
+      ]),
       paperStyle: paperStyle,
+      lastOpenedPageIndex: 0,
     );
   }
 

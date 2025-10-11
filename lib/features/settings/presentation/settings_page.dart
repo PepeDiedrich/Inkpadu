@@ -14,6 +14,7 @@ class SettingsPage extends StatelessWidget {
     backgroundColor: Theme.of(context).colorScheme.surface,
     appBar: AppBar(title: const Text('Einstellungen')),
     body: ListView(
+      key: const PageStorageKey('settings_list'),
       padding: const EdgeInsets.all(20),
       children: [
         const _SettingsSection(

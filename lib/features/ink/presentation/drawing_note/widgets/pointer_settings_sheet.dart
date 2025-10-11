@@ -24,6 +24,7 @@ class _PointerSettingsSheetState extends State<PointerSettingsSheet> {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
+        key: const PageStorageKey('pointer_settings_sheet_scroll'),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

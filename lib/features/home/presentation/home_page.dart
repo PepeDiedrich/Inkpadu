@@ -82,7 +82,8 @@ class _HomePageState extends State<HomePage> {
       ),
       body: notes.isEmpty
           ? const Center(child: Text('Noch keine handschriftlichen Notizen'))
-          : ListView.builder(
+      : ListView.builder(
+        key: const PageStorageKey('home_list'),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               itemCount: notes.length,
               itemBuilder: (context, index) {
@@ -99,7 +100,7 @@ class _HomePageState extends State<HomePage> {
                   child: ListTile(
                     title: Text(n.title),
                     subtitle: Text(
-                      '${n.page.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
+                      '${n.currentPage.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
                     ),
                     onTap: () => _open(n.id),
                     trailing: Row(

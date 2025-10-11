@@ -26,8 +26,12 @@ class DrawingCanvas extends StatefulWidget {
     required this.onPersistDrawing,
     required this.onTwoFingerUndo,
     required this.paperStyle,
+    this.scrollKey,
+    this.initScrollOffset,
+    this.onScrollOffsetChanged,
     this.initialCanvasHeight = 1600,
     this.canvasBottomPadding = 600,
+    this.onRequestParentScrollLock,
   });
 
   /// Controller, der die Striche verwaltet.
@@ -51,11 +55,25 @@ class DrawingCanvas extends StatefulWidget {
   /// Bestimmt den visuellen Hintergrund der Zeichenfläche.
   final NotePaperStyle paperStyle;
 
+  /// Optionaler Key (z. B. PageStorageKey), um die Scrollposition zu speichern.
+  final Key? scrollKey;
+
+  /// Optionaler initialer Scroll-Offset, der beim ersten Build gesetzt wird.
+  final double? initScrollOffset;
+
+  /// Optionaler Callback, der bei Scroll-Änderungen den aktuellen Offset liefert.
+  final ValueChanged<double>? onScrollOffsetChanged;
+
   /// Mindesthöhe der Zeichenfläche.
   final double initialCanvasHeight;
 
   /// Zusätzlicher Puffer am unteren Rand.
   final double canvasBottomPadding;
+
+  /// Optionaler Callback: true = Parent soll horizontales Scrollen sperren.
+  /// Wird aufgerufen mit `true` wenn eine Zeichenaktion startet und mit `false`
+  /// wenn sie endet oder abgebrochen wird.
+  final ValueChanged<bool>? onRequestParentScrollLock;
 
   @override
   State<DrawingCanvas> createState() => _DrawingCanvasState();
@@ -65,6 +83,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   late final ScrollController _canvasScrollController;
   late final TransformationController _zoomController;
   late double _canvasHeight;
+  double? _desiredInitialOffset;
   double _lastScrollExpansionTrigger = -1;
   final Map<int, Offset> _activeTouchPositions = HashMap<int, Offset>();
   static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
@@ -93,6 +112,17 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     );
     _lastObservedVersion = widget.drawingController.strokesVersion;
     widget.drawingController.addListener(_handleControllerChanged);
+
+    // Falls ein initialer Scroll-Offset übergeben wurde, setze ihn
+    // nach dem ersten Frame (damit Größe/Constraints stehen).
+    if (widget.initScrollOffset != null) {
+      _desiredInitialOffset = widget.initScrollOffset;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_canvasScrollController.hasClients) return;
+        final double target = widget.initScrollOffset!.clamp(0.0, _canvasScrollController.position.maxScrollExtent);
+        _canvasScrollController.jumpTo(target);
+      });
+    }
   }
 
   @override
@@ -130,6 +160,16 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     );
     if (requiredHeight > _canvasHeight) {
       setState(() => _canvasHeight = requiredHeight);
+      // Nach Höhenzuwachs ggf. den gewünschten Start-Offset anwenden
+      if (_desiredInitialOffset != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_canvasScrollController.hasClients) return;
+          final double target = _desiredInitialOffset!.clamp(0.0, _canvasScrollController.position.maxScrollExtent);
+          if ((_canvasScrollController.offset - target).abs() > 1) {
+            _canvasScrollController.jumpTo(target);
+          }
+        });
+      }
     } else {
       setState(() {});
     }
@@ -284,6 +324,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _didEraseDuringDrag = false;
     } else {
       widget.drawingController.cancelCurrentStroke();
+      // Inform parent that drawing ended/was aborted
+      widget.onRequestParentScrollLock?.call(false);
     }
     _activeDrawingPointerId = null;
     _activeToolDuringStrokeId = null;
@@ -312,6 +354,18 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     setState(() {
       _canvasHeight = math.max(_canvasHeight, visibleExtent);
     });
+
+    // Nach einer Expansion die zuletzt gewünschte Position (falls vom Aufrufer gesetzt)
+    // bestmöglich wiederherstellen.
+    if (widget.initScrollOffset != null && _canvasScrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_canvasScrollController.hasClients) return;
+        final double target = widget.initScrollOffset!.clamp(0.0, _canvasScrollController.position.maxScrollExtent);
+        if ((_canvasScrollController.offset - target).abs() > 1) {
+          _canvasScrollController.jumpTo(target);
+        }
+      });
+    }
     return false;
   }
 
@@ -359,6 +413,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       if (erased) {
         _didEraseDuringDrag = true;
       }
+      // Lock parent horizontal scrolling while erasing stroke
+      widget.onRequestParentScrollLock?.call(true);
       return;
     }
 
@@ -377,6 +433,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       isHighlighter: tool.isHighlighter,
     );
     _activeDrawingPointerId = details.pointer;
+    // Lock parent horizontal scrolling while drawing
+    widget.onRequestParentScrollLock?.call(true);
   }
 
   void _update(PointerMoveEvent details) {
@@ -508,6 +566,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _activeDrawingPointerId = null;
     _activeToolDuringStrokeId = null;
 
+    // Unlock parent horizontal scrolling when stroke ends
+    widget.onRequestParentScrollLock?.call(false);
+
     if (tool.isEraser) {
       if (_didEraseDuringDrag) {
         widget.onPersistDrawing();
@@ -577,8 +638,20 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   Widget build(BuildContext context) => ScrollConfiguration(
     behavior: const _DrawingScrollBehavior(),
     child: NotificationListener<ScrollNotification>(
-      onNotification: _handleScrollNotification,
+      onNotification: (notification) {
+        final handled = _handleScrollNotification(notification);
+        if (notification.metrics.axis == Axis.vertical &&
+            widget.onScrollOffsetChanged != null &&
+            _canvasScrollController.hasClients &&
+            (notification is ScrollUpdateNotification ||
+                notification is OverscrollNotification ||
+                notification is UserScrollNotification)) {
+          widget.onScrollOffsetChanged!(_canvasScrollController.offset);
+        }
+        return handled;
+      },
       child: SingleChildScrollView(
+        key: widget.scrollKey,
         controller: _canvasScrollController,
         physics: const ClampingScrollPhysics(),
         padding: EdgeInsets.zero,

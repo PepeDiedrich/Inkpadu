@@ -20,6 +20,7 @@ class _PointerSettingsPageState extends State<PointerSettingsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Eingabegeräte')),
       body: ListView(
+        key: const PageStorageKey('pointer_settings_list'),
         padding: const EdgeInsets.all(20),
         children: [
           Text('Eingabegeräte', style: textTheme.titleMedium),
