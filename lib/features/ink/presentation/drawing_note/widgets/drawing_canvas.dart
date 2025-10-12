@@ -35,6 +35,7 @@ class DrawingCanvas extends StatefulWidget {
     this.initialCanvasHeight = 1600,
     this.canvasBottomPadding = 600,
     this.onRequestParentScrollLock,
+    this.onStrokeClustersChanged,
   });
 
   /// Controller, der die Striche verwaltet.
@@ -78,6 +79,10 @@ class DrawingCanvas extends StatefulWidget {
   /// wenn sie endet oder abgebrochen wird.
   final ValueChanged<bool>? onRequestParentScrollLock;
 
+  /// Optionaler Callback, der über aktualisierte Stroke-Cluster informiert.
+  final ValueChanged<List<StrokeBoundingBoxCluster>>?
+      onStrokeClustersChanged;
+
   @override
   State<DrawingCanvas> createState() => _DrawingCanvasState();
 }
@@ -103,6 +108,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   Timer? _hullDebounceTimer;
   List<List<Offset>> _convexHulls = const [];
   List<RotatedBoundingBox> _boundingBoxes = const <RotatedBoundingBox>[];
+  List<StrokeBoundingBoxCluster> _strokeClusters =
+      const <StrokeBoundingBoxCluster>[];
 
   @override
   void initState() {
@@ -198,17 +205,23 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       allStrokes.add(currentStroke);
     }
   final List<List<Offset>> hulls =
-    ConvexHullCalculator.contoursForStrokes(allStrokes);
-  final List<RotatedBoundingBox> boxes =
-    ConvexHullCalculator.boundingBoxesForContours(hulls, allStrokes);
+      ConvexHullCalculator.contoursForStrokes(allStrokes);
+  final List<StrokeBoundingBoxCluster> clusters =
+      ConvexHullCalculator.clustersForContours(hulls, allStrokes);
+  final List<RotatedBoundingBox> boxes = clusters
+      .map((cluster) => cluster.boundingBox)
+      .toList(growable: false);
     if (_hullsEqual(_convexHulls, hulls) &&
-        _boxesEqual(_boundingBoxes, boxes)) {
+        _boxesEqual(_boundingBoxes, boxes) &&
+        _clustersEqual(_strokeClusters, clusters)) {
       return;
     }
     setState(() {
       _convexHulls = hulls;
       _boundingBoxes = boxes;
+      _strokeClusters = clusters;
     });
+    widget.onStrokeClustersChanged?.call(clusters);
   }
 
   bool _hullsEqual(List<List<Offset>> a, List<List<Offset>> b) {
@@ -238,6 +251,24 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
     for (var i = 0; i < a.length; i++) {
       if (!listEquals(a[i].corners, b[i].corners)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _clustersEqual(
+    List<StrokeBoundingBoxCluster> a,
+    List<StrokeBoundingBoxCluster> b,
+  ) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
         return false;
       }
     }

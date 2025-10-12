@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
+import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
+  show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
@@ -54,6 +56,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   double? _previewSidebarFraction;
   bool _isResizing = false;
   SidebarResizeTrend _resizeTrend = SidebarResizeTrend.none;
+  List<StrokeBoundingBoxCluster> _latestStrokeClusters =
+      const <StrokeBoundingBoxCluster>[];
 
   @override
   void didChangeDependencies() {
@@ -337,6 +341,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   final currentPage = c.currentPageIndex;
                   notesScope.setScrollOffset(currentId, currentPage, offset);
                 },
+                onStrokeClustersChanged: _handleStrokeClustersChanged,
               );
 
               final double rawHandleOffset = math.max(
@@ -436,6 +441,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                           widthFraction: previewFraction,
                           resizeTrend: _resizeTrend,
                           side: editorSettings.sidebarSide,
+                          strokeClusters: _latestStrokeClusters,
                         ),
                       ),
                     ),
@@ -536,6 +542,29 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       );
     }
     _creatingPage = false;
+  }
+
+  void _handleStrokeClustersChanged(
+    List<StrokeBoundingBoxCluster> clusters,
+  ) {
+    if (!mounted) {
+      return;
+    }
+    if (_latestStrokeClusters.length == clusters.length) {
+      var allEqual = true;
+      for (var i = 0; i < clusters.length; i++) {
+        if (_latestStrokeClusters[i] != clusters[i]) {
+          allEqual = false;
+          break;
+        }
+      }
+      if (allEqual) {
+        return;
+      }
+    }
+    setState(() {
+      _latestStrokeClusters = clusters;
+    });
   }
 }
 

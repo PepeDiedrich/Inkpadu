@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
+import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
+  show StrokeBoundingBoxCluster;
+import 'package:ai_handwriting_app/features/drawing/application/drawing_snapshot_service.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
@@ -20,6 +23,7 @@ class AssistantPanel extends StatefulWidget {
     required this.widthFraction,
     required this.resizeTrend,
     required this.side,
+    this.strokeClusters = const <StrokeBoundingBoxCluster>[],
   });
 
   /// Ob die Sidebar aktuell eingeblendet ist.
@@ -34,6 +38,9 @@ class AssistantPanel extends StatefulWidget {
   /// Seite, auf der die Sidebar angezeigt wird.
   final EditorSidebarSide side;
 
+  /// Die aktuell ermittelten Stroke-Cluster auf der Zeichenfläche.
+  final List<StrokeBoundingBoxCluster> strokeClusters;
+
   @override
   State<AssistantPanel> createState() => _AssistantPanelState();
 }
@@ -44,6 +51,20 @@ class _AssistantPanelState extends State<AssistantPanel> {
   String _response = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
 
   late final Functions _functions;
+  final DrawingSnapshotService _snapshotService =
+      const DrawingSnapshotService();
+  final ScrollController _contentScrollController = ScrollController();
+  static const String _systemPrompt =
+      'Du bist ein hilfreicher Assistent innerhalb einer Notiz-App. '
+      'Nutze angehängte Bildausschnitte, um die handschriftlichen Inhalte zu interpretieren. '
+      'Beschreibe Unsicherheiten oder unlesbare Bereiche transparent.';
+
+  CombinedSnapshot? _debugSnapshot;
+  String _debugPrompt = '';
+  int? _debugTokenEstimate;
+  int _debugTotalClusters = 0;
+  String? _debugPayloadPreview;
+  bool _showDebugPanel = false;
 
   // TODO: Ersetze diese Platzhalter durch deine Werte oder lade sie aus
   // einer sicheren Konfiguration (Environment / Secrets).
@@ -53,7 +74,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
   static const String _azureResourceName = 'peped-mgjk16o0-eastus2';
   static const String _azureDeploymentName = 'gpt-5-nano';
   static const String _azureApiVersion = '2025-01-01-preview';
-  static const int _maxCompletionTokens = 768;
+  static const int _maxCompletionTokens = 10768;
 
   @override
   void initState() {
@@ -61,16 +82,33 @@ class _AssistantPanelState extends State<AssistantPanel> {
     _functions = Functions(AppwriteConfig.client);
   }
 
+  @override
+  void dispose() {
+    _contentScrollController.dispose();
+    _promptController.dispose();
+    super.dispose();
+  }
+
   Future<void> _sendPrompt() async {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty || _isLoading) return;
+    final List<StrokeBoundingBoxCluster> availableClusters = widget
+        .strokeClusters
+        .where((cluster) => cluster.hasContent)
+        .toList(growable: false);
+    final int totalClusterCount = availableClusters.length;
+
     setState(() {
       _isLoading = true;
-      _response = 'Hole Token und sende Anfrage…';
+      _response = totalClusterCount > 0
+          ? 'Erstelle kompaktes Bild aus $totalClusterCount Clustern und hole Token…'
+          : 'Hole Token und sende Anfrage…';
     });
 
     try {
-      // 1) Appwrite Function aufrufen, um temporären Azure Token zu erhalten
+      final CombinedSnapshot? combinedSnapshot =
+          await _snapshotService.captureCombinedSnapshot(availableClusters);
+
       final Execution execution = await _functions.createExecution(
         functionId: _functionId,
         xasync: false,
@@ -86,10 +124,54 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
       final String token = data['accessToken'] as String;
 
-      // 2) Anfrage direkt an Azure senden
       final Uri url = Uri.parse(
         'https://$_azureResourceName.openai.azure.com/openai/deployments/$_azureDeploymentName/chat/completions?api-version=$_azureApiVersion',
       );
+
+      final List<Map<String, dynamic>> userContent = _buildUserContent(
+        prompt: prompt,
+        combinedSnapshot: combinedSnapshot,
+        totalClusters: totalClusterCount,
+      );
+
+      final Map<String, dynamic> payload = <String, dynamic>{
+        'messages': [
+          {
+            'role': 'system',
+            'content': const [
+              {
+                'type': 'text',
+                'text': _systemPrompt,
+              },
+            ],
+          },
+          {
+            'role': 'user',
+            'content': userContent,
+          },
+        ],
+        'max_completion_tokens': _maxCompletionTokens,
+        'response_format': const {'type': 'text'},
+      };
+
+      final int tokenEstimate = _estimateTokenUsage(
+        prompt: prompt,
+        combinedSnapshot: combinedSnapshot,
+      );
+
+      final String payloadPreview =
+          const JsonEncoder.withIndent('  ').convert(payload);
+
+      if (mounted) {
+        setState(() {
+          _debugPrompt = prompt;
+          _debugTokenEstimate = tokenEstimate;
+          _debugTotalClusters = totalClusterCount;
+          _debugSnapshot = combinedSnapshot;
+          _debugPayloadPreview = payloadPreview;
+          _showDebugPanel = true;
+        });
+      }
 
       final http.Response azureRes = await http.post(
         url,
@@ -97,17 +179,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: json.encode({
-          'messages': [
-            {
-              'role': 'system',
-              'content': 'Du bist ein hilfreicher Assistent innerhalb einer Notiz-App.'
-            },
-            {'role': 'user', 'content': prompt},
-          ],
-          'max_completion_tokens': _maxCompletionTokens,
-          'response_format': {'type': 'text'},
-        }),
+        body: json.encode(payload),
       );
 
       if (azureRes.statusCode == 200) {
@@ -212,6 +284,38 @@ $fallback''';
     }
 
     return _fallbackFromRawBody(rawBody) ?? 'Antwort konnte nicht gelesen werden.';
+  }
+
+  List<Map<String, dynamic>> _buildUserContent({
+    required String prompt,
+    required CombinedSnapshot? combinedSnapshot,
+    required int totalClusters,
+  }) {
+    final List<Map<String, dynamic>> content = <Map<String, dynamic>>[
+      {
+        'type': 'text',
+        'text': prompt,
+      },
+    ];
+
+    if (combinedSnapshot != null) {
+      content.add({
+        'type': 'image_url',
+        'image_url': {
+          'url': 'data:image/png;base64,${combinedSnapshot.base64Data}',
+          'detail': 'auto',
+        },
+      });
+    } else if (totalClusters > 0) {
+      content.add({
+        'type': 'text',
+        'text':
+            'Hinweis: Es standen $totalClusters Cluster zur Verfügung, '
+                'es konnte aber kein Bild erzeugt werden.',
+      });
+    }
+
+    return content;
   }
 
   String? _normalizeContent(dynamic content) {
@@ -350,7 +454,7 @@ $fallback''';
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     final bool panelOnRight = widget.side == EditorSidebarSide.right;
-  final Color borderColor = widget.isActive
+    final Color borderColor = widget.isActive
         ? AppColors.primaryAccent
         : colorScheme.outlineVariant;
     final BorderSide highlightedBorder = BorderSide(
@@ -367,6 +471,11 @@ $fallback''';
     final Color cardBackground = colorScheme.surfaceContainerHigh;
     final Color indicatorBackground = colorScheme.inverseSurface;
     final Color indicatorTextColor = colorScheme.onInverseSurface;
+  final bool hasDebugContent = _debugPrompt.isNotEmpty ||
+    _debugSnapshot != null ||
+    (_debugPayloadPreview?.isNotEmpty ?? false) ||
+    _debugTokenEstimate != null ||
+    _debugTotalClusters > 0;
 
     return Stack(
       children: [
@@ -420,23 +529,60 @@ $fallback''';
                 ),
                 const SizedBox(height: 20),
                 Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: cardBackground,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: SingleChildScrollView(
-                        key: const PageStorageKey('assistant_panel_scroll'),
-                        child: SelectableText(
-                          _response,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                  child: Scrollbar(
+                    controller: _contentScrollController,
+                    child: ListView(
+                      controller: _contentScrollController,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: cardBackground,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: SelectableText(
+                              _response,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: hasDebugContent
+                                ? () {
+                                    setState(() {
+                                      _showDebugPanel = !_showDebugPanel;
+                                    });
+                                  }
+                                : null,
+                            icon: Icon(
+                              _showDebugPanel
+                                  ? Icons.bug_report
+                                  : Icons.bug_report_outlined,
+                            ),
+                            label: Text(
+                              _showDebugPanel
+                                  ? 'Debug ausblenden'
+                                  : 'Debug anzeigen',
+                            ),
+                          ),
+                        ),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 160),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child: _showDebugPanel && hasDebugContent
+                              ? _buildDebugSection(textTheme, colorScheme)
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -526,5 +672,203 @@ $fallback''';
           : Icons.keyboard_double_arrow_left;
     }
     return Icons.open_with;
+  }
+
+  Widget _buildDebugSection(TextTheme textTheme, ColorScheme colorScheme) {
+    final List<Widget> children = <Widget>[
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Debug: Gesendete Daten',
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          Text(
+            _debugTokenEstimate != null
+                ? 'Token-Schätzung: $_debugTokenEstimate T.'
+                : 'Token-Schätzung: –',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'Heuristik: Text ≈ Zeichen/4 · Tokens, Bilder ≈ 80 + 1,6 · KiB',
+        style: textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ];
+
+    if (_debugPrompt.isNotEmpty) {
+      children
+        ..add(const SizedBox(height: 12))
+        ..add(
+          Text(
+            'Prompt',
+            style: textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        )
+        ..add(const SizedBox(height: 6))
+        ..add(
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: SelectableText(
+                _debugPrompt,
+                style: textTheme.bodyMedium,
+              ),
+            ),
+          ),
+        );
+    }
+
+    final CombinedSnapshot? combinedSnapshot = _debugSnapshot;
+    if (combinedSnapshot != null) {
+      final Size logicalSize = combinedSnapshot.logicalSize;
+      final Size pixelSize = combinedSnapshot.pixelSize;
+      children
+        ..add(const SizedBox(height: 12))
+        ..add(
+          Text(
+            'Gesamtsnapshot ($_debugTotalClusters Cluster)',
+            style: textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        )
+        ..add(const SizedBox(height: 6))
+        ..add(
+          Text(
+            'Logische Größe: ${logicalSize.width.toStringAsFixed(0)} × '
+            '${logicalSize.height.toStringAsFixed(0)} px · '
+            'Pixel: ${pixelSize.width.toStringAsFixed(0)} × '
+            '${pixelSize.height.toStringAsFixed(0)}',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        )
+        ..add(const SizedBox(height: 4))
+        ..add(
+          Text(
+            'Skalierung: ${(combinedSnapshot.scale * 100).toStringAsFixed(0)} % · '
+            'Pixelratio: ${combinedSnapshot.pixelRatio.toStringAsFixed(2)}',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        )
+        ..add(const SizedBox(height: 8))
+        ..add(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 420),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: Image.memory(
+                    combinedSnapshot.pngBytes,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+    }
+
+    if (_debugPayloadPreview?.isNotEmpty ?? false) {
+      children
+        ..add(const SizedBox(height: 12))
+        ..add(
+          Text(
+            'JSON-Payload',
+            style: textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        )
+        ..add(const SizedBox(height: 6))
+        ..add(
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 260),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                primary: false,
+                padding: const EdgeInsets.all(12),
+                child: SelectableText(
+                  _debugPayloadPreview!,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+    }
+
+    return Container(
+      key: const ValueKey<String>('assistant_debug_panel'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+
+  int _estimateTokenUsage({
+    required String prompt,
+    required CombinedSnapshot? combinedSnapshot,
+  }) {
+    var total = _approxTokens(_systemPrompt) + _approxTokens(prompt);
+    if (combinedSnapshot != null) {
+      final double kiloBytes = combinedSnapshot.pngBytes.lengthInBytes / 1024;
+      final int imageTokens = (80 + kiloBytes * 1.6).ceil();
+      total += imageTokens;
+    }
+    return total;
+  }
+
+  int _approxTokens(String text) {
+    if (text.isEmpty) {
+      return 0;
+    }
+    return (text.length / 4).ceil();
   }
 }

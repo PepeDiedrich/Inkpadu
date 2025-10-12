@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Berechnet enge Konturen um Strichdaten, indem die Zeichenfläche gerastert
@@ -117,12 +118,23 @@ class ConvexHullCalculator {
   static List<RotatedBoundingBox> boundingBoxesForContours(
     Iterable<List<Offset>> contours,
     Iterable<Stroke> strokes,
+  ) => clustersForContours(
+        contours,
+        strokes,
+      ).map((cluster) => cluster.boundingBox).toList(growable: false);
+
+  /// Aggregiert Striche zu Clustern basierend auf den angegebenen [contours]
+  /// und berechnet für jeden Cluster die minimale Bounding-Box.
+  static List<StrokeBoundingBoxCluster> clustersForContours(
+    Iterable<List<Offset>> contours,
+    Iterable<Stroke> strokes,
   ) {
     final Map<String, Stroke> remainingStrokes = <String, Stroke>{
       for (final Stroke stroke in strokes) stroke.id: stroke,
     };
 
-    final List<RotatedBoundingBox> boxes = <RotatedBoundingBox>[];
+    final List<StrokeBoundingBoxCluster> clusters =
+        <StrokeBoundingBoxCluster>[];
 
     for (final List<Offset> contour in contours) {
       if (contour.isEmpty) {
@@ -133,6 +145,7 @@ class ConvexHullCalculator {
       final Rect hullBounds = hullPath.getBounds();
 
       final List<Offset> clusterPoints = <Offset>[];
+      final List<Stroke> clusterStrokes = <Stroke>[];
       double maxRadius = 0;
       final List<String> assignedIds = <String>[];
 
@@ -148,6 +161,7 @@ class ConvexHullCalculator {
         clusterPoints.addAll(
           stroke.points.map((point) => point.position),
         );
+        clusterStrokes.add(stroke);
         maxRadius = math.max(maxRadius, _maxStrokeRadius(stroke));
         assignedIds.add(id);
       });
@@ -167,11 +181,40 @@ class ConvexHullCalculator {
       }
 
       if (box != null) {
-        boxes.add(box);
+        clusters.add(
+          StrokeBoundingBoxCluster(
+            boundingBox: box,
+            strokes: clusterStrokes,
+          ),
+        );
       }
     }
 
-    return boxes;
+    if (remainingStrokes.isNotEmpty) {
+      for (final Stroke stroke in remainingStrokes.values) {
+        if (stroke.points.isEmpty) {
+          continue;
+        }
+        final List<Offset> points = stroke.points
+            .map((point) => point.position)
+            .toList(growable: false);
+        RotatedBoundingBox? box = minimalBoundingBoxForPolygon(points);
+        if (box != null) {
+          final double maxRadius = _maxStrokeRadius(stroke);
+          if (maxRadius > 0) {
+            box = box.expand(maxRadius);
+          }
+          clusters.add(
+            StrokeBoundingBoxCluster(
+              boundingBox: box,
+              strokes: <Stroke>[stroke],
+            ),
+          );
+        }
+      }
+    }
+
+    return clusters;
   }
 
   /// Berechnet die minimale Bounding-Box für ein einzelnes Polygon.
@@ -930,6 +973,48 @@ class RotatedBoundingBox {
       height: newHeight,
     );
   }
+}
+
+/// Gruppiert Striche mit einer zugehörigen Bounding-Box.
+class StrokeBoundingBoxCluster {
+  /// Erstellt einen neuen Cluster aus [strokes] und der berechneten [boundingBox].
+  StrokeBoundingBoxCluster({
+    required this.boundingBox,
+    required List<Stroke> strokes,
+  })  : strokes = List<Stroke>.unmodifiable(strokes),
+        strokeIds = List<String>.unmodifiable(
+          strokes.map((stroke) => stroke.id),
+        );
+
+  /// Begrenzende Box des Clusters.
+  final RotatedBoundingBox boundingBox;
+
+  /// Alle Striche, die zu diesem Cluster gehören.
+  final List<Stroke> strokes;
+
+  /// Nur die IDs der enthaltenen Striche (zur Effizienz bei Vergleichen).
+  final List<String> strokeIds;
+
+  /// Ob der Cluster Zeichendaten enthält.
+  bool get hasContent => strokes.isNotEmpty;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! StrokeBoundingBoxCluster) {
+      return false;
+    }
+    return listEquals(strokeIds, other.strokeIds) &&
+        listEquals(boundingBox.corners, other.boundingBox.corners);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        Object.hashAll(strokeIds),
+        Object.hashAll(boundingBox.corners),
+      );
 }
 
 class _StrokeSegment {
