@@ -102,6 +102,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   int _lastObservedVersion = 0;
   Timer? _hullDebounceTimer;
   List<List<Offset>> _convexHulls = const [];
+  List<RotatedBoundingBox> _boundingBoxes = const <RotatedBoundingBox>[];
 
   @override
   void initState() {
@@ -198,11 +199,15 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
   final List<List<Offset>> hulls =
     ConvexHullCalculator.contoursForStrokes(allStrokes);
-    if (_hullsEqual(_convexHulls, hulls)) {
+  final List<RotatedBoundingBox> boxes =
+    ConvexHullCalculator.boundingBoxesForContours(hulls, allStrokes);
+    if (_hullsEqual(_convexHulls, hulls) &&
+        _boxesEqual(_boundingBoxes, boxes)) {
       return;
     }
     setState(() {
       _convexHulls = hulls;
+      _boundingBoxes = boxes;
     });
   }
 
@@ -215,6 +220,24 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
     for (var i = 0; i < a.length; i++) {
       if (!listEquals(a[i], b[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _boxesEqual(
+    List<RotatedBoundingBox> a,
+    List<RotatedBoundingBox> b,
+  ) {
+    if (identical(a, b)) {
+      return true;
+    }
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (!listEquals(a[i].corners, b[i].corners)) {
         return false;
       }
     }
@@ -720,6 +743,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                           child: CustomPaint(
                             painter: ConvexHullsPainter(
                               hulls: _convexHulls,
+                              boundingBoxes: _boundingBoxes,
                             ),
                           ),
                         ),

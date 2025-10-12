@@ -51,6 +51,30 @@ Rect _unionBox(Iterable<List<Offset>> polygons) {
   return box ?? Rect.zero;
 }
 
+bool _anglesApproximatelyEquivalent(
+  double a,
+  double b, {
+  double epsilon = 1e-6,
+}) {
+  double normalize(double angle) {
+    final double twoPi = 2 * math.pi;
+    double normalized = angle % twoPi;
+    if (normalized > math.pi) {
+      normalized -= twoPi;
+    } else if (normalized < -math.pi) {
+      normalized += twoPi;
+    }
+    return normalized;
+  }
+
+  for (final double offset in <double>[0, math.pi / 2, math.pi, 3 * math.pi / 2]) {
+    if (normalize(a - (b + offset)).abs() <= epsilon) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void main() {
   group('ConvexHullCalculator.contoursForStrokes', () {
     test('returns tight contour for rectangle stroke', () {
@@ -158,6 +182,178 @@ void main() {
 
     test('returns empty list when no strokes present', () {
       expect(ConvexHullCalculator.contoursForStrokes(const []), isEmpty);
+    });
+  });
+
+  group('ConvexHullCalculator.minimalBoundingBoxForPolygon', () {
+    test('matches axis-aligned rectangle', () {
+      const List<Offset> polygon = <Offset>[
+        Offset(10, 20),
+        Offset(60, 20),
+        Offset(60, 50),
+        Offset(10, 50),
+      ];
+
+      final RotatedBoundingBox? box =
+          ConvexHullCalculator.minimalBoundingBoxForPolygon(polygon);
+
+      expect(box, isNotNull);
+      expect(box!.width, moreOrLessEquals(50, epsilon: 1e-3));
+      expect(box.height, moreOrLessEquals(30, epsilon: 1e-3));
+      expect(box.angle, moreOrLessEquals(0, epsilon: 1e-6));
+      for (final Offset corner in polygon) {
+        expect(
+          box.corners.any((Offset candidate) =>
+              (candidate - corner).distance <= 1e-3),
+          isTrue,
+        );
+      }
+    });
+
+    test('recovers rotated rectangle', () {
+      const double angle = math.pi / 7; // ca. 25.7°
+      const double halfWidth = 40;
+      const double halfHeight = 18;
+
+      Offset rotatePoint(Offset point) {
+        final double cosAngle = math.cos(angle);
+        final double sinAngle = math.sin(angle);
+        return Offset(
+          point.dx * cosAngle - point.dy * sinAngle,
+          point.dx * sinAngle + point.dy * cosAngle,
+        );
+      }
+
+      final List<Offset> rectangle = <Offset>[
+        const Offset(-halfWidth, -halfHeight),
+        const Offset(halfWidth, -halfHeight),
+        const Offset(halfWidth, halfHeight),
+        const Offset(-halfWidth, halfHeight),
+      ].map(rotatePoint).toList(growable: false);
+
+      final RotatedBoundingBox? box =
+          ConvexHullCalculator.minimalBoundingBoxForPolygon(rectangle);
+
+      expect(box, isNotNull);
+      final List<double> dimensions = <double>[box!.width, box.height]
+        ..sort();
+      final List<double> expectedDimensions = <double>[
+        halfWidth * 2,
+        halfHeight * 2,
+      ]..sort();
+      for (var i = 0; i < dimensions.length; i++) {
+        expect(
+          dimensions[i],
+          moreOrLessEquals(expectedDimensions[i], epsilon: 1e-2),
+        );
+      }
+      // Winkel kann um pi versetzt sein – vergleiche über Sinus/Cosinus.
+      expect(
+        _anglesApproximatelyEquivalent(box.angle, angle),
+        isTrue,
+      );
+      for (final Offset vertex in rectangle) {
+        expect(
+          box.corners.any((Offset corner) =>
+              (corner - vertex).distance <= 1e-2),
+          isTrue,
+        );
+      }
+    });
+
+    test('handles single point polygon', () {
+      const Offset point = Offset(5, -7);
+
+      final RotatedBoundingBox? box =
+          ConvexHullCalculator.minimalBoundingBoxForPolygon(const [point]);
+
+      expect(box, isNotNull);
+      expect(box!.width, 0);
+      expect(box.height, 0);
+      expect(box.center, point);
+      for (final Offset corner in box.corners) {
+        expect(corner, point);
+      }
+    });
+  });
+
+  group('ConvexHullCalculator.boundingBoxesForContours', () {
+    test('uses stroke points within contour and adds radius margin', () {
+      final Stroke stroke = _strokeWithPoints(const [
+        Offset(0, 0),
+        Offset(0, 10),
+        Offset(10, 10),
+        Offset(10, 0),
+        Offset(0, 0),
+      ], width: 6);
+      final List<List<Offset>> contours = <List<Offset>>[
+        const [
+          Offset(-5, -5),
+          Offset(15, -5),
+          Offset(15, 15),
+          Offset(-5, 15),
+        ],
+      ];
+
+      final List<RotatedBoundingBox> boxes =
+          ConvexHullCalculator.boundingBoxesForContours(contours, [stroke]);
+
+      expect(boxes, hasLength(1));
+      final Rect rect = _boundingBox(boxes.single.corners);
+      expect(rect.left, moreOrLessEquals(-3, epsilon: 1e-6));
+      expect(rect.top, moreOrLessEquals(-3, epsilon: 1e-6));
+      expect(rect.right, moreOrLessEquals(13, epsilon: 1e-6));
+      expect(rect.bottom, moreOrLessEquals(13, epsilon: 1e-6));
+    });
+
+    test('groups strokes per contour', () {
+      final Stroke strokeA = _strokeWithPoints(const [
+        Offset(0, 0),
+        Offset(20, 0),
+      ], width: 4);
+      final Stroke strokeB = _strokeWithPoints(const [
+        Offset(40, 40),
+        Offset(60, 40),
+      ], width: 4);
+
+      final List<List<Offset>> contours = <List<Offset>>[
+        const [Offset(-10, -10), Offset(30, -10), Offset(30, 20), Offset(-10, 20)],
+        const [Offset(30, 30), Offset(70, 30), Offset(70, 60), Offset(30, 60)],
+      ];
+
+      final List<RotatedBoundingBox> boxes =
+          ConvexHullCalculator.boundingBoxesForContours(
+        contours,
+        [strokeA, strokeB],
+      );
+
+      expect(boxes, hasLength(2));
+      final Rect rectA = _boundingBox(boxes[0].corners);
+      final Rect rectB = _boundingBox(boxes[1].corners);
+      expect(rectA.left, lessThan(0));
+      expect(rectA.right, greaterThan(20));
+      expect(rectB.left, lessThan(40));
+      expect(rectB.right, greaterThan(60));
+    });
+
+    test('falls back to contour box when no strokes assigned', () {
+      final List<List<Offset>> contours = <List<Offset>>[
+        const [Offset.zero, Offset(10, 0), Offset(10, 10), Offset(0, 10)],
+      ];
+
+      final List<RotatedBoundingBox> boxes =
+          ConvexHullCalculator.boundingBoxesForContours(
+        contours,
+        const [],
+      );
+
+      expect(boxes, hasLength(1));
+      final Rect contourBox = _boundingBox(contours.single);
+      final Rect result = _boundingBox(boxes.single.corners);
+      expect(result.left, contourBox.left);
+      expect(result.top, contourBox.top);
+      expect(result.right, contourBox.right);
+      expect(result.bottom, contourBox.bottom);
     });
   });
 }

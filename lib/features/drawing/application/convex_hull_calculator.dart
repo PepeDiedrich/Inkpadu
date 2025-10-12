@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 class ConvexHullCalculator {
   const ConvexHullCalculator._();
 
+  static const double _boundingBoxComparisonEpsilon = 1e-6;
+
   /// Erstellt Konturen für die gegebenen [strokes].
   ///
   /// [cellSize] bestimmt die Rasterauflösung (in Pixeln). Kleinere Werte führen
@@ -103,6 +105,257 @@ class ConvexHullCalculator {
     }).where((polygon) => polygon.length >= 3).toList(growable: false);
 
     return polygons;
+  }
+
+  /// Liefert für jede Kontur die kleinstmögliche gedrehte Bounding-Box, die
+  /// alle Strichpunkte innerhalb dieser Kontur einschließt.
+  ///
+  /// Die Konturen dienen lediglich dazu, Striche zu gruppieren. Für jede
+  /// Gruppe wird anschließend eine minimale Bounding-Box basierend auf den
+  /// tatsächlichen Strichpunkten berechnet. Die Box wird um den maximalen
+  /// Strichradius aufgeweitet, um die Strichbreite zu berücksichtigen.
+  static List<RotatedBoundingBox> boundingBoxesForContours(
+    Iterable<List<Offset>> contours,
+    Iterable<Stroke> strokes,
+  ) {
+    final Map<String, Stroke> remainingStrokes = <String, Stroke>{
+      for (final Stroke stroke in strokes) stroke.id: stroke,
+    };
+
+    final List<RotatedBoundingBox> boxes = <RotatedBoundingBox>[];
+
+    for (final List<Offset> contour in contours) {
+      if (contour.isEmpty) {
+        continue;
+      }
+
+      final Path hullPath = Path()..addPolygon(contour, true);
+      final Rect hullBounds = hullPath.getBounds();
+
+      final List<Offset> clusterPoints = <Offset>[];
+      double maxRadius = 0;
+      final List<String> assignedIds = <String>[];
+
+      remainingStrokes.forEach((String id, Stroke stroke) {
+        if (stroke.points.isEmpty) {
+          return;
+        }
+
+        if (!_strokeHitsPath(stroke, hullPath, hullBounds)) {
+          return;
+        }
+
+        clusterPoints.addAll(
+          stroke.points.map((point) => point.position),
+        );
+        maxRadius = math.max(maxRadius, _maxStrokeRadius(stroke));
+        assignedIds.add(id);
+      });
+
+      for (final String id in assignedIds) {
+        remainingStrokes.remove(id);
+      }
+
+      RotatedBoundingBox? box;
+      if (clusterPoints.isNotEmpty) {
+        box = minimalBoundingBoxForPolygon(clusterPoints);
+        if (box != null && maxRadius > 0) {
+          box = box.expand(maxRadius);
+        }
+      } else {
+        box = minimalBoundingBoxForPolygon(contour);
+      }
+
+      if (box != null) {
+        boxes.add(box);
+      }
+    }
+
+    return boxes;
+  }
+
+  /// Berechnet die minimale Bounding-Box für ein einzelnes Polygon.
+  static RotatedBoundingBox? minimalBoundingBoxForPolygon(
+    List<Offset> polygon,
+  ) {
+    if (polygon.isEmpty) {
+      return null;
+    }
+
+    final List<Offset> hull = _computeConvexHull(polygon);
+    if (hull.isEmpty) {
+      return null;
+    }
+
+    if (hull.length == 1) {
+      return RotatedBoundingBox.singlePoint(hull.first);
+    }
+    if (hull.length == 2) {
+      return RotatedBoundingBox.fromSegment(hull[0], hull[1]);
+    }
+
+    double bestArea = double.infinity;
+    double bestAngle = 0;
+    double bestCos = 1;
+    double bestSin = 0;
+    double bestMinX = 0;
+    double bestMaxX = 0;
+    double bestMinY = 0;
+    double bestMaxY = 0;
+
+    for (var i = 0; i < hull.length; i++) {
+      final Offset current = hull[i];
+      final Offset next = hull[(i + 1) % hull.length];
+      final Offset edge = next - current;
+      if (edge == Offset.zero) {
+        continue;
+      }
+
+      final double angle = math.atan2(edge.dy, edge.dx);
+      final double cosAngle = math.cos(angle);
+      final double sinAngle = math.sin(angle);
+
+      double minX = double.infinity;
+      double maxX = -double.infinity;
+      double minY = double.infinity;
+      double maxY = -double.infinity;
+
+      for (final Offset point in hull) {
+        final double rotatedX = point.dx * cosAngle + point.dy * sinAngle;
+        final double rotatedY = -point.dx * sinAngle + point.dy * cosAngle;
+        if (rotatedX < minX) minX = rotatedX;
+        if (rotatedX > maxX) maxX = rotatedX;
+        if (rotatedY < minY) minY = rotatedY;
+        if (rotatedY > maxY) maxY = rotatedY;
+      }
+
+      final double width = maxX - minX;
+      final double height = maxY - minY;
+      final double area = width * height;
+
+      if (area < bestArea - _boundingBoxComparisonEpsilon) {
+        bestArea = area;
+        bestAngle = angle;
+        bestCos = cosAngle;
+        bestSin = sinAngle;
+        bestMinX = minX;
+        bestMaxX = maxX;
+        bestMinY = minY;
+        bestMaxY = maxY;
+      }
+    }
+
+    if (!bestArea.isFinite) {
+      return null;
+    }
+
+    final double width = bestMaxX - bestMinX;
+    final double height = bestMaxY - bestMinY;
+
+    final List<Offset> rotatedCorners = <Offset>[
+      Offset(bestMinX, bestMinY),
+      Offset(bestMaxX, bestMinY),
+      Offset(bestMaxX, bestMaxY),
+      Offset(bestMinX, bestMaxY),
+    ];
+
+    final List<Offset> corners = rotatedCorners
+        .map(
+          (Offset corner) => Offset(
+            corner.dx * bestCos - corner.dy * bestSin,
+            corner.dx * bestSin + corner.dy * bestCos,
+          ),
+        )
+        .toList(growable: false);
+
+    return RotatedBoundingBox(
+      corners: corners,
+      angle: bestAngle,
+      width: width,
+      height: height,
+    );
+  }
+
+  static List<Offset> _computeConvexHull(List<Offset> points) {
+    if (points.isEmpty) {
+      return const <Offset>[];
+    }
+
+    if (points.length == 1) {
+      return <Offset>[points.first];
+    }
+
+    final List<Offset> sorted = points.toSet().toList(growable: false)
+      ..sort((Offset a, Offset b) {
+        final int compareX = a.dx.compareTo(b.dx);
+        if (compareX != 0) {
+          return compareX;
+        }
+        return a.dy.compareTo(b.dy);
+      });
+
+    if (sorted.length <= 2) {
+      return sorted;
+    }
+
+    final List<Offset> lower = <Offset>[];
+    for (final Offset point in sorted) {
+      while (lower.length >= 2 &&
+          _cross(lower[lower.length - 2], lower.last, point) <= 0) {
+        lower.removeLast();
+      }
+      lower.add(point);
+    }
+
+    final List<Offset> upper = <Offset>[];
+    for (final Offset point in sorted.reversed) {
+      while (upper.length >= 2 &&
+          _cross(upper[upper.length - 2], upper.last, point) <= 0) {
+        upper.removeLast();
+      }
+      upper.add(point);
+    }
+
+    lower.removeLast();
+    upper.removeLast();
+    lower.addAll(upper);
+    return lower;
+  }
+
+  static double _cross(Offset origin, Offset a, Offset b) =>
+      (a.dx - origin.dx) * (b.dy - origin.dy) -
+      (a.dy - origin.dy) * (b.dx - origin.dx);
+
+  static bool _strokeHitsPath(
+    Stroke stroke,
+    Path path,
+    Rect bounds,
+  ) {
+    for (final point in stroke.points) {
+      final Offset position = point.position;
+      if (!bounds.contains(position)) {
+        continue;
+      }
+      if (path.contains(position)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static double _maxStrokeRadius(Stroke stroke) {
+    double maxRadius = 0;
+    for (final point in stroke.points) {
+      final double pressure = point.pressure;
+      final double radius = stroke.baseWidth * pressure * 0.5;
+      if (radius > maxRadius) {
+        maxRadius = radius;
+      }
+    }
+    if (maxRadius == 0) {
+      return stroke.baseWidth * 0.5;
+    }
+    return maxRadius;
   }
 
   static double _segmentRadius(Stroke stroke, int index, double minRadius) {
@@ -583,6 +836,100 @@ class ConvexHullCalculator {
   }
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
+}
+
+/// Darstellung einer gedrehten Bounding-Box.
+class RotatedBoundingBox {
+  /// Erstellt eine Bounding-Box aus expliziten Eckpunkten und Abmessungen.
+  RotatedBoundingBox({
+    required List<Offset> corners,
+    required this.angle,
+    required this.width,
+    required this.height,
+  })  : assert(corners.length == 4),
+        corners = List<Offset>.unmodifiable(corners),
+        area = width * height;
+
+  /// Erzeugt eine Bounding-Box für einen einzelnen Punkt.
+  RotatedBoundingBox.singlePoint(Offset point)
+      : corners = List<Offset>.unmodifiable(
+          List<Offset>.filled(4, point),
+        ),
+        angle = 0,
+        width = 0,
+        height = 0,
+        area = 0;
+
+  /// Erzeugt eine Bounding-Box, die genau ein Liniensegment umfasst.
+  RotatedBoundingBox.fromSegment(Offset start, Offset end)
+      : corners = List<Offset>.unmodifiable(<Offset>[
+          start,
+          end,
+          end,
+          start,
+        ]),
+        angle = math.atan2(end.dy - start.dy, end.dx - start.dx),
+        width = (end - start).distance,
+        height = 0,
+        area = 0;
+
+  /// Eckpunkte im Uhrzeigersinn.
+  final List<Offset> corners;
+
+  /// Rotationswinkel relativ zur x-Achse (Radiant).
+  final double angle;
+
+  /// Breite der Bounding-Box in Richtung der Basis.
+  final double width;
+
+  /// Höhe der Bounding-Box senkrecht zur Basis.
+  final double height;
+
+  /// Fläche der Bounding-Box.
+  final double area;
+
+  /// Mittelpunkt der Bounding-Box.
+  Offset get center => (corners[0] + corners[2]) / 2;
+
+  /// Gibt eine vergrößerte Kopie der Bounding-Box zurück.
+  RotatedBoundingBox expand(double margin) {
+    if (margin <= 0) {
+      return this;
+    }
+
+    final double newWidth = width + margin * 2;
+    final double newHeight = height + margin * 2;
+    if (newWidth <= 0 || newHeight <= 0) {
+      return this;
+    }
+
+    final Offset centerPoint = center;
+    final double cosAngle = math.cos(angle);
+    final double sinAngle = math.sin(angle);
+
+    final Offset halfWidthVector = Offset(
+      cosAngle * newWidth * 0.5,
+      sinAngle * newWidth * 0.5,
+    );
+    final Offset halfHeightVector = Offset(
+      -sinAngle * newHeight * 0.5,
+      cosAngle * newHeight * 0.5,
+    );
+
+    final List<Offset> newCorners = <Offset>[
+      centerPoint - halfWidthVector - halfHeightVector,
+      centerPoint + halfWidthVector - halfHeightVector,
+      centerPoint + halfWidthVector + halfHeightVector,
+      centerPoint - halfWidthVector + halfHeightVector,
+    ];
+
+    return RotatedBoundingBox(
+      corners: newCorners,
+      angle: angle,
+      width: newWidth,
+      height: newHeight,
+    );
+  }
 }
 
 class _StrokeSegment {
