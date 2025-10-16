@@ -17,7 +17,11 @@ class EditorSettings extends ChangeNotifier {
     this.lineSimplifierEnabled = true,
     this.lineSimplifierStrength = 0.25,
     this.lineSimplifierMinTolerance = 0.3,
+    this.debugModeEnabled = false,
   });
+
+  /// `true`, wenn Debug-Overlays im Editor angezeigt werden sollen.
+  bool debugModeEnabled;
 
   /// Aktuell gewählte Seite des Assistenz-Panels.
   EditorSidebarSide sidebarSide;
@@ -45,6 +49,7 @@ class EditorSettings extends ChangeNotifier {
     bool? lineSimplifierEnabled,
     double? lineSimplifierStrength,
     double? lineSimplifierMinTolerance,
+    bool? debugModeEnabled,
   }) {
     var hasChanged = false;
     if (sidebarSide != null && sidebarSide != this.sidebarSide) {
@@ -67,6 +72,10 @@ class EditorSettings extends ChangeNotifier {
         0.05,
         double.infinity,
       );
+      hasChanged = true;
+    }
+    if (debugModeEnabled != null && debugModeEnabled != this.debugModeEnabled) {
+      this.debugModeEnabled = debugModeEnabled;
       hasChanged = true;
     }
     if (hasChanged) {

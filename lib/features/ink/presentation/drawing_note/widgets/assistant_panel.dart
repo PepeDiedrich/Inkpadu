@@ -1,12 +1,14 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-  show StrokeBoundingBoxCluster;
+    show StrokeBoundingBoxCluster, ConvexHullCalculator;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_snapshot_service.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 import 'package:http/http.dart' as http;
@@ -106,8 +108,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
     });
 
     try {
-      final CombinedSnapshot? combinedSnapshot =
-          await _snapshotService.captureCombinedSnapshot(availableClusters);
+      final CombinedSnapshot? combinedSnapshot = await _snapshotService
+          .captureCombinedSnapshot(availableClusters);
 
       final Execution execution = await _functions.createExecution(
         functionId: _functionId,
@@ -139,16 +141,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
           {
             'role': 'system',
             'content': const [
-              {
-                'type': 'text',
-                'text': _systemPrompt,
-              },
+              {'type': 'text', 'text': _systemPrompt},
             ],
           },
-          {
-            'role': 'user',
-            'content': userContent,
-          },
+          {'role': 'user', 'content': userContent},
         ],
         'max_completion_tokens': _maxCompletionTokens,
         'response_format': const {'type': 'text'},
@@ -159,8 +155,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
         combinedSnapshot: combinedSnapshot,
       );
 
-      final String payloadPreview =
-          const JsonEncoder.withIndent('  ').convert(payload);
+      final String payloadPreview = const JsonEncoder.withIndent(
+        '  ',
+      ).convert(payload);
 
       if (mounted) {
         setState(() {
@@ -184,7 +181,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
       if (azureRes.statusCode == 200) {
         final Map<String, dynamic> body =
-            json.decode(utf8.decode(azureRes.bodyBytes)) as Map<String, dynamic>;
+            json.decode(utf8.decode(azureRes.bodyBytes))
+                as Map<String, dynamic>;
         final String? responseContent = _extractAssistantMessage(body);
         final String? finishReason = _firstFinishReason(body);
         final String displayContent = _prepareDisplayContent(
@@ -196,7 +194,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
           _response = displayContent;
         });
       } else {
-        throw Exception('Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}');
+        throw Exception(
+          'Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}',
+        );
       }
     } on FormatException catch (e) {
       setState(() {
@@ -277,13 +277,15 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     if (finishReason == 'length') {
       final String fallback =
-          _fallbackFromRawBody(rawBody) ?? 'Antwort konnte nicht gelesen werden.';
+          _fallbackFromRawBody(rawBody) ??
+          'Antwort konnte nicht gelesen werden.';
       return '''⚠️ Das Modell hat das Tokenlimit ($_maxCompletionTokens) erreicht, bevor Text zurückgegeben wurde.
 
 $fallback''';
     }
 
-    return _fallbackFromRawBody(rawBody) ?? 'Antwort konnte nicht gelesen werden.';
+    return _fallbackFromRawBody(rawBody) ??
+        'Antwort konnte nicht gelesen werden.';
   }
 
   List<Map<String, dynamic>> _buildUserContent({
@@ -292,10 +294,7 @@ $fallback''';
     required int totalClusters,
   }) {
     final List<Map<String, dynamic>> content = <Map<String, dynamic>>[
-      {
-        'type': 'text',
-        'text': prompt,
-      },
+      {'type': 'text', 'text': prompt},
     ];
 
     if (combinedSnapshot != null) {
@@ -311,7 +310,7 @@ $fallback''';
         'type': 'text',
         'text':
             'Hinweis: Es standen $totalClusters Cluster zur Verfügung, '
-                'es konnte aber kein Bild erzeugt werden.',
+            'es konnte aber kein Bild erzeugt werden.',
       });
     }
 
@@ -328,7 +327,8 @@ $fallback''';
       final StringBuffer buffer = StringBuffer();
       for (final dynamic entry in content) {
         if (entry is Map<String, dynamic>) {
-          final String? textValue = _resolvedText(entry['text']) ??
+          final String? textValue =
+              _resolvedText(entry['text']) ??
               _resolvedText(entry['content']) ??
               _resolvedText(entry['value']);
           if (textValue != null && textValue.isNotEmpty) {
@@ -366,7 +366,8 @@ $fallback''';
         return inner;
       }
 
-      final dynamic parts = value['parts'] ?? value['content'] ?? value['segments'];
+      final dynamic parts =
+          value['parts'] ?? value['content'] ?? value['segments'];
       if (parts is List) {
         return _normalizeContent(parts);
       }
@@ -453,6 +454,31 @@ $fallback''';
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final TextTheme textTheme = Theme.of(context).textTheme;
 
+    final bool debugModeEnabled = EditorSettingsScope.of(
+      context,
+    ).debugModeEnabled;
+    final List<_ClusterShapeData> clusterShapes = debugModeEnabled
+        ? _computeClusterShapes(widget.strokeClusters)
+        : const <_ClusterShapeData>[];
+
+    final bool hasPayloadDebugContent =
+        _debugPrompt.isNotEmpty ||
+        _debugSnapshot != null ||
+        (_debugPayloadPreview?.isNotEmpty ?? false) ||
+        _debugTokenEstimate != null ||
+        _debugTotalClusters > 0;
+    final bool hasDebugContent =
+        hasPayloadDebugContent || clusterShapes.isNotEmpty;
+    final bool showDebugControls = debugModeEnabled && hasDebugContent;
+
+    if (!debugModeEnabled && _showDebugPanel) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _showDebugPanel) {
+          setState(() => _showDebugPanel = false);
+        }
+      });
+    }
+
     final bool panelOnRight = widget.side == EditorSidebarSide.right;
     final Color borderColor = widget.isActive
         ? AppColors.primaryAccent
@@ -471,11 +497,8 @@ $fallback''';
     final Color cardBackground = colorScheme.surfaceContainerHigh;
     final Color indicatorBackground = colorScheme.inverseSurface;
     final Color indicatorTextColor = colorScheme.onInverseSurface;
-  final bool hasDebugContent = _debugPrompt.isNotEmpty ||
-    _debugSnapshot != null ||
-    (_debugPayloadPreview?.isNotEmpty ?? false) ||
-    _debugTokenEstimate != null ||
-    _debugTotalClusters > 0;
+    final bool shouldShowClusterInfo =
+        showDebugControls && clusterShapes.isNotEmpty;
 
     return Stack(
       children: [
@@ -551,37 +574,42 @@ $fallback''';
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: hasDebugContent
-                                ? () {
-                                    setState(() {
-                                      _showDebugPanel = !_showDebugPanel;
-                                    });
-                                  }
-                                : null,
-                            icon: Icon(
-                              _showDebugPanel
-                                  ? Icons.bug_report
-                                  : Icons.bug_report_outlined,
-                            ),
-                            label: Text(
-                              _showDebugPanel
-                                  ? 'Debug ausblenden'
-                                  : 'Debug anzeigen',
+                        if (showDebugControls) ...[
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _showDebugPanel = !_showDebugPanel;
+                                });
+                              },
+                              icon: Icon(
+                                _showDebugPanel
+                                    ? Icons.bug_report
+                                    : Icons.bug_report_outlined,
+                              ),
+                              label: Text(
+                                _showDebugPanel
+                                    ? 'Debug ausblenden'
+                                    : 'Debug anzeigen',
+                              ),
                             ),
                           ),
-                        ),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 160),
-                          switchInCurve: Curves.easeOut,
-                          switchOutCurve: Curves.easeIn,
-                          child: _showDebugPanel && hasDebugContent
-                              ? _buildDebugSection(textTheme, colorScheme)
-                              : const SizedBox.shrink(),
-                        ),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 160),
+                            switchInCurve: Curves.easeOut,
+                            switchOutCurve: Curves.easeIn,
+                            child: _showDebugPanel && hasDebugContent
+                                ? _buildDebugSection(
+                                    textTheme,
+                                    colorScheme,
+                                    clusterShapes,
+                                    shouldShowClusterInfo,
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -674,7 +702,12 @@ $fallback''';
     return Icons.open_with;
   }
 
-  Widget _buildDebugSection(TextTheme textTheme, ColorScheme colorScheme) {
+  Widget _buildDebugSection(
+    TextTheme textTheme,
+    ColorScheme colorScheme,
+    List<_ClusterShapeData> clusterShapes,
+    bool showClusterInfo,
+  ) {
     final List<Widget> children = <Widget>[
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -711,9 +744,7 @@ $fallback''';
         ..add(
           Text(
             'Prompt',
-            style: textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
         )
         ..add(const SizedBox(height: 6))
@@ -727,10 +758,7 @@ $fallback''';
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: SelectableText(
-                _debugPrompt,
-                style: textTheme.bodyMedium,
-              ),
+              child: SelectableText(_debugPrompt, style: textTheme.bodyMedium),
             ),
           ),
         );
@@ -745,9 +773,7 @@ $fallback''';
         ..add(
           Text(
             'Gesamtsnapshot ($_debugTotalClusters Cluster)',
-            style: textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
         )
         ..add(const SizedBox(height: 6))
@@ -803,9 +829,7 @@ $fallback''';
         ..add(
           Text(
             'JSON-Payload',
-            style: textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
         )
         ..add(const SizedBox(height: 6))
@@ -825,11 +849,33 @@ $fallback''';
                 padding: const EdgeInsets.all(12),
                 child: SelectableText(
                   _debugPayloadPreview!,
-                  style: textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
+                  style: textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
                 ),
               ),
+            ),
+          ),
+        );
+    }
+
+    if (showClusterInfo) {
+      children
+        ..add(const SizedBox(height: 12))
+        ..add(
+          Text(
+            'Bounding-Boxen & Hüllen',
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        )
+        ..add(const SizedBox(height: 6))
+        ..add(
+          _ClusterDebugPreview(shapes: clusterShapes, colorScheme: colorScheme),
+        )
+        ..add(const SizedBox(height: 6))
+        ..add(
+          Text(
+            'Türkis: Bounding-Box · Gold: Konvexe Hülle',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         );
@@ -871,4 +917,229 @@ $fallback''';
     }
     return (text.length / 4).ceil();
   }
+
+  List<_ClusterShapeData> _computeClusterShapes(
+    List<StrokeBoundingBoxCluster> clusters,
+  ) {
+    if (clusters.isEmpty) {
+      return const <_ClusterShapeData>[];
+    }
+
+    final List<_ClusterShapeData> shapes = <_ClusterShapeData>[];
+    for (final StrokeBoundingBoxCluster cluster in clusters) {
+      if (!cluster.hasContent) {
+        continue;
+      }
+
+      final List<Offset> hull = List<Offset>.from(
+        ConvexHullCalculator.convexHullForCluster(cluster),
+        growable: false,
+      );
+      final List<Offset> corners = List<Offset>.from(
+        cluster.boundingBox.corners,
+        growable: false,
+      );
+
+      if (hull.isEmpty && corners.isEmpty) {
+        continue;
+      }
+
+      shapes.add(_ClusterShapeData(hull: hull, boundingCorners: corners));
+    }
+
+    return shapes;
+  }
+}
+
+class _ClusterDebugPreview extends StatelessWidget {
+  const _ClusterDebugPreview({required this.shapes, required this.colorScheme});
+
+  final List<_ClusterShapeData> shapes;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(14),
+    child: Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: AspectRatio(
+        aspectRatio: 4 / 3,
+        child: CustomPaint(painter: _ClusterPreviewPainter(shapes)),
+      ),
+    ),
+  );
+}
+
+class _ClusterPreviewPainter extends CustomPainter {
+  const _ClusterPreviewPainter(this.shapes);
+
+  final List<_ClusterShapeData> shapes;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (shapes.isEmpty) {
+      final TextPainter textPainter = TextPainter(
+        text: const TextSpan(
+          text: 'Keine Cluster erkannt',
+          style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: size.width);
+      textPainter.paint(
+        canvas,
+        Offset(
+          (size.width - textPainter.width) * 0.5,
+          (size.height - textPainter.height) * 0.5,
+        ),
+      );
+      return;
+    }
+
+    final Rect? bounds = _computeBounds();
+    if (bounds == null) {
+      return;
+    }
+
+    const double padding = 12;
+    final double availableWidth = size.width - padding * 2;
+    final double availableHeight = size.height - padding * 2;
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      return;
+    }
+
+    final double width = math.max(bounds.width, 1e-3);
+    final double height = math.max(bounds.height, 1e-3);
+    final double scale = math.min(
+      availableWidth / width,
+      availableHeight / height,
+    );
+
+    final double offsetX =
+        (size.width - width * scale) * 0.5 - bounds.left * scale;
+    final double offsetY =
+        (size.height - height * scale) * 0.5 - bounds.top * scale;
+
+    canvas.save();
+    canvas.translate(offsetX, offsetY);
+    canvas.scale(scale);
+
+    final Paint hullFillPaint = Paint()
+      ..color = const Color(0x33FFC107)
+      ..style = PaintingStyle.fill;
+    final Paint hullStrokePaint = Paint()
+      ..color = const Color(0xFFFFC107)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 / scale;
+    final Paint boxFillPaint = Paint()
+      ..color = const Color(0x1A2962FF)
+      ..style = PaintingStyle.fill;
+    final Paint boxStrokePaint = Paint()
+      ..color = const Color(0xFF2962FF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5 / scale;
+
+    for (final _ClusterShapeData shape in shapes) {
+      if (shape.hull.length >= 3) {
+        final Path hullPath = Path()..addPolygon(shape.hull, true);
+        canvas.drawPath(hullPath, hullFillPaint);
+        canvas.drawPath(hullPath, hullStrokePaint);
+      } else if (shape.hull.length == 2) {
+        final Path hullPath = Path()..addPolygon(shape.hull, false);
+        canvas.drawPath(hullPath, hullStrokePaint);
+      } else if (shape.hull.length == 1) {
+        canvas.drawCircle(shape.hull.first, 3 / scale, hullStrokePaint);
+      }
+
+      if (shape.boundingCorners.isNotEmpty) {
+        final Path boxPath = Path()..addPolygon(shape.boundingCorners, true);
+        final Rect boxBounds = boxPath.getBounds();
+        if (boxBounds.width > 0 && boxBounds.height > 0) {
+          canvas.drawPath(boxPath, boxFillPaint);
+        }
+        canvas.drawPath(boxPath, boxStrokePaint);
+      }
+    }
+
+    canvas.restore();
+
+    final Paint framePaint = Paint()
+      ..color = const Color(0x40FFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final RRect frame = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        padding * 0.5,
+        padding * 0.5,
+        size.width - padding,
+        size.height - padding,
+      ),
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(frame, framePaint);
+  }
+
+  Rect? _computeBounds() {
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = -double.infinity;
+    double maxY = -double.infinity;
+
+    for (final _ClusterShapeData shape in shapes) {
+      for (final Offset point in shape.hull) {
+        if (point.dx < minX) minX = point.dx;
+        if (point.dx > maxX) maxX = point.dx;
+        if (point.dy < minY) minY = point.dy;
+        if (point.dy > maxY) maxY = point.dy;
+      }
+      for (final Offset corner in shape.boundingCorners) {
+        if (corner.dx < minX) minX = corner.dx;
+        if (corner.dx > maxX) maxX = corner.dx;
+        if (corner.dy < minY) minY = corner.dy;
+        if (corner.dy > maxY) maxY = corner.dy;
+      }
+    }
+
+    if (!minX.isFinite || !minY.isFinite || !maxX.isFinite || !maxY.isFinite) {
+      return null;
+    }
+
+    if ((maxX - minX).abs() < 1e-6 && (maxY - minY).abs() < 1e-6) {
+      // Erweitere Nullflächen minimal, damit Skalierung funktioniert.
+      return Rect.fromLTWH(minX - 4, minY - 4, 8, 8);
+    }
+
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClusterPreviewPainter oldDelegate) =>
+      !listEquals(oldDelegate.shapes, shapes);
+}
+
+class _ClusterShapeData {
+  const _ClusterShapeData({required this.hull, required this.boundingCorners});
+
+  final List<Offset> hull;
+  final List<Offset> boundingCorners;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! _ClusterShapeData) {
+      return false;
+    }
+    return listEquals(hull, other.hull) &&
+        listEquals(boundingCorners, other.boundingCorners);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(Object.hashAll(hull), Object.hashAll(boundingCorners));
 }

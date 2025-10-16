@@ -24,6 +24,7 @@ class EditorSettingsPage extends StatelessWidget {
             final bool simplifierEnabled = settings.lineSimplifierEnabled;
             final double simplifierStrength = settings.lineSimplifierStrength;
             final double simplifierMinTol = settings.lineSimplifierMinTolerance;
+            final bool debugModeEnabled = settings.debugModeEnabled;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -67,6 +68,17 @@ class EditorSettingsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 Text('Zeichenfläche', style: textTheme.titleMedium),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Debug-Modus aktivieren'),
+                  subtitle: const Text(
+                    'Zeigt Bounding-Boxen und konvexe Hüllen im Editor sowie im KI-Assistenten an.',
+                  ),
+                  value: debugModeEnabled,
+                  onChanged: (value) =>
+                      settings.update(debugModeEnabled: value),
+                ),
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,

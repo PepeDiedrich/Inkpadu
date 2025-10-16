@@ -25,7 +25,7 @@ class ConvexHullCalculator {
     double padding = _defaultPadding,
     double simplifyToleranceFactor = _rdpToleranceFactor,
     double minimumArea = _minimumPolygonArea,
-      double connectionMargin = _defaultConnectionMargin,
+    double connectionMargin = _defaultConnectionMargin,
   }) {
     final _StrokeBounds bounds = _StrokeBounds.fromStrokes(strokes);
     if (!bounds.hasContent) {
@@ -51,8 +51,10 @@ class ConvexHullCalculator {
       growable: false,
     );
 
-    final double minStrokeRadius =
-        math.max(_minimumStrokeRadius, cellSize * _minimumNodeRadiusFactor);
+    final double minStrokeRadius = math.max(
+      _minimumStrokeRadius,
+      cellSize * _minimumNodeRadiusFactor,
+    );
 
     for (final Stroke stroke in strokes) {
       if (stroke.points.length < 2) {
@@ -64,12 +66,7 @@ class ConvexHullCalculator {
           stroke.points[i + 1].position,
           _segmentRadius(stroke, i, minStrokeRadius),
         );
-        _rasterizeSegment(
-          segment,
-          nodeGrid,
-          origin,
-          cellSize,
-        );
+        _rasterizeSegment(segment, nodeGrid, origin, cellSize);
       }
     }
 
@@ -93,17 +90,18 @@ class ConvexHullCalculator {
       return const [];
     }
 
-    final List<List<Offset>> polygons = _segmentsToPolygons(
-      segments,
-      origin,
-      cellSize,
-    ).where((polygon) {
-      final double area = _polygonArea(polygon);
-      return area.abs() >= minimumArea;
-    }).map((polygon) {
-      final double tolerance = cellSize * simplifyToleranceFactor;
-      return _simplifyPolygon(polygon, tolerance);
-    }).where((polygon) => polygon.length >= 3).toList(growable: false);
+    final List<List<Offset>> polygons =
+        _segmentsToPolygons(segments, origin, cellSize)
+            .where((polygon) {
+              final double area = _polygonArea(polygon);
+              return area.abs() >= minimumArea;
+            })
+            .map((polygon) {
+              final double tolerance = cellSize * simplifyToleranceFactor;
+              return _simplifyPolygon(polygon, tolerance);
+            })
+            .where((polygon) => polygon.length >= 3)
+            .toList(growable: false);
 
     return polygons;
   }
@@ -119,9 +117,9 @@ class ConvexHullCalculator {
     Iterable<List<Offset>> contours,
     Iterable<Stroke> strokes,
   ) => clustersForContours(
-        contours,
-        strokes,
-      ).map((cluster) => cluster.boundingBox).toList(growable: false);
+    contours,
+    strokes,
+  ).map((cluster) => cluster.boundingBox).toList(growable: false);
 
   /// Aggregiert Striche zu Clustern basierend auf den angegebenen [contours]
   /// und berechnet für jeden Cluster die minimale Bounding-Box.
@@ -158,9 +156,7 @@ class ConvexHullCalculator {
           return;
         }
 
-        clusterPoints.addAll(
-          stroke.points.map((point) => point.position),
-        );
+        clusterPoints.addAll(stroke.points.map((point) => point.position));
         clusterStrokes.add(stroke);
         maxRadius = math.max(maxRadius, _maxStrokeRadius(stroke));
         assignedIds.add(id);
@@ -182,10 +178,7 @@ class ConvexHullCalculator {
 
       if (box != null) {
         clusters.add(
-          StrokeBoundingBoxCluster(
-            boundingBox: box,
-            strokes: clusterStrokes,
-          ),
+          StrokeBoundingBoxCluster(boundingBox: box, strokes: clusterStrokes),
         );
       }
     }
@@ -215,6 +208,17 @@ class ConvexHullCalculator {
     }
 
     return clusters;
+  }
+
+  /// Berechnet die konvexe Hülle aller Punkte innerhalb des [cluster].
+  static List<Offset> convexHullForCluster(StrokeBoundingBoxCluster cluster) {
+    final List<Offset> points = cluster.strokes
+        .expand((stroke) => stroke.points.map((point) => point.position))
+        .toList(growable: false);
+    if (points.isEmpty) {
+      return const <Offset>[];
+    }
+    return _computeConvexHull(points);
   }
 
   /// Berechnet die minimale Bounding-Box für ein einzelnes Polygon.
@@ -369,11 +373,7 @@ class ConvexHullCalculator {
       (a.dx - origin.dx) * (b.dy - origin.dy) -
       (a.dy - origin.dy) * (b.dx - origin.dx);
 
-  static bool _strokeHitsPath(
-    Stroke stroke,
-    Path path,
-    Rect bounds,
-  ) {
+  static bool _strokeHitsPath(Stroke stroke, Path path, Rect bounds) {
     for (final point in stroke.points) {
       final Offset position = point.position;
       if (!bounds.contains(position)) {
@@ -425,13 +425,7 @@ class ConvexHullCalculator {
         _lerp(segment.start.dx, segment.end.dx, t),
         _lerp(segment.start.dy, segment.end.dy, t),
       );
-      _stampCircle(
-        grid,
-        origin,
-        cellSize,
-        position,
-        segment.radius,
-      );
+      _stampCircle(grid, origin, cellSize, position, segment.radius);
     }
   }
 
@@ -680,9 +674,7 @@ class ConvexHullCalculator {
     return polygons;
   }
 
-  static List<_ContourPoint> _deduplicateContour(
-    List<_ContourPoint> contour,
-  ) {
+  static List<_ContourPoint> _deduplicateContour(List<_ContourPoint> contour) {
     if (contour.isEmpty) {
       return contour;
     }
@@ -740,17 +732,11 @@ class ConvexHullCalculator {
     if (edges.length == 4) {
       if (mask == 5) {
         // Innenpunkte auf der Diagonalen oben links <-> unten rechts.
-        return <_EdgePair>[
-          const _EdgePair(0, 3),
-          const _EdgePair(1, 2),
-        ];
+        return <_EdgePair>[const _EdgePair(0, 3), const _EdgePair(1, 2)];
       }
       if (mask == 10) {
         // Innenpunkte auf der Diagonalen oben rechts <-> unten links.
-        return <_EdgePair>[
-          const _EdgePair(0, 1),
-          const _EdgePair(2, 3),
-        ];
+        return <_EdgePair>[const _EdgePair(0, 1), const _EdgePair(2, 3)];
       }
 
       return <_EdgePair>[
@@ -784,10 +770,7 @@ class ConvexHullCalculator {
     }
   }
 
-  static List<Offset> _simplifyPolygon(
-    List<Offset> polygon,
-    double tolerance,
-  ) {
+  static List<Offset> _simplifyPolygon(List<Offset> polygon, double tolerance) {
     if (polygon.length <= 3 || tolerance <= 0) {
       return polygon;
     }
@@ -848,19 +831,14 @@ class ConvexHullCalculator {
     }
   }
 
-  static double _perpendicularDistance(
-    Offset point,
-    Offset start,
-    Offset end,
-  ) {
+  static double _perpendicularDistance(Offset point, Offset start, Offset end) {
     final double dx = end.dx - start.dx;
     final double dy = end.dy - start.dy;
     if (dx == 0 && dy == 0) {
       return (point - start).distance;
     }
-    final double numerator = ((point.dx - start.dx) * dy -
-            (point.dy - start.dy) * dx)
-        .abs();
+    final double numerator =
+        ((point.dx - start.dx) * dy - (point.dy - start.dy) * dx).abs();
     final double denominator = math.sqrt(dx * dx + dy * dy);
     return numerator / denominator;
   }
@@ -889,32 +867,25 @@ class RotatedBoundingBox {
     required this.angle,
     required this.width,
     required this.height,
-  })  : assert(corners.length == 4),
-        corners = List<Offset>.unmodifiable(corners),
-        area = width * height;
+  }) : assert(corners.length == 4),
+       corners = List<Offset>.unmodifiable(corners),
+       area = width * height;
 
   /// Erzeugt eine Bounding-Box für einen einzelnen Punkt.
   RotatedBoundingBox.singlePoint(Offset point)
-      : corners = List<Offset>.unmodifiable(
-          List<Offset>.filled(4, point),
-        ),
-        angle = 0,
-        width = 0,
-        height = 0,
-        area = 0;
+    : corners = List<Offset>.unmodifiable(List<Offset>.filled(4, point)),
+      angle = 0,
+      width = 0,
+      height = 0,
+      area = 0;
 
   /// Erzeugt eine Bounding-Box, die genau ein Liniensegment umfasst.
   RotatedBoundingBox.fromSegment(Offset start, Offset end)
-      : corners = List<Offset>.unmodifiable(<Offset>[
-          start,
-          end,
-          end,
-          start,
-        ]),
-        angle = math.atan2(end.dy - start.dy, end.dx - start.dx),
-        width = (end - start).distance,
-        height = 0,
-        area = 0;
+    : corners = List<Offset>.unmodifiable(<Offset>[start, end, end, start]),
+      angle = math.atan2(end.dy - start.dy, end.dx - start.dx),
+      width = (end - start).distance,
+      height = 0,
+      area = 0;
 
   /// Eckpunkte im Uhrzeigersinn.
   final List<Offset> corners;
@@ -981,10 +952,10 @@ class StrokeBoundingBoxCluster {
   StrokeBoundingBoxCluster({
     required this.boundingBox,
     required List<Stroke> strokes,
-  })  : strokes = List<Stroke>.unmodifiable(strokes),
-        strokeIds = List<String>.unmodifiable(
-          strokes.map((stroke) => stroke.id),
-        );
+  }) : strokes = List<Stroke>.unmodifiable(strokes),
+       strokeIds = List<String>.unmodifiable(
+         strokes.map((stroke) => stroke.id),
+       );
 
   /// Begrenzende Box des Clusters.
   final RotatedBoundingBox boundingBox;
@@ -1012,9 +983,9 @@ class StrokeBoundingBoxCluster {
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAll(strokeIds),
-        Object.hashAll(boundingBox.corners),
-      );
+    Object.hashAll(strokeIds),
+    Object.hashAll(boundingBox.corners),
+  );
 }
 
 class _StrokeSegment {
@@ -1129,7 +1100,7 @@ const double _minimumStrokeRadius = 0.75;
 const double _minimumSamplingStep = 1.0;
 const double _rdpToleranceFactor = 0.3;
 const double _minimumPolygonArea = 32;
-const double _defaultConnectionMargin = 12;
+const double _defaultConnectionMargin = 16;
 const double _minimumNodeRadiusFactor = 0.6;
 
 class _GridPoint {

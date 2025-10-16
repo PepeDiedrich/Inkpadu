@@ -80,8 +80,7 @@ class DrawingCanvas extends StatefulWidget {
   final ValueChanged<bool>? onRequestParentScrollLock;
 
   /// Optionaler Callback, der über aktualisierte Stroke-Cluster informiert.
-  final ValueChanged<List<StrokeBoundingBoxCluster>>?
-      onStrokeClustersChanged;
+  final ValueChanged<List<StrokeBoundingBoxCluster>>? onStrokeClustersChanged;
 
   @override
   State<DrawingCanvas> createState() => _DrawingCanvasState();
@@ -96,7 +95,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
   static const double _twoFingerTapMaxMovement = 22;
   static const Duration _hullDebounceDuration = Duration(milliseconds: 500);
-  
+
   DateTime? _twoFingerTapStart;
   final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
   bool _isTwoFingerScrollActive = false;
@@ -114,7 +113,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   @override
   void initState() {
     super.initState();
-  _canvasScrollController = ScrollController();
+    _canvasScrollController = ScrollController();
     _canvasHeight = _requiredCanvasHeightForStrokes(
       widget.drawingController.strokes,
     );
@@ -127,7 +126,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _desiredInitialOffset = widget.initScrollOffset;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_canvasScrollController.hasClients) return;
-        final double target = widget.initScrollOffset!.clamp(0.0, _canvasScrollController.position.maxScrollExtent);
+        final double target = widget.initScrollOffset!.clamp(
+          0.0,
+          _canvasScrollController.position.maxScrollExtent,
+        );
         _canvasScrollController.jumpTo(target);
       });
     }
@@ -173,7 +175,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       if (_desiredInitialOffset != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_canvasScrollController.hasClients) return;
-          final double target = _desiredInitialOffset!.clamp(0.0, _canvasScrollController.position.maxScrollExtent);
+          final double target = _desiredInitialOffset!.clamp(
+            0.0,
+            _canvasScrollController.position.maxScrollExtent,
+          );
           if ((_canvasScrollController.offset - target).abs() > 1) {
             _canvasScrollController.jumpTo(target);
           }
@@ -187,10 +192,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   void _notifyDrawingActivity() {
     _hullDebounceTimer?.cancel();
-    _hullDebounceTimer = Timer(
-      _hullDebounceDuration,
-      _rebuildConvexHulls,
-    );
+    _hullDebounceTimer = Timer(_hullDebounceDuration, _rebuildConvexHulls);
   }
 
   void _rebuildConvexHulls() {
@@ -204,13 +206,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (currentStroke != null && currentStroke.points.length >= 2) {
       allStrokes.add(currentStroke);
     }
-  final List<List<Offset>> hulls =
-      ConvexHullCalculator.contoursForStrokes(allStrokes);
-  final List<StrokeBoundingBoxCluster> clusters =
-      ConvexHullCalculator.clustersForContours(hulls, allStrokes);
-  final List<RotatedBoundingBox> boxes = clusters
-      .map((cluster) => cluster.boundingBox)
-      .toList(growable: false);
+    final List<List<Offset>> hulls = ConvexHullCalculator.contoursForStrokes(
+      allStrokes,
+    );
+    final List<StrokeBoundingBoxCluster> clusters =
+        ConvexHullCalculator.clustersForContours(hulls, allStrokes);
+    final List<RotatedBoundingBox> boxes = clusters
+        .map((cluster) => cluster.boundingBox)
+        .toList(growable: false);
     if (_hullsEqual(_convexHulls, hulls) &&
         _boxesEqual(_boundingBoxes, boxes) &&
         _clustersEqual(_strokeClusters, clusters)) {
@@ -239,10 +242,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return true;
   }
 
-  bool _boxesEqual(
-    List<RotatedBoundingBox> a,
-    List<RotatedBoundingBox> b,
-  ) {
+  bool _boxesEqual(List<RotatedBoundingBox> a, List<RotatedBoundingBox> b) {
     if (identical(a, b)) {
       return true;
     }
@@ -439,7 +439,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (widget.initScrollOffset != null && _canvasScrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_canvasScrollController.hasClients) return;
-        final double target = widget.initScrollOffset!.clamp(0.0, _canvasScrollController.position.maxScrollExtent);
+        final double target = widget.initScrollOffset!.clamp(
+          0.0,
+          _canvasScrollController.position.maxScrollExtent,
+        );
         if ((_canvasScrollController.offset - target).abs() > 1) {
           _canvasScrollController.jumpTo(target);
         }
@@ -601,7 +604,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeTouchPositions.remove(details.pointer);
       final bool noMoreTouches = _activeTouchPositions.length < 2;
 
-        if (candidateActive &&
+      if (candidateActive &&
           withinTime &&
           withinMovement &&
           noMoreTouches &&
@@ -702,84 +705,89 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   }
 
   @override
-  Widget build(BuildContext context) => ScrollConfiguration(
-    behavior: const _DrawingScrollBehavior(),
-    child: NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        final handled = _handleScrollNotification(notification);
-        if (notification.metrics.axis == Axis.vertical &&
-            widget.onScrollOffsetChanged != null &&
-            _canvasScrollController.hasClients &&
-            (notification is ScrollUpdateNotification ||
-                notification is OverscrollNotification ||
-                notification is UserScrollNotification)) {
-          widget.onScrollOffsetChanged!(_canvasScrollController.offset);
-        }
-        return handled;
-      },
-      child: SingleChildScrollView(
-        key: widget.scrollKey,
-        controller: _canvasScrollController,
-        physics: const ClampingScrollPhysics(),
-        padding: EdgeInsets.zero,
-        child: SizedBox(
-          width: double.infinity,
-          height: _canvasHeight,
-          child: InteractiveViewer(
-            // Zoom disabled intentionally
-            panEnabled: false,
-            scaleEnabled: false,
-            boundaryMargin: const EdgeInsets.symmetric(
-              horizontal: 120,
-              vertical: 120,
-            ),
-            alignment: Alignment.topCenter,
-            child: NotePaperBackground(
-              paperStyle: widget.paperStyle,
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: _start,
-                onPointerMove: _update,
-                onPointerUp: _end,
-                onPointerCancel: _cancel,
-                child: AnimatedBuilder(
-                  animation: widget.drawingController,
-                  builder: (context, child) => Stack(
-                    children: [
-                      RepaintBoundary(
-                        child: CustomPaint(
-                          painter: FinishedStrokesPainter(
-                            strokes: widget.drawingController.strokes,
-                            version: widget.drawingController.strokesVersion,
-                          ),
-                        ),
-                      ),
-                      RepaintBoundary(
-                        child: CustomPaint(
-                          painter: CurrentStrokePainter(
-                            currentStroke:
-                                widget.drawingController.currentStroke,
-                            pointCount:
-                                widget
-                                    .drawingController
-                                    .currentStroke
-                                    ?.points
-                                    .length ??
-                                0,
-                          ),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: IgnorePointer(
+  Widget build(BuildContext context) {
+    final editorSettings = EditorSettingsScope.of(context);
+    final bool showDebugOverlay = editorSettings.debugModeEnabled;
+    return ScrollConfiguration(
+      behavior: const _DrawingScrollBehavior(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          final handled = _handleScrollNotification(notification);
+          if (notification.metrics.axis == Axis.vertical &&
+              widget.onScrollOffsetChanged != null &&
+              _canvasScrollController.hasClients &&
+              (notification is ScrollUpdateNotification ||
+                  notification is OverscrollNotification ||
+                  notification is UserScrollNotification)) {
+            widget.onScrollOffsetChanged!(_canvasScrollController.offset);
+          }
+          return handled;
+        },
+        child: SingleChildScrollView(
+          key: widget.scrollKey,
+          controller: _canvasScrollController,
+          physics: const ClampingScrollPhysics(),
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: double.infinity,
+            height: _canvasHeight,
+            child: InteractiveViewer(
+              // Zoom disabled intentionally
+              panEnabled: false,
+              scaleEnabled: false,
+              boundaryMargin: const EdgeInsets.symmetric(
+                horizontal: 120,
+                vertical: 120,
+              ),
+              alignment: Alignment.topCenter,
+              child: NotePaperBackground(
+                paperStyle: widget.paperStyle,
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: _start,
+                  onPointerMove: _update,
+                  onPointerUp: _end,
+                  onPointerCancel: _cancel,
+                  child: AnimatedBuilder(
+                    animation: widget.drawingController,
+                    builder: (context, child) => Stack(
+                      children: [
+                        RepaintBoundary(
                           child: CustomPaint(
-                            painter: ConvexHullsPainter(
-                              hulls: _convexHulls,
-                              boundingBoxes: _boundingBoxes,
+                            painter: FinishedStrokesPainter(
+                              strokes: widget.drawingController.strokes,
+                              version: widget.drawingController.strokesVersion,
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            painter: CurrentStrokePainter(
+                              currentStroke:
+                                  widget.drawingController.currentStroke,
+                              pointCount:
+                                  widget
+                                      .drawingController
+                                      .currentStroke
+                                      ?.points
+                                      .length ??
+                                  0,
+                            ),
+                          ),
+                        ),
+                        if (showDebugOverlay)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: ConvexHullsPainter(
+                                  hulls: _convexHulls,
+                                  boundingBoxes: _boundingBoxes,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -787,8 +795,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DrawingScrollBehavior extends MaterialScrollBehavior {
