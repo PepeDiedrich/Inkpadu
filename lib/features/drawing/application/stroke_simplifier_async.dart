@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart'
-    show simplifyStrokePoints;
+  show simplifyStrokePoints, simplifyStroke;
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 
@@ -22,11 +22,7 @@ Future<Stroke> simplifyStrokeAsync(
 }) async {
   if (stroke.points.length < threshold || kIsWeb) {
     // Geringe Punktzahl: direkt synchron vereinfachen.
-    final simplified = simplifyStrokePoints(
-      stroke.points,
-      tolerance: tolerance,
-    );
-    return stroke.copyWith(points: simplified);
+    return simplifyStroke(stroke, tolerance: tolerance);
   }
   final payload = _SimplifyPayload(
     tolerance: tolerance,
