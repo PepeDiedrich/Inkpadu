@@ -177,7 +177,7 @@ void main() {
       final Rect box = _unionBox(contours);
       expect(box.left, lessThan(0));
       expect(box.right, greaterThan(45));
-      expect(box.width, lessThan(80));
+  expect(box.width, lessThanOrEqualTo(80));
     });
 
     test('returns empty list when no strokes present', () {

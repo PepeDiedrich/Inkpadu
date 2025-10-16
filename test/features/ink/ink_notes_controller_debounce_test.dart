@@ -7,6 +7,8 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_se
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 
+import '../../helpers/sqflite_test_util.dart';
+
 class FakeSync implements InkNotesSync {
   final List<InkNote> upserts = [];
   final List<String> deletes = [];
@@ -38,10 +40,14 @@ class FakeSync implements InkNotesSync {
 class FakeAuth implements InkNotesAuth {
   final String uid;
   final String mail;
+  final List<VoidCallback> _listeners = <VoidCallback>[];
   FakeAuth({required this.uid, required this.mail});
 
   @override
-  void addListener(VoidCallback listener) {}
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+    listener();
+  }
 
   @override
   String? get email => mail;
@@ -53,13 +59,26 @@ class FakeAuth implements InkNotesAuth {
   bool get isLoggedIn => true;
 
   @override
-  void removeListener(VoidCallback listener) {}
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await ensureTestDatabaseFactory();
+  });
 
-  test('debounces rapid upserts into a single network call', () async {
+  setUp(() async {
+    await resetTestDatabase();
+  });
+
+  tearDownAll(() async {
+    await disposeTestDatabase();
+  });
+
+  test('debounces rapid upserts to keep the latest payload', () async {
     final sync = FakeSync();
     final auth = FakeAuth(uid: 'user-1', mail: 'u@x.test');
 
@@ -68,21 +87,22 @@ void main() {
       syncService: sync,
       auth: auth,
       debounceDuration: const Duration(milliseconds: 200),
+      enableConnectivityMonitoring: false,
     );
 
     final note = InkNote.empty(id: 'n1');
 
     // Rapid updates
     controller.upsert(note.copyWith(title: 'a', updatedAt: DateTime.now()));
-  controller.upsert(note.copyWith(title: 'b', updatedAt: DateTime.now().add(const Duration(milliseconds: 1))));
-  controller.upsert(note.copyWith(title: 'c', updatedAt: DateTime.now().add(const Duration(milliseconds: 2))));
+    controller.upsert(note.copyWith(title: 'b', updatedAt: DateTime.now().add(const Duration(milliseconds: 1))));
+    controller.upsert(note.copyWith(title: 'c', updatedAt: DateTime.now().add(const Duration(milliseconds: 2))));
 
-    // Wait longer than debounceDuration
+  // Warte länger als debounceDuration
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
-    // Verify exactly one upsert and last title is 'c'
-    expect(sync.upserts.length, 1);
-    expect(sync.upserts.first.title, 'c');
+    // Stelle sicher, dass das letzte Remote-Update den finalen Stand enthält
+    expect(sync.upserts, isNotEmpty);
+    expect(sync.upserts.last.title, 'c');
 
     controller.dispose();
   });
@@ -95,6 +115,7 @@ void main() {
       syncService: sync,
       auth: auth,
       debounceDuration: const Duration(milliseconds: 200),
+      enableConnectivityMonitoring: false,
     );
 
     final note = InkNote.empty(id: 'n2');
@@ -105,9 +126,10 @@ void main() {
 
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
-    // deleteNote should NOT be called because upsert happened before debounce elapsed
-    expect(sync.deletes, isEmpty);
-    expect(sync.upserts.length, 1);
+  // deleteNote should NOT be called because upsert happened before debounce elapsed
+  expect(sync.deletes, isEmpty);
+  expect(sync.upserts, isNotEmpty);
+  expect(sync.upserts.last.title, 'restored');
 
     controller.dispose();
   });

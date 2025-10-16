@@ -42,7 +42,9 @@ void main() {
     eraserRadiusFor = (DrawingTool tool) => tool.baseWidth;
   });
 
-  tearDown(controller.dispose);
+  tearDown(() {
+    controller.dispose();
+  });
 
   Widget createTestWidget({
     required DrawingController controller,
@@ -158,7 +160,7 @@ void main() {
       expect(undoCalled, true);
     });
 
-    testWidgets('skaliert korrekt mit InteractiveViewer', (WidgetTester tester) async {
+    testWidgets('konfiguriert InteractiveViewer ohne Zoom', (WidgetTester tester) async {
       await tester.pumpWidget(createTestWidget(
         controller: controller,
         currentTool: penTool,
@@ -169,9 +171,10 @@ void main() {
       ));
 
       final interactiveViewer = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
-      expect(interactiveViewer.minScale, 1.0);
-      expect(interactiveViewer.maxScale, 3.5);
-      expect(interactiveViewer.panEnabled, false);
+      expect(interactiveViewer.scaleEnabled, isFalse);
+      expect(interactiveViewer.panEnabled, isFalse);
+      expect(interactiveViewer.boundaryMargin, const EdgeInsets.symmetric(horizontal: 120, vertical: 120));
+      expect(interactiveViewer.alignment, Alignment.topCenter);
     });
 
     testWidgets('scrollt automatisch bei tiefen Inhalten', (WidgetTester tester) async {

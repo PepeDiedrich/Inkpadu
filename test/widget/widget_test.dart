@@ -13,7 +13,8 @@ void main() {
   testWidgets('zeigt Onboarding-Bildschirm an', (WidgetTester tester) async {
     await tester.pumpWidget(const InkpaduApp());
 
-    expect(find.text('Willkommen bei Inkpadu'), findsOneWidget);
-    expect(find.text('Los geht’s'), findsOneWidget);
+  expect(find.text('Willkommen bei Inkpadu'), findsOneWidget);
+  expect(find.text('Mit GitHub anmelden'), findsOneWidget);
+  expect(find.text('Mit Google anmelden'), findsOneWidget);
   });
 }

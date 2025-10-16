@@ -7,9 +7,25 @@ import 'package:ai_handwriting_app/features/input/application/pointer_settings_s
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 
+import '../../../helpers/sqflite_test_util.dart';
+
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await ensureTestDatabaseFactory();
+  });
+
+  setUp(() async {
+    await resetTestDatabase();
+  });
+
+  tearDownAll(() async {
+    await disposeTestDatabase();
+  });
+
   Widget wrapWithScopes(Widget child, {InkNotesController? controller}) {
-    final notes = controller ?? InkNotesController();
+    final notes = controller ??
+        InkNotesController(enableConnectivityMonitoring: false);
     final pointer = PointerSettings();
     final editorSettings = EditorSettings();
     return InkNotesScope(
@@ -31,7 +47,13 @@ void main() {
     addTearDown(view.resetPhysicalSize);
     addTearDown(view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(wrapWithScopes(const HomePage()));
+    final controller =
+        InkNotesController(enableConnectivityMonitoring: false);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      wrapWithScopes(const HomePage(), controller: controller),
+    );
 
     // Leerer Zustand Text prüfen
     expect(find.text('Noch keine handschriftlichen Notizen'), findsOneWidget);
@@ -62,7 +84,8 @@ void main() {
   });
 
   testWidgets('Mehrere Notizen erscheinen (>=2) in Übersicht', (tester) async {
-    final controller = InkNotesController();
+  final controller = InkNotesController(enableConnectivityMonitoring: false);
+  addTearDown(controller.dispose);
     // Zwei vorhandene Notizen anlegen (verschiedene IDs & Timestamps)
     // Erzeuge zwei Notizen ohne künstliche Delays (IDs durch Microseconds bereits unterschiedlich)
     controller.upsert(InkNote.empty());
@@ -78,7 +101,8 @@ void main() {
   });
 
   testWidgets('Löschen-Button löscht Notiz nach Bestätigung', (tester) async {
-    final controller = InkNotesController();
+  final controller = InkNotesController(enableConnectivityMonitoring: false);
+  addTearDown(controller.dispose);
     final note = InkNote.empty(title: 'Test Notiz');
     controller.upsert(note);
 
@@ -110,7 +134,8 @@ void main() {
   });
 
   testWidgets('Löschen-Button behält Notiz nach Abbruch', (tester) async {
-    final controller = InkNotesController();
+  final controller = InkNotesController(enableConnectivityMonitoring: false);
+  addTearDown(controller.dispose);
     final note = InkNote.empty(title: 'Behalte mich');
     controller.upsert(note);
 

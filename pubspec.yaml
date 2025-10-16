@@ -54,6 +54,7 @@ dev_dependencies:
   mocktail: ^0.3.0
   json_serializable: ^6.8.0
   json_annotation: ^4.9.0
+  sqflite_common_ffi: ^2.3.2+1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

@@ -295,6 +295,7 @@ class InkNotesController extends ChangeNotifier {
     }
     _debounceTimers.clear();
     _pendingPageChanges.clear();
+    unawaited(_repository.localStorage.close());
     super.dispose();
   }
 
