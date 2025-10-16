@@ -41,8 +41,8 @@ void main() {
     final encoded = dto.toJson();
     final decoded = InkNotePageDto.fromJson(encoded);
 
-  expect(decoded.index, 3);
-  expect(decoded.strokes.single.color.value, equals(Colors.red.value));
-  expect(decoded.strokes.single.points.single.pressure, closeTo(0.1, 1e-6));
+    expect(decoded.index, 3);
+    expect(decoded.strokes.single.color, equals(Colors.red));
+    expect(decoded.strokes.single.points.single.pressure, closeTo(0.1, 1e-6));
   });
 }
