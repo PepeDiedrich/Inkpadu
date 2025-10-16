@@ -310,11 +310,11 @@ void main() {
       final Stroke strokeA = _strokeWithPoints(const [
         Offset(0, 0),
         Offset(20, 0),
-      ], width: 4);
+      ]);
       final Stroke strokeB = _strokeWithPoints(const [
         Offset(40, 40),
         Offset(60, 40),
-      ], width: 4);
+      ]);
 
       final List<List<Offset>> contours = <List<Offset>>[
         const [Offset(-10, -10), Offset(30, -10), Offset(30, 20), Offset(-10, 20)],

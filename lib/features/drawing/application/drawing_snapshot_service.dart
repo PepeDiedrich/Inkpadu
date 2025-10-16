@@ -71,6 +71,7 @@ class CombinedSnapshot {
 
 /// Erstellt Bildausschnitte für Stroke-Cluster, um sie an ein LLM zu senden.
 class DrawingSnapshotService {
+  /// Erstellt einen neuen Dienst zum Generieren von Drawing-Snapshots.
   const DrawingSnapshotService();
 
   /// Rendert die übergebenen [clusters] als einzelne PNG-Ausschnitte.
