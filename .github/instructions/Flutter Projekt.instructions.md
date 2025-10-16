@@ -67,4 +67,3 @@ Primäre Akzentfarbe: Ein warmer Goldton (#FFC107)
 Sekundäre Akzentfarbe: Ein sanftes Grün (#2ECC71)
 keep the ui simple and clean.
 good balance between known icon and text.
-update immer das setup script in bin für appwrite wenn du änderungen an den collections machst u.s.w machst.
