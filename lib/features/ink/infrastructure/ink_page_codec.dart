@@ -63,6 +63,22 @@ class InkNotePageCodec {
     return base64Encode(compressed);
   }
 
+  /// Kodiert eine einzelne Seite. Nutzt intern [encode], liefert aber exakt
+  /// die Darstellung einer Einzelseite, sodass bestehende Kompression und
+  /// Versionierung weiter verwendet werden können.
+  static String encodeSingle(NotePage page) => encode(<NotePage>[page]);
+
+  /// Dekodiert eine einzelne Seite aus der durch [encodeSingle] erzeugten
+  /// Repräsentation. Fällt auf eine leere Seite zurück, falls das Payload leer
+  /// oder ungültig ist.
+  static NotePage decodeSingle(String data) {
+    final InkNotePageBundle bundle = decode(data);
+    if (bundle.pages.isEmpty) {
+      return NotePage(strokes: const <Stroke>[]);
+    }
+    return bundle.pages.first;
+  }
+
   /// Dekodiert eine komprimierte Repräsentation in mehrere Seiten.
   static InkNotePageBundle decode(String data) {
     if (data.isEmpty) {

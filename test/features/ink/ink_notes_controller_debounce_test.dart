@@ -20,7 +20,11 @@ class FakeSync implements InkNotesSync {
   }
 
   @override
-  Future<void> upsertNote(InkNote note, String userId) async {
+  Future<void> upsertNote(
+    InkNote note,
+    String userId, {
+    Set<int>? changedPageIndices,
+  }) async {
     upserts.add(note);
   }
 

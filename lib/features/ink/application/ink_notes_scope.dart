@@ -22,6 +22,8 @@ class InkNotesController extends ChangeNotifier {
     InkNotesRepository? repository,
     InkNotesSync? syncService,
     InkNotesAuth? auth,
+    ConnectivityService? connectivityService,
+    bool enableConnectivityMonitoring = true,
     this.debounceDuration = const Duration(seconds: 3),
   })  : _repository = repository ?? InkNotesRepository(localStorage: InkNotesLocalStorage(), syncService: syncService),
         _auth = auth {
@@ -32,20 +34,22 @@ class InkNotesController extends ChangeNotifier {
     // Load local notes immediately regardless of auth
     unawaited(_loadLocalNotes());
     // Start connectivity monitoring and auto-sync when online
-    _connectivityService = ConnectivityService(repository: _repository);
-    _connectivityService!.startMonitoring();
-    _connectivitySubscription = _connectivityService!.isOnline.listen((online) async {
-      if (online && _activeUserId != null) {
-        await _repository.syncAll(userId: _activeUserId!);
-        await _repository.processQueueOnce(userId: _activeUserId!);
-        // reload local notes after sync
-        _notes
-          ..clear()
-          ..addAll(await _repository.getLocalNotes())
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-        _safelyNotifyListeners();
-      }
-    });
+    if (enableConnectivityMonitoring) {
+      _connectivityService = connectivityService ?? ConnectivityService(repository: _repository);
+      _connectivityService!.startMonitoring();
+      _connectivitySubscription = _connectivityService!.isOnline.listen((online) async {
+        if (online && _activeUserId != null) {
+          await _repository.syncAll(userId: _activeUserId!);
+          await _repository.processQueueOnce(userId: _activeUserId!);
+          // reload local notes after sync
+          _notes
+            ..clear()
+            ..addAll(await _repository.getLocalNotes())
+            ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          _safelyNotifyListeners();
+        }
+      });
+    }
   }
 
   final List<InkNote> _notes = [];
@@ -54,6 +58,9 @@ class InkNotesController extends ChangeNotifier {
   // Debounce timers to avoid spamming the backend on rapid consecutive edits.
   // Keyed by note id for upserts and by note id for deletes as well.
   final Map<String, Timer> _debounceTimers = {};
+  // Caches aggregierte Seitenänderungen, die beim nächsten Sync gesendet
+  // werden sollen. `null` kennzeichnet eine vollständige Synchronisation.
+  final Map<String, Set<int>?> _pendingPageChanges = <String, Set<int>?>{};
   /// Verzögerung für Debounce-Operationen beim Synchronisieren von Notizen.
   /// Standardmäßig 3 Sekunden; wird nach jeder Änderung für dieselbe Notiz-ID zurückgesetzt.
   final Duration debounceDuration;
@@ -94,12 +101,16 @@ class InkNotesController extends ChangeNotifier {
     );
     _notes.insert(0, note);
     _safelyNotifyListeners();
-    _syncIfPossible(note);
+    _syncIfPossible(note, changedPageIndices: const <int>{0});
     return note;
   }
 
   /// Fügt eine Notiz ein oder aktualisiert sie anhand der ID.
-  void upsert(InkNote note, {bool fromRemote = false}) {
+  void upsert(
+    InkNote note, {
+    bool fromRemote = false,
+    Set<int>? changedPageIndices,
+  }) {
     final idx = _notes.indexWhere((n) => n.id == note.id);
     if (idx == -1) {
       _notes.add(note);
@@ -115,7 +126,7 @@ class InkNotesController extends ChangeNotifier {
     if (!fromRemote) {
       // Sofort lokal persistieren, damit z. B. lastOpenedPageIndex direkt gesichert ist.
       unawaited(_repository.localStorage.saveNoteLocalOnly(note));
-      _syncIfPossible(note);
+      _syncIfPossible(note, changedPageIndices: changedPageIndices);
     }
   }
 
@@ -124,6 +135,7 @@ class InkNotesController extends ChangeNotifier {
     final int before = _notes.length;
     _notes.removeWhere((n) => n.id == id);
     if (_notes.length != before) {
+      _pendingPageChanges.remove(id);
       _safelyNotifyListeners();
       if (!fromRemote) {
         _deleteIfPossible(id);
@@ -220,15 +232,41 @@ class InkNotesController extends ChangeNotifier {
     }
   }
 
-  void _syncIfPossible(InkNote note) {
+  void _syncIfPossible(
+    InkNote note, {
+    Set<int>? changedPageIndices,
+  }) {
     final userId = _activeUserId;
     if (userId == null) return;
     // Save locally and schedule repository sync via debounce
     final String id = note.id;
+    if (changedPageIndices == null) {
+      _pendingPageChanges[id] = null;
+    } else {
+      final bool hasEntry = _pendingPageChanges.containsKey(id);
+      final Set<int>? existing = hasEntry ? _pendingPageChanges[id] : null;
+      if (hasEntry && existing == null) {
+        // Bereits für vollständigen Sync markiert – keine weiteren Seiten nötig.
+      } else {
+        final Set<int> merged = Set<int>.from(existing ?? const <int>{})
+          ..addAll(changedPageIndices);
+        _pendingPageChanges[id] = merged;
+      }
+    }
     _debounceTimers[id]?.cancel();
     _debounceTimers[id] = Timer(debounceDuration, () {
       _debounceTimers.remove(id);
-      unawaited(_repository.upsertNote(note, userId: userId));
+      final bool hasEntry = _pendingPageChanges.containsKey(id);
+      final Set<int>? pagesToSync = hasEntry
+          ? _pendingPageChanges.remove(id)
+          : changedPageIndices;
+      unawaited(
+        _repository.upsertNote(
+          note,
+          userId: userId,
+          changedPageIndices: pagesToSync,
+        ),
+      );
     });
   }
 
@@ -256,6 +294,7 @@ class InkNotesController extends ChangeNotifier {
       timer.cancel();
     }
     _debounceTimers.clear();
+    _pendingPageChanges.clear();
     super.dispose();
   }
 

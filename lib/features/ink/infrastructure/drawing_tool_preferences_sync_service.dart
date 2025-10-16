@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 // ignore: implementation_imports
 import 'package:appwrite/src/enums.dart' show HttpMethod;
-import 'package:appwrite/models.dart' as appwrite_models;
 import 'package:flutter/foundation.dart';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
@@ -33,23 +32,6 @@ class DrawingToolPreferencesRemoteModel {
 
   /// Zeitstempel der Erstellung.
   final DateTime createdAt;
-
-  /// Baut ein Modell aus einem Appwrite Dokument.
-  factory DrawingToolPreferencesRemoteModel.fromDocument(
-    appwrite_models.Document document,
-  ) {
-    final candidate = DrawingToolPreferencesRemoteModel.tryFromMap(
-      Map<String, dynamic>.from(document.data),
-      fallbackUpdatedAt: document.$updatedAt,
-      fallbackCreatedAt: document.$createdAt,
-    );
-    if (candidate == null) {
-      throw StateError(
-        'Ungültiges Dokument für DrawingToolPreferences: ${document.$id}',
-      );
-    }
-    return candidate;
-  }
 
   /// Versucht, ein Remote-Modell aus einer Daten-Map zu erstellen.
   static DrawingToolPreferencesRemoteModel? tryFromMap(
@@ -182,12 +164,11 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
   /// Erstellt einen neuen Sync-Service.
   DrawingToolPreferencesSyncService({
     Client? client,
-    Databases? databases,
     this.databaseId = 'inkpadu-db',
     this.collectionId = 'drawing-tool-preferences',
-  }) : _databases = databases ?? Databases(client ?? AppwriteConfig.client);
+  }) : _client = client ?? AppwriteConfig.client;
 
-  final Databases _databases;
+  final Client _client;
 
   /// Appwrite Datenbank-ID.
   final String databaseId;
@@ -200,42 +181,33 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
     String userId,
   ) async {
     try {
-      final document = await _databases.getDocument(
-        databaseId: databaseId,
-        collectionId: collectionId,
-        documentId: userId,
+      final raw = await _call(
+        method: HttpMethod.get,
+        path: _buildPath(documentId: userId),
       );
-      return DrawingToolPreferencesRemoteModel.fromDocument(document);
-    } on TypeError catch (error, stackTrace) {
-      debugPrint('Appwrite fetchPreferences parsing error: $error');
+
+      final normalized = _normalizeRawDocument(raw);
+
+      return DrawingToolPreferencesRemoteModel.tryFromMap(
+        normalized,
+        fallbackUpdatedAt:
+            normalized['updated_at'] ?? normalized[r'$updatedAt'],
+        fallbackCreatedAt:
+            normalized['created_at'] ?? normalized[r'$createdAt'],
+      );
+    } on FormatException catch (error, stackTrace) {
+      debugPrint('DrawingToolPreferencesSyncService: Formatfehler $error');
       FlutterError.reportError(
         FlutterErrorDetails(
           exception: error,
           stack: stackTrace,
           library: 'DrawingToolPreferencesSyncService',
           informationCollector: () => <DiagnosticsNode>[
-            DiagnosticsNode.message(
-              'Fallback auf Rohdokument für user $userId aktiviert',
-            ),
+            DiagnosticsNode.message('fetchPreferences für $userId'),
           ],
         ),
       );
-      return _fetchPreferencesWithRawDocument(userId: userId);
-    } on StateError catch (error, stackTrace) {
-      debugPrint('Appwrite fetchPreferences invalid document: $error');
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stackTrace,
-          library: 'DrawingToolPreferencesSyncService',
-          informationCollector: () => <DiagnosticsNode>[
-            DiagnosticsNode.message(
-              'Fallback auf Rohdokument für user $userId aktiviert',
-            ),
-          ],
-        ),
-      );
-      return _fetchPreferencesWithRawDocument(userId: userId);
+      return null;
     } on AppwriteException catch (error, stackTrace) {
       if (error.code == 404) {
         return null;
@@ -252,82 +224,6 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
         ),
       );
       rethrow;
-    }
-  }
-
-  Future<DrawingToolPreferencesRemoteModel?> _fetchPreferencesWithRawDocument({
-    required String userId,
-  }) async {
-    try {
-      final response = await _databases.client.call(
-        HttpMethod.get,
-        path:
-            '/databases/${Uri.encodeComponent(databaseId)}/collections/${Uri.encodeComponent(collectionId)}/documents/${Uri.encodeComponent(userId)}',
-      );
-
-      final raw = response.data;
-      if (raw is! Map) {
-        debugPrint(
-          'DrawingToolPreferencesSyncService: Unerwartetes Antwortformat ${raw.runtimeType}',
-        );
-        return null;
-      }
-
-      final Map<String, dynamic> normalized = _normalizeRawDocument(
-        raw.map((key, value) => MapEntry(key.toString(), value)),
-      );
-
-      final model = DrawingToolPreferencesRemoteModel.tryFromMap(
-        normalized,
-        fallbackUpdatedAt:
-            normalized['updated_at'] ?? normalized[r'$updatedAt'],
-        fallbackCreatedAt:
-            normalized['created_at'] ?? normalized[r'$createdAt'],
-      );
-
-      if (model == null) {
-        debugPrint(
-          'DrawingToolPreferencesSyncService: Rohdokument für user $userId unvollständig.',
-        );
-      }
-      return model;
-    } on AppwriteException catch (error, stackTrace) {
-      if (error.code == 404) {
-        return null;
-      }
-      debugPrint(
-        'DrawingToolPreferencesSyncService: Rohabruf fehlgeschlagen: ${error.message}',
-      );
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stackTrace,
-          library: 'DrawingToolPreferencesSyncService',
-          informationCollector: () => <DiagnosticsNode>[
-            DiagnosticsNode.message(
-              'Rohabruf der Werkzeugpräferenzen für user $userId fehlgeschlagen',
-            ),
-          ],
-        ),
-      );
-      rethrow;
-    } catch (error, stackTrace) {
-      debugPrint(
-        'DrawingToolPreferencesSyncService: Fehler beim Rohabruf: $error',
-      );
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stackTrace,
-          library: 'DrawingToolPreferencesSyncService',
-          informationCollector: () => <DiagnosticsNode>[
-            DiagnosticsNode.message(
-              'Rohabruf der Werkzeugpräferenzen für user $userId fehlgeschlagen',
-            ),
-          ],
-        ),
-      );
-      return null;
     }
   }
 
@@ -366,26 +262,62 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
     ];
 
     try {
-      await _databases.createDocument(
-        databaseId: databaseId,
-        collectionId: collectionId,
-        documentId: payload.userId,
-        data: payload.toMap(),
-        permissions: permissions,
+      await _call(
+        method: HttpMethod.post,
+        path: _buildPath(),
+        params: <String, dynamic>{
+          'documentId': payload.userId,
+          'data': payload.toMap(),
+          'permissions': permissions,
+        },
       );
     } on AppwriteException catch (error) {
       if (error.code == 409) {
-        await _databases.updateDocument(
-          databaseId: databaseId,
-          collectionId: collectionId,
-          documentId: payload.userId,
-          data: payload.toMap(),
-          permissions: permissions,
+        await _call(
+          method: HttpMethod.patch,
+          path: _buildPath(documentId: payload.userId),
+          params: <String, dynamic>{
+            'data': payload.toMap(),
+            'permissions': permissions,
+          },
         );
         return;
       }
       debugPrint('Appwrite upsertPreferences fehlgeschlagen: ${error.message}');
       rethrow;
     }
+  }
+
+  String _buildPath({String? documentId}) {
+    final encodedDb = Uri.encodeComponent(databaseId);
+    final encodedCollection = Uri.encodeComponent(collectionId);
+    final basePath =
+        '/databases/$encodedDb/collections/$encodedCollection/documents';
+    if (documentId == null) {
+      return basePath;
+    }
+    return '$basePath/${Uri.encodeComponent(documentId)}';
+  }
+
+  Future<Map<String, dynamic>> _call({
+    required HttpMethod method,
+    required String path,
+    Map<String, dynamic>? params,
+  }) async {
+    final response = await _client.call(
+      method,
+      path: path,
+      params: params ?? const <String, dynamic>{},
+    );
+
+    final raw = response.data;
+    if (raw == null) {
+      return const <String, dynamic>{};
+    }
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value));
+    }
+
+    throw const FormatException('Unerwartetes Antwortformat von Appwrite');
   }
 }

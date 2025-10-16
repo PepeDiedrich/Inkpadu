@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -23,7 +24,7 @@ enum LocalSyncStatus {
 /// Lokaler Speicher für handschriftliche Notizen mit SQLite-Datenbank.
 class InkNotesLocalStorage {
   static const _dbName = 'inkpadu_local.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   static const _notesTable = 'ink_notes';
   static const _queueTable = 'sync_queue';
@@ -62,6 +63,7 @@ class InkNotesLocalStorage {
             operation TEXT NOT NULL,
             retry_count INTEGER DEFAULT 0,
             last_error TEXT,
+            changed_pages TEXT,
             created_at INTEGER NOT NULL
           )
         ''');
@@ -70,6 +72,11 @@ class InkNotesLocalStorage {
         if (oldVersion < 2) {
           await db.execute(
             'ALTER TABLE $_notesTable ADD COLUMN last_opened_page INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE $_queueTable ADD COLUMN changed_pages TEXT',
           );
         }
       },
@@ -107,7 +114,12 @@ class InkNotesLocalStorage {
   }
 
   /// Speichert eine Notiz lokal und markiert sie für Synchronisation.
-  Future<void> saveNote(InkNote note, {LocalSyncStatus status = LocalSyncStatus.pending, String? userId}) async {
+  Future<void> saveNote(
+    InkNote note, {
+    LocalSyncStatus status = LocalSyncStatus.pending,
+    String? userId,
+    Set<int>? changedPageIndices,
+  }) async {
     await init();
     final dto = InkNoteDto.fromDomain(note, userId: userId ?? '');
     final createdAt = (dto.createdAt ?? dto.updatedAt).toUtc().millisecondsSinceEpoch;
@@ -125,8 +137,14 @@ class InkNotesLocalStorage {
     };
 
     await _db!.insert(_notesTable, map, conflictAlgorithm: ConflictAlgorithm.replace);
-    // Enqueue sync operation
-    await _enqueue(note.id, 'UPSERT');
+    // Enqueue sync operation nur, wenn die Notiz noch synchronisiert werden muss.
+    if (status != LocalSyncStatus.synced) {
+      await _enqueue(
+        note.id,
+        'UPSERT',
+        changedPageIndices: changedPageIndices,
+      );
+    }
   }
 
   /// Speichert eine Notiz lokal ohne einen Queue-Eintrag zu erzeugen.
@@ -234,12 +252,19 @@ class InkNotesLocalStorage {
     return value.clamp(0, pagesLength - 1).toInt();
   }
 
-  Future<void> _enqueue(String noteId, String operation) async {
+  Future<void> _enqueue(
+    String noteId,
+    String operation, {
+    Set<int>? changedPageIndices,
+  }) async {
     await init();
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _db!.insert(_queueTable, {
       'note_id': noteId,
       'operation': operation,
+      'changed_pages': changedPageIndices == null
+          ? null
+          : jsonEncode(changedPageIndices.toList()..sort()),
       'created_at': now,
     });
   }
@@ -272,5 +297,35 @@ class InkNotesLocalStorage {
   Future<void> clearQueueForNote(String noteId) async {
     await init();
     await _db!.delete(_queueTable, where: 'note_id = ?', whereArgs: [noteId]);
+  }
+
+  /// Extrahiert ggf. gespeicherte geänderte Seitenindizes aus einem Queue-Eintrag.
+  Set<int>? extractChangedPages(Map<String, Object?> row) {
+    final Object? raw = row['changed_pages'];
+    if (raw == null) {
+      return null;
+    }
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          final result = <int>{};
+          for (final entry in decoded) {
+            if (entry is num) {
+              result.add(entry.toInt());
+            } else if (entry is String) {
+              final parsed = int.tryParse(entry);
+              if (parsed != null) {
+                result.add(parsed);
+              }
+            }
+          }
+          return result;
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 }

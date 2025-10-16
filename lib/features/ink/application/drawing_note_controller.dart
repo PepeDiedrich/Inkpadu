@@ -176,7 +176,10 @@ class DrawingNoteController extends ChangeNotifier {
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
-    _inkNotesController.upsert(_note);
+    _inkNotesController.upsert(
+      _note,
+      changedPageIndices: {_currentPageIndex},
+    );
     notifyListeners();
   }
 
@@ -200,7 +203,10 @@ class DrawingNoteController extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
 
-    _inkNotesController.upsert(updatedNote);
+    _inkNotesController.upsert(
+      updatedNote,
+      changedPageIndices: const <int>{},
+    );
     _note = updatedNote;
     notifyListeners();
   }
@@ -220,7 +226,10 @@ class DrawingNoteController extends ChangeNotifier {
         ),
         paperStyle: NotePaperStyle.plain,
       );
-      _inkNotesController.upsert(placeholder);
+      _inkNotesController.upsert(
+        placeholder,
+        changedPageIndices: const <int>{0},
+      );
       return placeholder;
     }
     return _inkNotesController.notes[idx];
@@ -244,7 +253,10 @@ class DrawingNoteController extends ChangeNotifier {
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
-    _inkNotesController.upsert(_note);
+    _inkNotesController.upsert(
+      _note,
+      changedPageIndices: const <int>{},
+    );
     notifyListeners();
   }
 
@@ -263,7 +275,10 @@ class DrawingNoteController extends ChangeNotifier {
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
-    _inkNotesController.upsert(_note);
+    _inkNotesController.upsert(
+      _note,
+      changedPageIndices: {_currentPageIndex},
+    );
     notifyListeners();
     return _currentPageIndex;
   }

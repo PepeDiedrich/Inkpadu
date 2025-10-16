@@ -23,12 +23,24 @@ class InkNotesRepository {
   Future<List<InkNote>> getLocalNotes() => localStorage.getAllNotes();
 
   /// Fügt eine Notiz hinzu oder aktualisiert sie und synchronisiert falls möglich.
-  Future<void> upsertNote(InkNote note, {required String userId}) async {
+  Future<void> upsertNote(
+    InkNote note, {
+    required String userId,
+    Set<int>? changedPageIndices,
+  }) async {
     // Always save locally first (offline-first)
-  await localStorage.saveNote(note, userId: userId);
+    await localStorage.saveNote(
+      note,
+      userId: userId,
+      changedPageIndices: changedPageIndices,
+    );
 
     // Try to sync immediately if possible
-    await _trySyncNote(note, userId);
+    await _trySyncNote(
+      note,
+      userId,
+      changedPageIndices: changedPageIndices,
+    );
   }
 
   /// Löscht eine Notiz und synchronisiert die Löschung.
@@ -105,7 +117,12 @@ class InkNotesRepository {
         if (operation == 'UPSERT') {
           final note = await localStorage.getNoteById(noteId);
           if (note != null) {
-            await syncService!.upsertNote(note, userId);
+            final changedPages = localStorage.extractChangedPages(row);
+            await syncService!.upsertNote(
+              note,
+              userId,
+              changedPageIndices: changedPages,
+            );
             await localStorage.markSynced(noteId, remoteUpdatedAt: note.updatedAt.toUtc());
           }
         } else if (operation == 'DELETE') {
@@ -122,10 +139,18 @@ class InkNotesRepository {
     }
   }
 
-  Future<void> _trySyncNote(InkNote note, String userId) async {
+  Future<void> _trySyncNote(
+    InkNote note,
+    String userId, {
+    Set<int>? changedPageIndices,
+  }) async {
     if (syncService == null) return;
     try {
-      await syncService!.upsertNote(note, userId);
+      await syncService!.upsertNote(
+        note,
+        userId,
+        changedPageIndices: changedPageIndices,
+      );
       await localStorage.markSynced(note.id, remoteUpdatedAt: note.updatedAt.toUtc());
     } catch (e) {
       // leave as pending for retry

@@ -1,4 +1,3 @@
-import 'package:appwrite/models.dart' as appwrite_models;
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
@@ -38,57 +37,6 @@ class InkNoteDto {
         updatedAt: note.updatedAt.toUtc(),
         createdAt: note.updatedAt.toUtc(),
       );
-
-  /// Baut ein DTO aus einem Appwrite-[Document].
-  factory InkNoteDto.fromDocument(appwrite_models.Document doc) {
-    final String rawPageData = doc.data['page_data'] as String? ?? '';
-    final InkNotePageBundle bundle = InkNotePageCodec.decode(rawPageData);
-
-    final int resolvedIndex = _parseFlexiblePageIndex(
-      doc.data['last_opened_page'],
-      pagesLength: bundle.pages.length,
-      fallback: bundle.lastOpenedPageIndex,
-    );
-
-    return InkNoteDto(
-      id: doc.$id,
-      userId: doc.data['user_id'] as String,
-      title: doc.data['title'] as String,
-      paperStyle: doc.data['paper_style'] as String,
-      pageData: rawPageData,
-      lastOpenedPageIndex: resolvedIndex,
-      pages: bundle.pages,
-      updatedAt: DateTime.parse(doc.data['updated_at'] as String).toUtc(),
-      createdAt: _parseCreatedAt(
-        doc.data['created_at'],
-        fallback: doc.$createdAt,
-      ),
-    );
-  }
-
-  /// Baut ein DTO aus einer Realtime-Payload.
-  factory InkNoteDto.fromPayload(Map<String, dynamic> payload) {
-    final String rawPageData = payload['page_data'] as String? ?? '';
-    final InkNotePageBundle bundle = InkNotePageCodec.decode(rawPageData);
-
-    final int resolvedIndex = _parseFlexiblePageIndex(
-      payload['last_opened_page'],
-      pagesLength: bundle.pages.length,
-      fallback: bundle.lastOpenedPageIndex,
-    );
-
-    return InkNoteDto(
-      id: payload[r'$id'] as String,
-      userId: payload['user_id'] as String,
-      title: payload['title'] as String,
-      paperStyle: payload['paper_style'] as String,
-      pageData: rawPageData,
-      lastOpenedPageIndex: resolvedIndex,
-      pages: bundle.pages,
-      updatedAt: DateTime.parse(payload['updated_at'] as String).toUtc(),
-      createdAt: _parseCreatedAt(payload['created_at']),
-    );
-  }
 
   /// Eindeutige Kennung der Notiz.
   final String id;
@@ -157,56 +105,4 @@ class InkNoteDto {
     'created_at': (createdAt ?? updatedAt).toIso8601String(),
   };
 
-  static DateTime? _parseCreatedAt(
-    Object? value, {
-    Object? fallback,
-  }) {
-    if (value is String && value.isNotEmpty) {
-      return DateTime.tryParse(value)?.toUtc();
-    }
-    if (value is DateTime) {
-      return value.toUtc();
-    }
-    if (fallback is String && fallback.isNotEmpty) {
-      return DateTime.tryParse(fallback)?.toUtc();
-    }
-    if (fallback is DateTime) {
-      return fallback.toUtc();
-    }
-    return null;
-  }
-
-  /// Akzeptiert 0- oder 1-basierte Eingaben und normalisiert auf 0-basiert.
-  static int _parseFlexiblePageIndex(
-    Object? raw, {
-    required int pagesLength,
-    required int fallback,
-  }) {
-    int? value;
-    if (raw is int) {
-      value = raw;
-    } else if (raw is num) {
-      value = raw.toInt();
-    } else if (raw is String) {
-      value = int.tryParse(raw);
-    }
-
-    if (value == null) {
-      return fallback;
-    }
-
-    // Beides unterstützen. Zuerst 0-basiert (Bestand), dann 1-basiert (neu):
-    // - 0..pagesLength-1 => 0-basiert (alt)
-    // - 1..pagesLength  => 1-basiert (neu) => minus 1
-    if (pagesLength > 0 && value >= 0 && value < pagesLength) {
-      return value;
-    }
-    if (pagesLength > 0 && value >= 1 && value <= pagesLength) {
-      return value - 1;
-    }
-
-    // Außerhalb des Bereichs: clampen.
-    if (pagesLength <= 0) return 0;
-    return value.clamp(0, pagesLength - 1).toInt();
-  }
 }

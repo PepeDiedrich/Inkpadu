@@ -218,6 +218,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   lastOpenedPageIndex: controller.currentPageIndex,
                   updatedAt: DateTime.now(),
                 ),
+                changedPageIndices: const <int>{},
               );
             }
           },
