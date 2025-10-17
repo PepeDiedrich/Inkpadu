@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -32,7 +33,7 @@ class InkNotePageBundle {
 class InkNotePageCodec {
   const InkNotePageCodec._();
 
-  static const int _version = 2;
+  static const int _version = 3;
   static const int _positionScale = 1000;
   static const int _pressureScale = 1000;
   static final GZipEncoder _gzipEncoder = GZipEncoder();
@@ -108,11 +109,11 @@ class InkNotePageCodec {
         );
       }
 
-      final List<NotePage> pages =
-          (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<String, dynamic>>()
-              .map(_decodePage)
-              .toList(growable: false);
+    final List<NotePage> pages =
+      (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map((pageData) => _decodePage(pageData, version: version))
+        .toList(growable: false);
       final meta = decoded['meta'];
       final lastPageRaw =
           meta is Map<String, dynamic> ? meta['lastPage'] : null;
@@ -160,16 +161,78 @@ class InkNotePageCodec {
     }
   }
 
-  static Map<String, dynamic> _encodePage(NotePage page) => <String, dynamic>{
-    's': page.strokes.map(_encodeStroke).toList(growable: false),
-  };
+  static Map<String, dynamic> _encodePage(NotePage page) {
+    final List<Map<String, dynamic>> encodedStrokes =
+        page.strokes.map(_encodeStroke).toList(growable: false);
 
-  static NotePage _decodePage(Map<String, dynamic> data) {
+    final Map<String, dynamic>? context = _encodeContext(page);
+
+    return <String, dynamic>{
+      's': encodedStrokes,
+      if (context != null) 'ctx': context,
+    };
+  }
+
+  static Map<String, dynamic>? _encodeContext(NotePage page) {
+    final bool hasDescription =
+        (page.cachedVisionDescription?.trim().isNotEmpty ?? false);
+    final bool hasHistory = page.assistantHistory.isNotEmpty;
+
+    if (!hasDescription && !hasHistory) {
+      return null;
+    }
+
+    return <String, dynamic>{
+      if (hasDescription) 'vision': page.cachedVisionDescription,
+      if (hasHistory)
+        'history': page.assistantHistory
+            .map((message) => message.toJson())
+            .toList(growable: false),
+    };
+  }
+
+  static NotePage _decodePage(Map<String, dynamic> data, {required int version}) {
     final strokes = (data['s'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_decodeStroke)
         .toList(growable: false);
-    return NotePage(strokes: strokes);
+
+    if (version <= 2) {
+      return NotePage(strokes: strokes);
+    }
+
+    final Object? rawContext = data['ctx'];
+    if (rawContext is! Map<String, dynamic>) {
+      return NotePage(strokes: strokes);
+    }
+
+    final List<AssistantMessage> history = _decodeHistory(rawContext['history']);
+    final String? description = _decodeVisionDescription(rawContext['vision']);
+
+    return NotePage(
+      strokes: strokes,
+      assistantHistory: history,
+      cachedVisionDescription: description,
+    );
+  }
+
+  static List<AssistantMessage> _decodeHistory(Object? rawHistory) {
+    if (rawHistory is! List) {
+      return const <AssistantMessage>[];
+    }
+
+    return rawHistory
+        .whereType<Map<String, dynamic>>()
+        .map(AssistantMessage.fromJson)
+        .toList(growable: false);
+  }
+
+  static String? _decodeVisionDescription(Object? rawDescription) {
+    if (rawDescription is String) {
+      final String trimmed = rawDescription.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    return null;
   }
 
   static Map<String, dynamic> _encodeStroke(Stroke stroke) {

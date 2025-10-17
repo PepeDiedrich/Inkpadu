@@ -1,14 +1,17 @@
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
     show StrokeBoundingBoxCluster, ConvexHullCalculator;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_snapshot_service.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/conversation_section.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/debug_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 import 'package:http/http.dart' as http;
@@ -25,6 +28,7 @@ class AssistantPanel extends StatefulWidget {
     required this.widthFraction,
     required this.resizeTrend,
     required this.side,
+    required this.controller,
     this.strokeClusters = const <StrokeBoundingBoxCluster>[],
   });
 
@@ -43,6 +47,9 @@ class AssistantPanel extends StatefulWidget {
   /// Die aktuell ermittelten Stroke-Cluster auf der Zeichenfläche.
   final List<StrokeBoundingBoxCluster> strokeClusters;
 
+  /// Controller der aktuellen Notizseite für das Persistieren von Kontext.
+  final DrawingNoteController controller;
+
   @override
   State<AssistantPanel> createState() => _AssistantPanelState();
 }
@@ -50,7 +57,7 @@ class AssistantPanel extends StatefulWidget {
 class _AssistantPanelState extends State<AssistantPanel> {
   final TextEditingController _promptController = TextEditingController();
   bool _isLoading = false;
-  String _response = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
+  String? _statusMessage = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
 
   late final Functions _functions;
   final DrawingSnapshotService _snapshotService =
@@ -92,24 +99,55 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 
   Future<void> _sendPrompt() async {
-    final prompt = _promptController.text.trim();
-    if (prompt.isEmpty || _isLoading) return;
+    final String prompt = _promptController.text.trim();
+    if (prompt.isEmpty || _isLoading) {
+      return;
+    }
+
+    final DrawingNoteController controller = widget.controller;
+    if (!controller.isInitialized) {
+      setState(() {
+        _statusMessage = 'Notiz wird noch geladen…';
+      });
+      return;
+    }
+
+    final int pageIndex = controller.currentPageIndex;
+    final List<NotePage> pages = controller.pages;
+    if (pageIndex < 0 || pageIndex >= pages.length) {
+      setState(() {
+        _statusMessage = 'Konnte aktuelle Seite nicht ermitteln.';
+      });
+      return;
+    }
+
+  final NotePage currentPage = pages[pageIndex];
+    final List<AssistantMessage> history = currentPage.assistantHistory;
+    final List<AssistantMessage> recentHistory = _selectRecentHistory(history);
+    final String? historySummary = _summarizeHistory(recentHistory);
+
     final List<StrokeBoundingBoxCluster> availableClusters = widget
         .strokeClusters
         .where((cluster) => cluster.hasContent)
         .toList(growable: false);
     final int totalClusterCount = availableClusters.length;
+    final String? currentSignature =
+        _computeClusterSignature(availableClusters);
 
     setState(() {
       _isLoading = true;
-      _response = totalClusterCount > 0
-          ? 'Erstelle kompaktes Bild aus $totalClusterCount Clustern und hole Token…'
-          : 'Hole Token und sende Anfrage…';
+      _statusMessage = totalClusterCount > 0
+          ? 'Erstelle neue Bildbeschreibung aus $totalClusterCount Clustern…'
+          : 'Sende Anfrage ohne Bildkontext…';
     });
 
+    CombinedSnapshot? combinedSnapshot;
+
     try {
-      final CombinedSnapshot? combinedSnapshot = await _snapshotService
-          .captureCombinedSnapshot(availableClusters);
+      if (availableClusters.isNotEmpty) {
+        combinedSnapshot = await _snapshotService
+            .captureCombinedSnapshot(availableClusters);
+      }
 
       final Execution execution = await _functions.createExecution(
         functionId: _functionId,
@@ -134,6 +172,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
         prompt: prompt,
         combinedSnapshot: combinedSnapshot,
         totalClusters: totalClusterCount,
+        historySummary: historySummary,
       );
 
       final Map<String, dynamic> payload = <String, dynamic>{
@@ -153,6 +192,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
       final int tokenEstimate = _estimateTokenUsage(
         prompt: prompt,
         combinedSnapshot: combinedSnapshot,
+        historySummary: historySummary,
       );
 
       final String payloadPreview = const JsonEncoder.withIndent(
@@ -185,14 +225,35 @@ class _AssistantPanelState extends State<AssistantPanel> {
                 as Map<String, dynamic>;
         final String? responseContent = _extractAssistantMessage(body);
         final String? finishReason = _firstFinishReason(body);
-        final String displayContent = _prepareDisplayContent(
+        final String fallbackContent = _prepareDisplayContent(
           content: responseContent,
           finishReason: finishReason,
           rawBody: body,
         );
-        setState(() {
-          _response = displayContent;
-        });
+        final String rawAnswer = responseContent ?? fallbackContent;
+        final String resolvedAnswer = rawAnswer.trim().isNotEmpty
+            ? rawAnswer.trim()
+            : fallbackContent.trim();
+
+        final AssistantMessage message = AssistantMessage(
+          question: prompt,
+          answer: resolvedAnswer,
+          createdAt: DateTime.now(),
+        );
+
+        controller.appendAssistantMessage(
+          message,
+          visionSignature: currentSignature,
+        );
+
+        if (mounted) {
+          setState(() {
+            _promptController.clear();
+            _statusMessage = finishReason == 'length'
+                ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
+                : null;
+          });
+        }
       } else {
         throw Exception(
           'Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}',
@@ -200,11 +261,11 @@ class _AssistantPanelState extends State<AssistantPanel> {
       }
     } on FormatException catch (e) {
       setState(() {
-        _response = 'Fehler: ${e.message}';
+        _statusMessage = 'Fehler: ${e.message}';
       });
     } catch (e) {
       setState(() {
-        _response = 'Fehler: $e';
+        _statusMessage = 'Fehler: $e';
       });
     } finally {
       if (mounted) {
@@ -292,10 +353,22 @@ $fallback''';
     required String prompt,
     required CombinedSnapshot? combinedSnapshot,
     required int totalClusters,
+    required String? historySummary,
   }) {
     final List<Map<String, dynamic>> content = <Map<String, dynamic>>[
-      {'type': 'text', 'text': prompt},
+      {
+        'type': 'text',
+        'text':
+            'Beantworte die Frage zur handschriftlichen Notiz präzise und markiere Unsicherheiten ausdrücklich.',
+      },
     ];
+
+    if (historySummary != null && historySummary.isNotEmpty) {
+      content.add({
+        'type': 'text',
+        'text': 'Bisherige Unterhaltung:\n$historySummary',
+      });
+    }
 
     if (combinedSnapshot != null) {
       content.add({
@@ -309,10 +382,14 @@ $fallback''';
       content.add({
         'type': 'text',
         'text':
-            'Hinweis: Es standen $totalClusters Cluster zur Verfügung, '
-            'es konnte aber kein Bild erzeugt werden.',
+            'Hinweis: Es standen $totalClusters Cluster zur Verfügung, es konnte aber kein Bild erzeugt werden.',
       });
     }
+
+    content.add({
+      'type': 'text',
+      'text': 'Frage: $prompt',
+    });
 
     return content;
   }
@@ -457,9 +534,9 @@ $fallback''';
     final bool debugModeEnabled = EditorSettingsScope.of(
       context,
     ).debugModeEnabled;
-    final List<_ClusterShapeData> clusterShapes = debugModeEnabled
+  final List<ClusterShapeData> clusterShapes = debugModeEnabled
         ? _computeClusterShapes(widget.strokeClusters)
-        : const <_ClusterShapeData>[];
+    : const <ClusterShapeData>[];
 
     final bool hasPayloadDebugContent =
         _debugPrompt.isNotEmpty ||
@@ -494,11 +571,66 @@ $fallback''';
 
     final int percentage = (widget.widthFraction * 100).round();
     final Color headerBadgeColor = colorScheme.primaryContainer;
-    final Color cardBackground = colorScheme.surfaceContainerHigh;
     final Color indicatorBackground = colorScheme.inverseSurface;
     final Color indicatorTextColor = colorScheme.onInverseSurface;
     final bool shouldShowClusterInfo =
         showDebugControls && clusterShapes.isNotEmpty;
+
+    final List<AssistantMessage> history = widget.controller.isInitialized
+        ? widget.controller.currentAssistantHistory
+        : const <AssistantMessage>[];
+
+    final List<Widget> listViewChildren = <Widget>[
+      AssistantConversationSection(
+        statusMessage: _statusMessage,
+        isLoading: _isLoading,
+        messages: history,
+        debugModeEnabled: debugModeEnabled,
+      ),
+    ];
+
+    if (showDebugControls) {
+      listViewChildren
+        ..add(const SizedBox(height: 12))
+        ..add(
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _showDebugPanel = !_showDebugPanel;
+                });
+              },
+              icon: Icon(
+                _showDebugPanel
+                    ? Icons.bug_report
+                    : Icons.bug_report_outlined,
+              ),
+              label: Text(
+                _showDebugPanel ? 'Debug ausblenden' : 'Debug anzeigen',
+              ),
+            ),
+          ),
+        )
+        ..add(
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 160),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _showDebugPanel && hasDebugContent
+                ? AssistantDebugSection(
+                    prompt: _debugPrompt,
+                    snapshot: _debugSnapshot,
+                    tokenEstimate: _debugTokenEstimate,
+                    totalClusters: _debugTotalClusters,
+                    payloadPreview: _debugPayloadPreview,
+                    clusterShapes: clusterShapes,
+                    showClusterInfo: shouldShowClusterInfo,
+                  )
+                : const SizedBox.shrink(),
+          ),
+        );
+    }
 
     return Stack(
       children: [
@@ -557,60 +689,7 @@ $fallback''';
                     child: ListView(
                       controller: _contentScrollController,
                       padding: EdgeInsets.zero,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: cardBackground,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: SelectableText(
-                              _response,
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (showDebugControls) ...[
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _showDebugPanel = !_showDebugPanel;
-                                });
-                              },
-                              icon: Icon(
-                                _showDebugPanel
-                                    ? Icons.bug_report
-                                    : Icons.bug_report_outlined,
-                              ),
-                              label: Text(
-                                _showDebugPanel
-                                    ? 'Debug ausblenden'
-                                    : 'Debug anzeigen',
-                              ),
-                            ),
-                          ),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 160),
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            child: _showDebugPanel && hasDebugContent
-                                ? _buildDebugSection(
-                                    textTheme,
-                                    colorScheme,
-                                    clusterShapes,
-                                    shouldShowClusterInfo,
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        ],
-                      ],
+                      children: listViewChildren,
                     ),
                   ),
                 ),
@@ -702,207 +781,15 @@ $fallback''';
     return Icons.open_with;
   }
 
-  Widget _buildDebugSection(
-    TextTheme textTheme,
-    ColorScheme colorScheme,
-    List<_ClusterShapeData> clusterShapes,
-    bool showClusterInfo,
-  ) {
-    final List<Widget> children = <Widget>[
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Debug: Gesendete Daten',
-            style: textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          Text(
-            _debugTokenEstimate != null
-                ? 'Token-Schätzung: $_debugTokenEstimate T.'
-                : 'Token-Schätzung: –',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      Text(
-        'Heuristik: Text ≈ Zeichen/4 · Tokens, Bilder ≈ 80 + 1,6 · KiB',
-        style: textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-    ];
-
-    if (_debugPrompt.isNotEmpty) {
-      children
-        ..add(const SizedBox(height: 12))
-        ..add(
-          Text(
-            'Prompt',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        )
-        ..add(const SizedBox(height: 6))
-        ..add(
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: SelectableText(_debugPrompt, style: textTheme.bodyMedium),
-            ),
-          ),
-        );
-    }
-
-    final CombinedSnapshot? combinedSnapshot = _debugSnapshot;
-    if (combinedSnapshot != null) {
-      final Size logicalSize = combinedSnapshot.logicalSize;
-      final Size pixelSize = combinedSnapshot.pixelSize;
-      children
-        ..add(const SizedBox(height: 12))
-        ..add(
-          Text(
-            'Gesamtsnapshot ($_debugTotalClusters Cluster)',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        )
-        ..add(const SizedBox(height: 6))
-        ..add(
-          Text(
-            'Logische Größe: ${logicalSize.width.toStringAsFixed(0)} × '
-            '${logicalSize.height.toStringAsFixed(0)} px · '
-            'Pixel: ${pixelSize.width.toStringAsFixed(0)} × '
-            '${pixelSize.height.toStringAsFixed(0)}',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        )
-        ..add(const SizedBox(height: 4))
-        ..add(
-          Text(
-            'Skalierung: ${(combinedSnapshot.scale * 100).toStringAsFixed(0)} % · '
-            'Pixelratio: ${combinedSnapshot.pixelRatio.toStringAsFixed(2)}',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        )
-        ..add(const SizedBox(height: 8))
-        ..add(
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 420),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4,
-                  child: Image.memory(
-                    combinedSnapshot.pngBytes,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-    }
-
-    if (_debugPayloadPreview?.isNotEmpty ?? false) {
-      children
-        ..add(const SizedBox(height: 12))
-        ..add(
-          Text(
-            'JSON-Payload',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        )
-        ..add(const SizedBox(height: 6))
-        ..add(
-          Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxHeight: 260),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                primary: false,
-                padding: const EdgeInsets.all(12),
-                child: SelectableText(
-                  _debugPayloadPreview!,
-                  style: textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
-                ),
-              ),
-            ),
-          ),
-        );
-    }
-
-    if (showClusterInfo) {
-      children
-        ..add(const SizedBox(height: 12))
-        ..add(
-          Text(
-            'Bounding-Boxen & Hüllen',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        )
-        ..add(const SizedBox(height: 6))
-        ..add(
-          _ClusterDebugPreview(shapes: clusterShapes, colorScheme: colorScheme),
-        )
-        ..add(const SizedBox(height: 6))
-        ..add(
-          Text(
-            'Türkis: Bounding-Box · Gold: Konvexe Hülle',
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        );
-    }
-
-    return Container(
-      key: const ValueKey<String>('assistant_debug_panel'),
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-
   int _estimateTokenUsage({
     required String prompt,
     required CombinedSnapshot? combinedSnapshot,
+    String? historySummary,
   }) {
-    var total = _approxTokens(_systemPrompt) + _approxTokens(prompt);
+    var total = _approxTokens(_systemPrompt) + _approxTokens(prompt) + 32;
+    if (historySummary != null) {
+      total += _approxTokens(historySummary);
+    }
     if (combinedSnapshot != null) {
       final double kiloBytes = combinedSnapshot.pngBytes.lengthInBytes / 1024;
       final int imageTokens = (80 + kiloBytes * 1.6).ceil();
@@ -918,14 +805,78 @@ $fallback''';
     return (text.length / 4).ceil();
   }
 
-  List<_ClusterShapeData> _computeClusterShapes(
+  List<AssistantMessage> _selectRecentHistory(
+    List<AssistantMessage> history,
+  ) {
+    if (history.length <= 5) {
+      return history;
+    }
+    return history.sublist(history.length - 5);
+  }
+
+  String? _summarizeHistory(List<AssistantMessage> history) {
+    if (history.isEmpty) {
+      return null;
+    }
+    final StringBuffer buffer = StringBuffer();
+    for (var i = 0; i < history.length; i++) {
+      final AssistantMessage message = history[i];
+      if (buffer.isNotEmpty) {
+        buffer.writeln('---');
+      }
+      buffer
+        ..writeln('Frage: ${_condenseForPrompt(message.question)}')
+        ..writeln('Antwort: ${_condenseForPrompt(message.answer)}');
+    }
+    final String result = buffer.toString().trim();
+    return result.isEmpty ? null : result;
+  }
+
+  String _condenseForPrompt(String value, {int maxLength = 420}) {
+    final String trimmed = value.trim();
+    if (trimmed.length <= maxLength) {
+      return trimmed;
+    }
+    return '${trimmed.substring(0, maxLength - 1)}…';
+  }
+
+  String? _computeClusterSignature(
     List<StrokeBoundingBoxCluster> clusters,
   ) {
     if (clusters.isEmpty) {
-      return const <_ClusterShapeData>[];
+      return null;
     }
 
-    final List<_ClusterShapeData> shapes = <_ClusterShapeData>[];
+    final List<String> entries = <String>[];
+    for (final StrokeBoundingBoxCluster cluster in clusters) {
+      final List<String> strokeIds = List<String>.from(cluster.strokeIds)
+        ..sort();
+      final List<String> corners = cluster.boundingBox.corners
+          .map(
+            (Offset corner) =>
+                '${corner.dx.toStringAsFixed(1)}:${corner.dy.toStringAsFixed(1)}',
+          )
+          .toList(growable: false);
+      entries.add(
+        '${strokeIds.join(',')}|${corners.join(';')}|'
+        '${cluster.boundingBox.width.toStringAsFixed(1)}|'
+        '${cluster.boundingBox.height.toStringAsFixed(1)}|'
+        '${cluster.boundingBox.angle.toStringAsFixed(3)}',
+      );
+    }
+
+    entries.sort();
+    return entries.join('#');
+  }
+
+  List<ClusterShapeData> _computeClusterShapes(
+    List<StrokeBoundingBoxCluster> clusters,
+  ) {
+    if (clusters.isEmpty) {
+      return const <ClusterShapeData>[];
+    }
+
+    final List<ClusterShapeData> shapes = <ClusterShapeData>[];
     for (final StrokeBoundingBoxCluster cluster in clusters) {
       if (!cluster.hasContent) {
         continue;
@@ -944,202 +895,9 @@ $fallback''';
         continue;
       }
 
-      shapes.add(_ClusterShapeData(hull: hull, boundingCorners: corners));
+      shapes.add(ClusterShapeData(hull: hull, boundingCorners: corners));
     }
 
     return shapes;
   }
-}
-
-class _ClusterDebugPreview extends StatelessWidget {
-  const _ClusterDebugPreview({required this.shapes, required this.colorScheme});
-
-  final List<_ClusterShapeData> shapes;
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(14),
-    child: Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: AspectRatio(
-        aspectRatio: 4 / 3,
-        child: CustomPaint(painter: _ClusterPreviewPainter(shapes)),
-      ),
-    ),
-  );
-}
-
-class _ClusterPreviewPainter extends CustomPainter {
-  const _ClusterPreviewPainter(this.shapes);
-
-  final List<_ClusterShapeData> shapes;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (shapes.isEmpty) {
-      final TextPainter textPainter = TextPainter(
-        text: const TextSpan(
-          text: 'Keine Cluster erkannt',
-          style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
-        ),
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: size.width);
-      textPainter.paint(
-        canvas,
-        Offset(
-          (size.width - textPainter.width) * 0.5,
-          (size.height - textPainter.height) * 0.5,
-        ),
-      );
-      return;
-    }
-
-    final Rect? bounds = _computeBounds();
-    if (bounds == null) {
-      return;
-    }
-
-    const double padding = 12;
-    final double availableWidth = size.width - padding * 2;
-    final double availableHeight = size.height - padding * 2;
-    if (availableWidth <= 0 || availableHeight <= 0) {
-      return;
-    }
-
-    final double width = math.max(bounds.width, 1e-3);
-    final double height = math.max(bounds.height, 1e-3);
-    final double scale = math.min(
-      availableWidth / width,
-      availableHeight / height,
-    );
-
-    final double offsetX =
-        (size.width - width * scale) * 0.5 - bounds.left * scale;
-    final double offsetY =
-        (size.height - height * scale) * 0.5 - bounds.top * scale;
-
-    canvas.save();
-    canvas.translate(offsetX, offsetY);
-    canvas.scale(scale);
-
-    final Paint hullFillPaint = Paint()
-      ..color = const Color(0x33FFC107)
-      ..style = PaintingStyle.fill;
-    final Paint hullStrokePaint = Paint()
-      ..color = const Color(0xFFFFC107)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2 / scale;
-    final Paint boxFillPaint = Paint()
-      ..color = const Color(0x1A2962FF)
-      ..style = PaintingStyle.fill;
-    final Paint boxStrokePaint = Paint()
-      ..color = const Color(0xFF2962FF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5 / scale;
-
-    for (final _ClusterShapeData shape in shapes) {
-      if (shape.hull.length >= 3) {
-        final Path hullPath = Path()..addPolygon(shape.hull, true);
-        canvas.drawPath(hullPath, hullFillPaint);
-        canvas.drawPath(hullPath, hullStrokePaint);
-      } else if (shape.hull.length == 2) {
-        final Path hullPath = Path()..addPolygon(shape.hull, false);
-        canvas.drawPath(hullPath, hullStrokePaint);
-      } else if (shape.hull.length == 1) {
-        canvas.drawCircle(shape.hull.first, 3 / scale, hullStrokePaint);
-      }
-
-      if (shape.boundingCorners.isNotEmpty) {
-        final Path boxPath = Path()..addPolygon(shape.boundingCorners, true);
-        final Rect boxBounds = boxPath.getBounds();
-        if (boxBounds.width > 0 && boxBounds.height > 0) {
-          canvas.drawPath(boxPath, boxFillPaint);
-        }
-        canvas.drawPath(boxPath, boxStrokePaint);
-      }
-    }
-
-    canvas.restore();
-
-    final Paint framePaint = Paint()
-      ..color = const Color(0x40FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final RRect frame = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        padding * 0.5,
-        padding * 0.5,
-        size.width - padding,
-        size.height - padding,
-      ),
-      const Radius.circular(12),
-    );
-    canvas.drawRRect(frame, framePaint);
-  }
-
-  Rect? _computeBounds() {
-    double minX = double.infinity;
-    double minY = double.infinity;
-    double maxX = -double.infinity;
-    double maxY = -double.infinity;
-
-    for (final _ClusterShapeData shape in shapes) {
-      for (final Offset point in shape.hull) {
-        if (point.dx < minX) minX = point.dx;
-        if (point.dx > maxX) maxX = point.dx;
-        if (point.dy < minY) minY = point.dy;
-        if (point.dy > maxY) maxY = point.dy;
-      }
-      for (final Offset corner in shape.boundingCorners) {
-        if (corner.dx < minX) minX = corner.dx;
-        if (corner.dx > maxX) maxX = corner.dx;
-        if (corner.dy < minY) minY = corner.dy;
-        if (corner.dy > maxY) maxY = corner.dy;
-      }
-    }
-
-    if (!minX.isFinite || !minY.isFinite || !maxX.isFinite || !maxY.isFinite) {
-      return null;
-    }
-
-    if ((maxX - minX).abs() < 1e-6 && (maxY - minY).abs() < 1e-6) {
-      // Erweitere Nullflächen minimal, damit Skalierung funktioniert.
-      return Rect.fromLTWH(minX - 4, minY - 4, 8, 8);
-    }
-
-    return Rect.fromLTRB(minX, minY, maxX, maxY);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ClusterPreviewPainter oldDelegate) =>
-      !listEquals(oldDelegate.shapes, shapes);
-}
-
-class _ClusterShapeData {
-  const _ClusterShapeData({required this.hull, required this.boundingCorners});
-
-  final List<Offset> hull;
-  final List<Offset> boundingCorners;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    if (other is! _ClusterShapeData) {
-      return false;
-    }
-    return listEquals(hull, other.hull) &&
-        listEquals(boundingCorners, other.boundingCorners);
-  }
-
-  @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(hull), Object.hashAll(boundingCorners));
 }

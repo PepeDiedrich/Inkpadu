@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
@@ -59,6 +60,14 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Alle Seiten der aktuellen Notiz.
   List<NotePage> get pages => List<NotePage>.unmodifiable(_note.pages);
+
+  /// Historie des Assistenten auf der aktuellen Seite.
+  List<AssistantMessage> get currentAssistantHistory {
+    if (_note.pages.isEmpty) {
+      return const <AssistantMessage>[];
+    }
+    return _note.pages[_currentPageIndex].assistantHistory;
+  }
 
   /// Index der aktuell aktiven Seite.
   int get currentPageIndex => _currentPageIndex;
@@ -183,6 +192,51 @@ class DrawingNoteController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Fügt eine neue Assistenten-Nachricht hinzu und persistiert die Änderung.
+  void appendAssistantMessage(
+    AssistantMessage message, {
+    String? visionSignature,
+  }) {
+    if (!_initialized || _note.pages.isEmpty) {
+      return;
+    }
+
+    final int normalizedIndex = _normalizePageIndex(_currentPageIndex);
+    final List<NotePage> updatedPages = List<NotePage>.of(_note.pages);
+    final NotePage current = updatedPages[normalizedIndex];
+    final List<AssistantMessage> history = List<AssistantMessage>.of(
+      current.assistantHistory,
+    )
+      ..add(message);
+
+  final String? trimmedDescription =
+    message.visionDescription?.trim().isNotEmpty == true
+      ? message.visionDescription!.trim()
+      : null;
+
+  final String? nextCachedDescription = trimmedDescription;
+  final String? nextCachedSignature = trimmedDescription != null
+    ? visionSignature
+    : null;
+
+    updatedPages[normalizedIndex] = current.copyWith(
+      assistantHistory: List<AssistantMessage>.unmodifiable(history),
+      cachedVisionDescription: nextCachedDescription,
+      cachedVisionSignature: nextCachedSignature,
+    );
+
+    _note = _note.copyWith(
+      pages: List<NotePage>.unmodifiable(updatedPages),
+      updatedAt: DateTime.now(),
+    );
+
+    _inkNotesController.upsert(
+      _note,
+      changedPageIndices: {normalizedIndex},
+    );
+    notifyListeners();
+  }
+
   /// Aktualisiert Metadaten der Notiz wie Titel und Papierstil.
   void updateMetadata({
     required String title,
@@ -288,8 +342,35 @@ class DrawingNoteController extends ChangeNotifier {
       return;
     }
     final List<NotePage> updatedPages = List<NotePage>.of(_note.pages);
-    updatedPages[_currentPageIndex] =
-        updatedPages[_currentPageIndex].copyWith(strokes: drawingController.strokes);
+    final NotePage currentPage = updatedPages[_currentPageIndex];
+    final List<Stroke> persistedStrokes = drawingController.strokes;
+
+    final bool hasContent = persistedStrokes.any(
+      (Stroke stroke) => stroke.points.isNotEmpty,
+    );
+
+    final String? nextDescription =
+        hasContent ? currentPage.cachedVisionDescription : null;
+    final String? nextSignature =
+        hasContent ? currentPage.cachedVisionSignature : null;
+
+    final bool strokesChanged =
+        !listEquals(currentPage.strokes, persistedStrokes);
+    final bool descriptionChanged =
+        currentPage.cachedVisionDescription != nextDescription;
+    final bool signatureChanged =
+        currentPage.cachedVisionSignature != nextSignature;
+
+    if (!strokesChanged && !descriptionChanged && !signatureChanged) {
+      return;
+    }
+
+    updatedPages[_currentPageIndex] = currentPage.copyWith(
+      strokes: persistedStrokes,
+      cachedVisionDescription: nextDescription,
+      cachedVisionSignature: nextSignature,
+    );
+
     _note = _note.copyWith(
       pages: List<NotePage>.unmodifiable(updatedPages),
     );

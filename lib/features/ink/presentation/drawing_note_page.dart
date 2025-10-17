@@ -442,6 +442,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                           widthFraction: previewFraction,
                           resizeTrend: _resizeTrend,
                           side: editorSettings.sidebarSide,
+                          controller: controller,
                           strokeClusters: _latestStrokeClusters,
                         ),
                       ),
@@ -512,6 +513,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       },
     );
   }
+
   void _focusPage(int index) {
     final controller = _maybeController;
     if (controller == null || !controller.isInitialized) {

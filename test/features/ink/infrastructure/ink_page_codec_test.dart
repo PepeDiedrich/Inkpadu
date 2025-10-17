@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -23,16 +24,27 @@ void main() {
           DrawingPoint(position: const Offset(25.777, -30.200), pressure: 0.91),
         ],
       );
-  final page = NotePage(strokes: <Stroke>[stroke]);
+      final AssistantMessage message = AssistantMessage(
+        question: 'Was steht hier?',
+        answer: 'Eine Beispielantwort',
+        visionDescription: 'Eine kurze Beschreibung',
+        createdAt: DateTime(2024, 10, 16, 12, 34),
+      );
+      final page = NotePage(
+        strokes: <Stroke>[stroke],
+        assistantHistory: <AssistantMessage>[message],
+        cachedVisionDescription: 'Eine kurze Beschreibung',
+      );
 
-  final encoded = InkNotePageCodec.encode(<NotePage>[page]);
+      final encoded = InkNotePageCodec.encode(<NotePage>[page]);
       expect(encoded, isNotEmpty);
 
-  final bundle = InkNotePageCodec.decode(encoded);
-  expect(bundle.pages, hasLength(1));
-  expect(bundle.lastOpenedPageIndex, 0);
+      final bundle = InkNotePageCodec.decode(encoded);
+      expect(bundle.pages, hasLength(1));
+      expect(bundle.lastOpenedPageIndex, 0);
 
-  final decodedStroke = bundle.pages.first.strokes.first;
+      final NotePage decodedPage = bundle.pages.first;
+      final Stroke decodedStroke = decodedPage.strokes.first;
       expect(decodedStroke.id, stroke.id);
       expect(decodedStroke.color.toARGB32(), stroke.color.toARGB32());
       expect(decodedStroke.baseWidth, closeTo(stroke.baseWidth, 1e-6));
@@ -47,6 +59,18 @@ void main() {
         expect(roundTripped.position.dy, closeTo(original.position.dy, 0.002));
         expect(roundTripped.pressure, closeTo(original.pressure, 0.002));
       }
+
+      expect(decodedPage.cachedVisionDescription, equals('Eine kurze Beschreibung'));
+      expect(decodedPage.assistantHistory, hasLength(1));
+      final AssistantMessage decodedMessage = decodedPage.assistantHistory.first;
+      expect(decodedMessage.question, equals(message.question));
+      expect(decodedMessage.answer, equals(message.answer));
+      expect(decodedMessage.visionDescription, equals(message.visionDescription));
+      expect(decodedMessage.reusedCachedDescription, isFalse);
+      expect(
+        decodedMessage.createdAt.toIso8601String(),
+        equals(message.createdAt.toIso8601String()),
+      );
     });
 
     test('decodes legacy JSON data as fallback', () {
@@ -64,14 +88,16 @@ void main() {
         ],
       });
 
-  final bundle = InkNotePageCodec.decode(legacy);
+      final bundle = InkNotePageCodec.decode(legacy);
 
-  expect(bundle.pages, hasLength(1));
-  expect(bundle.lastOpenedPageIndex, 0);
-  final stroke = bundle.pages.first.strokes.first;
+      expect(bundle.pages, hasLength(1));
+      expect(bundle.lastOpenedPageIndex, 0);
+      final stroke = bundle.pages.first.strokes.first;
       expect(stroke.id, 'legacy');
       expect(stroke.points, hasLength(1));
       expect(stroke.points.first.pressure, closeTo(0.5, 1e-6));
+      expect(bundle.pages.first.assistantHistory, isEmpty);
+      expect(bundle.pages.first.cachedVisionDescription, isNull);
     });
   });
 }
