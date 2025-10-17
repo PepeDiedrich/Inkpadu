@@ -1,6 +1,9 @@
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
+// ignore_for_file: prefer_const_constructors
+
 import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 
 /// Stellt den Gesprächsverlauf des Assistenten inklusive Statusmeldungen dar.
 class AssistantConversationSection extends StatelessWidget {
@@ -11,6 +14,8 @@ class AssistantConversationSection extends StatelessWidget {
     required this.isLoading,
     required this.messages,
     required this.debugModeEnabled,
+    this.pendingMessage,
+    this.isStreaming = false,
   });
 
   /// Optionale Statusmeldung oberhalb der Historie.
@@ -21,6 +26,10 @@ class AssistantConversationSection extends StatelessWidget {
   final List<AssistantMessage> messages;
   /// Ob der Debug-Modus aktiv ist (steuert die Beschreibung).
   final bool debugModeEnabled;
+  /// Optionale ausstehende Nachricht, die ggf. noch generiert wird.
+  final AssistantMessage? pendingMessage;
+  /// Ob gerade eine Antwort gestreamt wird.
+  final bool isStreaming;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +59,19 @@ class AssistantConversationSection extends StatelessWidget {
           ),
         );
       }
+    }
+
+    if (pendingMessage != null) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: 16));
+      }
+      children.add(
+        _AssistantMessageGroup(
+          message: pendingMessage!,
+          debugModeEnabled: debugModeEnabled,
+          isPending: isStreaming,
+        ),
+      );
     }
 
     return Column(
@@ -107,10 +129,12 @@ class _AssistantMessageGroup extends StatelessWidget {
   const _AssistantMessageGroup({
     required this.message,
     required this.debugModeEnabled,
+    this.isPending = false,
   });
 
   final AssistantMessage message;
   final bool debugModeEnabled;
+  final bool isPending;
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +144,18 @@ class _AssistantMessageGroup extends StatelessWidget {
     final MaterialLocalizations localizations =
         MaterialLocalizations.of(context);
 
-    final TimeOfDay timeOfDay = TimeOfDay.fromDateTime(message.createdAt);
-    final String timestamp =
-        '${localizations.formatMediumDate(message.createdAt)} · '
-        '${localizations.formatTimeOfDay(timeOfDay, alwaysUse24HourFormat: true)}';
+  final TimeOfDay timeOfDay = TimeOfDay.fromDateTime(message.createdAt);
+  final String timestamp =
+    '${localizations.formatMediumDate(message.createdAt)} · '
+    '${localizations.formatTimeOfDay(timeOfDay, alwaysUse24HourFormat: true)}';
+  final String displayTimestamp = isPending
+    ? 'Antwort wird gerade generiert…'
+    : timestamp;
+
+  final bool answerIsEmpty = message.answer.trim().isEmpty;
+  final String displayAnswer = answerIsEmpty && isPending
+    ? 'Antwort wird generiert…'
+    : message.answer;
 
     final String? description = message.visionDescription;
     final bool showDescription =
@@ -167,12 +199,14 @@ class _AssistantMessageGroup extends StatelessWidget {
             foregroundColor: colorScheme.onSurface,
             borderColor: colorScheme.outlineVariant,
             label: 'Antwort',
-            content: message.answer,
+            content: displayAnswer,
+            renderMath: true,
+            showSpinner: isPending,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          timestamp,
+          displayTimestamp,
           style: textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -190,6 +224,8 @@ class _AssistantBubble extends StatelessWidget {
     required this.content,
     this.borderColor,
     this.italic = false,
+    this.renderMath = false,
+    this.showSpinner = false,
   });
 
   final Color backgroundColor;
@@ -198,6 +234,8 @@ class _AssistantBubble extends StatelessWidget {
   final String content;
   final Color? borderColor;
   final bool italic;
+  final bool renderMath;
+  final bool showSpinner;
 
   @override
   Widget build(BuildContext context) {
@@ -224,18 +262,149 @@ class _AssistantBubble extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              SelectableText(
-                content,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: foregroundColor,
-                  fontStyle: italic ? FontStyle.italic : null,
+              renderMath
+                  ? _AssistantMessageRichContent(
+                      content: content,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: foregroundColor,
+                        fontStyle: italic ? FontStyle.italic : null,
+                      ),
+                    )
+                  : SelectableText(
+                      content,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: foregroundColor,
+                        fontStyle: italic ? FontStyle.italic : null,
+                      ),
+                    ),
+              if (showSpinner) ...<Widget>[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _AssistantMessageRichContent extends StatelessWidget {
+  const _AssistantMessageRichContent({
+    required this.content,
+    this.style,
+  });
+
+  final String content;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle baseStyle = style ??
+        Theme.of(context).textTheme.bodyMedium ??
+        const TextStyle(fontSize: 14);
+    final _MathSpanBuilder builder = _MathSpanBuilder(baseStyle);
+    final List<InlineSpan> spans = builder.build(content);
+    return SelectionArea(
+      child: RichText(
+        text: TextSpan(
+          style: baseStyle,
+          children: spans,
+        ),
+      ),
+    );
+  }
+}
+
+class _MathSpanBuilder {
+  const _MathSpanBuilder(this.baseStyle);
+
+  final TextStyle baseStyle;
+
+  List<InlineSpan> build(String input) {
+    if (input.isEmpty) {
+      return <InlineSpan>[TextSpan(text: '')];
+    }
+
+    final List<InlineSpan> spans = <InlineSpan>[];
+    final RegExp pattern = RegExp(r'(\$\$.*?\$\$|\$[^$]+\$)', dotAll: true);
+    int cursor = 0;
+
+    for (final RegExpMatch match in pattern.allMatches(input)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: input.substring(cursor, match.start)));
+      }
+
+      final String matchText = match.group(0)!;
+  final bool isBlock = matchText.startsWith(r'$$');
+      final String mathContent = matchText.substring(
+        isBlock ? 2 : 1,
+        matchText.length - (isBlock ? 2 : 1),
+      ).trim();
+
+      if (mathContent.isNotEmpty) {
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: isBlock ? 8 : 0),
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final Widget mathWidget = Math.tex(
+                    mathContent,
+                    textStyle: baseStyle,
+                    options: MathOptions(
+                      style: isBlock ? MathStyle.display : MathStyle.text,
+                    ),
+                  );
+
+                  final bool hasBoundedWidth =
+                      constraints.hasBoundedWidth &&
+                      constraints.maxWidth.isFinite;
+
+                  if (hasBoundedWidth) {
+                    return SizedBox(
+                      width: constraints.maxWidth,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: mathWidget,
+                      ),
+                    );
+                  }
+
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: mathWidget,
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      }
+
+      cursor = match.end;
+    }
+
+    if (cursor < input.length) {
+      spans.add(TextSpan(text: input.substring(cursor)));
+    }
+
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: input));
+    }
+
+    return spans;
   }
 }
 
@@ -257,7 +426,7 @@ class _AssistantEmptyPlaceholder extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(16),
       child: Text(
-        'Noch keine Unterhaltung. Stelle eine Frage, um zu beginnen.',
+        'Noch keine Unterhaltung. Tippe auf Tipp, Hilfe oder Überprüfen, um zu starten.',
         style: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),

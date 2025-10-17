@@ -18,6 +18,18 @@ import 'package:http/http.dart' as http;
 import 'package:appwrite/models.dart' show Execution;
 import 'package:appwrite/enums.dart' as appwrite_enums;
 
+/// Unterstützte Aktionen, die der Assistent auslösen kann.
+enum AssistantRequestType {
+  /// Liefert einen kurzen Hinweis ohne die Lösung zu verraten.
+  tip,
+
+  /// Generiert eine ausführliche Hilfestellung mit Erklärungen.
+  help,
+
+  /// Prüft die aktuelle Lösung auf Fehler oder bestätigt sie.
+  review,
+}
+
 /// Zeigt den Platzhalter für den KI-Assistenten an und reagiert auf
 /// Größenänderungen der Sidebar.
 class AssistantPanel extends StatefulWidget {
@@ -55,9 +67,11 @@ class AssistantPanel extends StatefulWidget {
 }
 
 class _AssistantPanelState extends State<AssistantPanel> {
-  final TextEditingController _promptController = TextEditingController();
   bool _isLoading = false;
+  bool _isStreaming = false;
   String? _statusMessage = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
+  AssistantRequestType? _activeRequestType;
+  AssistantMessage? _pendingMessage;
 
   late final Functions _functions;
   final DrawingSnapshotService _snapshotService =
@@ -66,7 +80,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
   static const String _systemPrompt =
       'Du bist ein hilfreicher Assistent innerhalb einer Notiz-App. '
       'Nutze angehängte Bildausschnitte, um die handschriftlichen Inhalte zu interpretieren. '
-      'Beschreibe Unsicherheiten oder unlesbare Bereiche transparent.';
+    'Beschreibe Unsicherheiten oder unlesbare Bereiche transparent. '
+    'Alle mathematischen Ausdrücke sollen in LaTeX-Notation ausgegeben werden, verwende dafür \$…\$ oder \$\$…\$\$ und erhalte Leerzeichen im restlichen Text.';
 
   CombinedSnapshot? _debugSnapshot;
   String _debugPrompt = '';
@@ -94,13 +109,11 @@ class _AssistantPanelState extends State<AssistantPanel> {
   @override
   void dispose() {
     _contentScrollController.dispose();
-    _promptController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendPrompt() async {
-    final String prompt = _promptController.text.trim();
-    if (prompt.isEmpty || _isLoading) {
+  Future<void> _handleAssistantRequest(AssistantRequestType type) async {
+    if (_isLoading) {
       return;
     }
 
@@ -121,7 +134,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
       return;
     }
 
-  final NotePage currentPage = pages[pageIndex];
+    final NotePage currentPage = pages[pageIndex];
     final List<AssistantMessage> history = currentPage.assistantHistory;
     final List<AssistantMessage> recentHistory = _selectRecentHistory(history);
     final String? historySummary = _summarizeHistory(recentHistory);
@@ -134,8 +147,18 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final String? currentSignature =
         _computeClusterSignature(availableClusters);
 
+    final String questionLabel = _questionLabelFor(type);
+    final String prompt = _promptTemplateFor(type);
+
     setState(() {
       _isLoading = true;
+      _isStreaming = true;
+      _activeRequestType = type;
+      _pendingMessage = AssistantMessage(
+        question: questionLabel,
+        answer: '',
+        createdAt: DateTime.now(),
+      );
       _statusMessage = totalClusterCount > 0
           ? 'Erstelle neue Bildbeschreibung aus $totalClusterCount Clustern…'
           : 'Sende Anfrage ohne Bildkontext…';
@@ -187,6 +210,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
         ],
         'max_completion_tokens': _maxCompletionTokens,
         'response_format': const {'type': 'text'},
+        'stream': true,
       };
 
       final int tokenEstimate = _estimateTokenUsage(
@@ -210,72 +234,192 @@ class _AssistantPanelState extends State<AssistantPanel> {
         });
       }
 
-      final http.Response azureRes = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode(payload),
-      );
+      final http.Client client = http.Client();
+      String accumulatedContent = '';
+      String? finishReason;
 
-      if (azureRes.statusCode == 200) {
-        final Map<String, dynamic> body =
-            json.decode(utf8.decode(azureRes.bodyBytes))
-                as Map<String, dynamic>;
-        final String? responseContent = _extractAssistantMessage(body);
-        final String? finishReason = _firstFinishReason(body);
-        final String fallbackContent = _prepareDisplayContent(
-          content: responseContent,
-          finishReason: finishReason,
-          rawBody: body,
-        );
-        final String rawAnswer = responseContent ?? fallbackContent;
-        final String resolvedAnswer = rawAnswer.trim().isNotEmpty
-            ? rawAnswer.trim()
-            : fallbackContent.trim();
+      try {
+        final http.Request request = http.Request('POST', url)
+          ..headers.addAll({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          })
+          ..body = json.encode(payload);
 
-        final AssistantMessage message = AssistantMessage(
-          question: prompt,
-          answer: resolvedAnswer,
-          createdAt: DateTime.now(),
-        );
+        final http.StreamedResponse azureRes = await client.send(request);
 
-        controller.appendAssistantMessage(
-          message,
-          visionSignature: currentSignature,
-        );
+        if (azureRes.statusCode != 200) {
+          final String errorBody = await azureRes.stream.bytesToString();
+          throw Exception(
+            'Azure-Fehler: ${azureRes.statusCode} $errorBody',
+          );
+        }
 
         if (mounted) {
           setState(() {
-            _promptController.clear();
-            _statusMessage = finishReason == 'length'
-                ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
-                : null;
+            _statusMessage = '${_buttonLabelFor(type)} wird generiert…';
           });
         }
-      } else {
-        throw Exception(
-          'Azure-Fehler: ${azureRes.statusCode} ${azureRes.body}',
-        );
+
+        final Stream<String> lineStream = azureRes.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+
+        await for (final String line in lineStream) {
+          if (!mounted) {
+            break;
+          }
+          final String trimmed = line.trim();
+          if (trimmed.isEmpty || !trimmed.startsWith('data:')) {
+            continue;
+          }
+
+          final String dataPayload = trimmed.substring(5).trim();
+          if (dataPayload.isEmpty) {
+            continue;
+          }
+          if (dataPayload == '[DONE]') {
+            break;
+          }
+
+          Map<String, dynamic> chunk;
+          try {
+            chunk = json.decode(dataPayload) as Map<String, dynamic>;
+          } catch (_) {
+            continue;
+          }
+
+          final String? delta = _extractDeltaContent(chunk, preserveWhitespace: true);
+          if (delta != null && delta.isNotEmpty) {
+            accumulatedContent += delta;
+            if (mounted) {
+              setState(() {
+                _pendingMessage =
+                    _pendingMessage?.copyWith(answer: accumulatedContent);
+                _statusMessage = null;
+              });
+            }
+          }
+
+          final String? chunkFinish = _firstFinishReason(chunk);
+          if (chunkFinish != null) {
+            finishReason ??= chunkFinish;
+          }
+        }
+      } finally {
+        client.close();
+      }
+
+      final String resolvedAnswer = accumulatedContent.trim().isNotEmpty
+          ? accumulatedContent.trim()
+          : finishReason == 'length'
+              ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
+        : 'Das Modell hat keine Antwort gesendet.';
+
+      final AssistantMessage finalMessage = AssistantMessage(
+        question: questionLabel,
+        answer: resolvedAnswer,
+        createdAt: DateTime.now(),
+      );
+
+      controller.appendAssistantMessage(
+        finalMessage,
+        visionSignature: currentSignature,
+      );
+
+      if (mounted) {
+        setState(() {
+          _pendingMessage = null;
+          _statusMessage = finishReason == 'length'
+              ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
+              : null;
+        });
       }
     } on FormatException catch (e) {
-      setState(() {
-        _statusMessage = 'Fehler: ${e.message}';
-      });
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Fehler: ${e.message}';
+          _pendingMessage = _pendingMessage?.copyWith(answer: _statusMessage!);
+        });
+      }
     } catch (e) {
-      setState(() {
-        _statusMessage = 'Fehler: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Fehler: $e';
+          _pendingMessage = _pendingMessage?.copyWith(answer: _statusMessage!);
+        });
+      }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isStreaming = false;
+          _activeRequestType = null;
+        });
       }
     }
   }
 
-  String? _extractAssistantMessage(Map<String, dynamic> body) {
-    final dynamic choices = body['choices'];
+  String _questionLabelFor(AssistantRequestType type) {
+    switch (type) {
+      case AssistantRequestType.tip:
+        return 'Tipp anfordern';
+      case AssistantRequestType.help:
+        return 'Hilfe anfordern';
+      case AssistantRequestType.review:
+        return 'Lösung überprüfen lassen';
+    }
+  }
+
+  String _buttonLabelFor(AssistantRequestType type) {
+    switch (type) {
+      case AssistantRequestType.tip:
+        return 'Tipp';
+      case AssistantRequestType.help:
+        return 'Hilfe';
+      case AssistantRequestType.review:
+        return 'Überprüfen';
+    }
+  }
+
+  String _promptTemplateFor(AssistantRequestType type) {
+    switch (type) {
+      case AssistantRequestType.tip:
+        return 'Gib einen kurzen Tipp zur Aufgabe in der Notiz, ohne die vollständige Lösung zu verraten. Nutze für Formeln LaTeX (\$…\$ bzw. \$\$…\$\$) und lasse übrige Texte mit korrekten Leerzeichen.';
+      case AssistantRequestType.help:
+        return 'Erkläre ausführlich, wie man die Aufgabe in der Notiz lösen kann und gib eine strukturierte Hilfestellung. Mathematische Ausdrücke sollen immer in LaTeX notiert sein (\$…\$ oder \$\$…\$\$).';
+      case AssistantRequestType.review:
+        return 'Überprüfe die dargestellte Lösung in der Notiz. Bestätige kurz, ob sie korrekt ist, oder beschreibe kompakt die wichtigsten Fehler. Verwende LaTeX-Notation (\$…\$ bzw. \$\$…\$\$) für Formeln.';
+    }
+  }
+
+  String _buttonDescriptionFor(AssistantRequestType type) {
+    switch (type) {
+      case AssistantRequestType.tip:
+        return 'Kurzer Hinweis ohne Spoiler.';
+      case AssistantRequestType.help:
+        return 'Ausführliche Schritt-für-Schritt-Hilfe.';
+      case AssistantRequestType.review:
+        return 'Überprüfung der aktuellen Lösung.';
+    }
+  }
+
+  IconData _iconForType(AssistantRequestType type) {
+    switch (type) {
+      case AssistantRequestType.tip:
+        return Icons.lightbulb_outline;
+      case AssistantRequestType.help:
+        return Icons.support_agent;
+      case AssistantRequestType.review:
+        return Icons.fact_check_outlined;
+    }
+  }
+
+  String? _extractDeltaContent(
+    Map<String, dynamic> chunk, {
+    bool preserveWhitespace = false,
+  }) {
+    final dynamic choices = chunk['choices'];
     if (choices is! List || choices.isEmpty) {
       return null;
     }
@@ -285,21 +429,32 @@ class _AssistantPanelState extends State<AssistantPanel> {
       return null;
     }
 
-    final dynamic message = firstChoice['message'];
-    if (message is Map<String, dynamic>) {
-      final dynamic content = message['content'];
-      final String? extracted = _normalizeContent(content);
+    final dynamic delta = firstChoice['delta'];
+    if (delta is Map<String, dynamic>) {
+      final String? extracted = _normalizeContent(
+        delta['content'],
+        trimWhitespace: !preserveWhitespace,
+      );
       if (extracted != null) {
         return extracted;
+      }
+
+      final dynamic inner = delta['text'] ?? delta['value'];
+      final String? fallback = _normalizeContent(
+        inner,
+        trimWhitespace: !preserveWhitespace,
+      );
+      if (fallback != null) {
+        return fallback;
       }
     }
 
-    final dynamic delta = firstChoice['delta'];
-    if (delta is Map<String, dynamic>) {
-      final String? extracted = _normalizeContent(delta['content']);
-      if (extracted != null) {
-        return extracted;
-      }
+    final dynamic message = firstChoice['message'];
+    if (message is Map<String, dynamic>) {
+      return _normalizeContent(
+        message['content'],
+        trimWhitespace: !preserveWhitespace,
+      );
     }
 
     return null;
@@ -319,34 +474,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
       }
     }
     return null;
-  }
-
-  String _prepareDisplayContent({
-    required String? content,
-    required String? finishReason,
-    required Map<String, dynamic> rawBody,
-  }) {
-    if (content != null) {
-      if (finishReason == 'length') {
-        return '''$content
-
----
-⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten. Stell sicher, dass dein Prompt kürzer ist oder erhöhe das Limit.''';
-      }
-      return content;
-    }
-
-    if (finishReason == 'length') {
-      final String fallback =
-          _fallbackFromRawBody(rawBody) ??
-          'Antwort konnte nicht gelesen werden.';
-      return '''⚠️ Das Modell hat das Tokenlimit ($_maxCompletionTokens) erreicht, bevor Text zurückgegeben wurde.
-
-$fallback''';
-    }
-
-    return _fallbackFromRawBody(rawBody) ??
-        'Antwort konnte nicht gelesen werden.';
   }
 
   List<Map<String, dynamic>> _buildUserContent({
@@ -394,50 +521,77 @@ $fallback''';
     return content;
   }
 
-  String? _normalizeContent(dynamic content) {
+  String? _normalizeContent(
+    dynamic content, {
+    bool trimWhitespace = true,
+  }) {
     if (content is String) {
-      final String trimmed = content.trim();
-      return trimmed.isEmpty ? null : trimmed;
+      if (trimWhitespace) {
+        final String trimmed = content.trim();
+        return trimmed.isEmpty ? null : trimmed;
+      }
+      return content.isEmpty ? null : content;
     }
 
     if (content is List) {
       final StringBuffer buffer = StringBuffer();
       for (final dynamic entry in content) {
         if (entry is Map<String, dynamic>) {
-          final String? textValue =
-              _resolvedText(entry['text']) ??
-              _resolvedText(entry['content']) ??
-              _resolvedText(entry['value']);
+          final String? textValue = _resolvedText(
+            entry['text'] ?? entry['content'] ?? entry['value'],
+            trimWhitespace: trimWhitespace,
+          );
           if (textValue != null && textValue.isNotEmpty) {
-            if (buffer.isNotEmpty) {
+            if (buffer.isNotEmpty && trimWhitespace) {
               buffer.writeln();
             }
             buffer.write(textValue);
           }
-        } else if (entry is String && entry.trim().isNotEmpty) {
-          if (buffer.isNotEmpty) {
-            buffer.writeln();
+        } else if (entry is String) {
+          final String candidate = trimWhitespace ? entry.trim() : entry;
+          if (candidate.isNotEmpty) {
+            if (buffer.isNotEmpty && trimWhitespace) {
+              buffer.writeln();
+            }
+            buffer.write(candidate);
           }
-          buffer.write(entry.trim());
         }
       }
 
-      final String combined = buffer.toString().trim();
+      if (buffer.isEmpty) {
+        return null;
+      }
+
+      if (trimWhitespace) {
+        final String trimmed = buffer.toString().trim();
+        return trimmed.isEmpty ? null : trimmed;
+      }
+
+      final String combined = buffer.toString();
       return combined.isEmpty ? null : combined;
     }
 
     return null;
   }
 
-  String? _resolvedText(dynamic value) {
+  String? _resolvedText(
+    dynamic value, {
+    bool trimWhitespace = true,
+  }) {
     if (value is String) {
-      final String trimmed = value.trim();
-      return trimmed.isEmpty ? null : trimmed;
+      if (trimWhitespace) {
+        final String trimmed = value.trim();
+        return trimmed.isEmpty ? null : trimmed;
+      }
+      return value.isEmpty ? null : value;
     }
 
     if (value is Map<String, dynamic>) {
+      final dynamic primary =
+          value['text'] ?? value['content'] ?? value['value'];
       final String? inner = _resolvedText(
-        value['text'] ?? value['content'] ?? value['value'],
+        primary,
+        trimWhitespace: trimWhitespace,
       );
       if (inner != null) {
         return inner;
@@ -446,23 +600,15 @@ $fallback''';
       final dynamic parts =
           value['parts'] ?? value['content'] ?? value['segments'];
       if (parts is List) {
-        return _normalizeContent(parts);
+        return _normalizeContent(parts, trimWhitespace: trimWhitespace);
       }
     }
 
     if (value is List) {
-      return _normalizeContent(value);
+      return _normalizeContent(value, trimWhitespace: trimWhitespace);
     }
 
     return null;
-  }
-
-  String? _fallbackFromRawBody(Map<String, dynamic> body) {
-    try {
-      return const JsonEncoder.withIndent('  ').convert(body);
-    } catch (_) {
-      return body.toString();
-    }
   }
 
   Future<String> _resolveExecutionResponse(Execution execution) async {
@@ -475,7 +621,6 @@ $fallback''';
     }
 
     final Execution finalExecution = await _pollExecution(execution.$id);
-
     if (finalExecution.responseBody.trim().isNotEmpty) {
       return finalExecution.responseBody;
     }
@@ -586,6 +731,8 @@ $fallback''';
         isLoading: _isLoading,
         messages: history,
         debugModeEnabled: debugModeEnabled,
+        pendingMessage: _pendingMessage,
+        isStreaming: _isStreaming,
       ),
     ];
 
@@ -694,30 +841,21 @@ $fallback''';
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _promptController,
-                        decoration: const InputDecoration(
-                          hintText: 'Frage an den KI-Assistenten…',
-                          border: OutlineInputBorder(),
-                        ),
-                        onSubmitted: (_) => _sendPrompt(),
+                    for (final AssistantRequestType type
+                        in AssistantRequestType.values)
+                      _AssistantActionButton(
+                        label: _buttonLabelFor(type),
+                        description: _buttonDescriptionFor(type),
+                        icon: _iconForType(type),
+                        isActive: _isStreaming && _activeRequestType == type,
+                        onPressed: _isLoading
+                            ? null
+                            : () => _handleAssistantRequest(type),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _sendPrompt,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send),
-                      label: Text(_isLoading ? 'Senden…' : 'Senden'),
-                    ),
                   ],
                 ),
               ],
@@ -899,5 +1037,61 @@ $fallback''';
     }
 
     return shapes;
+  }
+}
+
+class _AssistantActionButton extends StatelessWidget {
+  const _AssistantActionButton({
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.onPressed,
+    required this.isActive,
+  });
+
+  final String label;
+  final String description;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color spinnerColor = Theme.of(context).colorScheme.onPrimary;
+    return Tooltip(
+      message: description,
+      waitDuration: const Duration(milliseconds: 400),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
+        child: FilledButton(
+          onPressed: onPressed,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isActive) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(spinnerColor),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

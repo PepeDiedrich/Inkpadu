@@ -15,6 +15,13 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+## KI-Assistent
+
+* Antworten werden jetzt live gestreamt, sobald das Azure OpenAI Deployment Tokens liefert. Während der Übertragung siehst du den wachsenden Text direkt im Panel.
+* Mathematische Ausgaben sollten als LaTeX (`$…$` oder `$$…$$`) formatiert werden. Der Client rendert sie mit `flutter_math_fork` und sorgt so für deutlich bessere Lesbarkeit komplexer Formeln.
+* Nutzer:innen interagieren ausschließlich über die Buttons **Tipp**, **Hilfe** und **Überprüfen**. Frei eingegebene Fragen sind deaktiviert. Jeder Button sendet eine passende Anweisung an das LLM (z. B. nur Hinweise, ausführliche Erklärungen oder eine Korrekturprüfung).
+* Debug-Infos (Payload, Token-Schätzung, Snapshots) bleiben weiterhin im Debug-Modus verfügbar und aktualisieren sich auch während eines Streams.
+
 ## OAuth2 / Appwrite Anmeldung
 
 Diese App integriert GitHub und Google OAuth2 Login über Appwrite.
