@@ -22,7 +22,7 @@ void main() {
       question: 'Was steht hier?',
       answer: 'Das ist ein Test',
       visionDescription: 'Eine kurze Beschreibung',
-      createdAt: DateTime(2024, 10, 15, 8, 30, 0),
+      createdAt: DateTime(2024, 10, 15, 8, 30),
       reusedCachedDescription: true,
     );
     final page = NotePage(
@@ -68,7 +68,7 @@ void main() {
           question: 'Frage',
           answer: 'Antwort',
           visionDescription: 'Kurzbeschreibung',
-          createdAt: DateTime(2024, 5, 10, 9, 0, 0),
+          createdAt: DateTime(2024, 5, 10, 9),
         ),
       ],
     );
@@ -77,7 +77,10 @@ void main() {
     final decoded = InkNotePageDto.fromJson(encoded);
 
     expect(decoded.index, 3);
-    expect(decoded.strokes.single.color.value, equals(Colors.red.value));
+    expect(
+      decoded.strokes.single.color.toARGB32(),
+      equals(Colors.red.toARGB32()),
+    );
     expect(decoded.strokes.single.points.single.pressure, closeTo(0.1, 1e-6));
     expect(decoded.cachedVisionDescription, equals('Kurzbeschreibung'));
     expect(decoded.assistantHistory, hasLength(1));
@@ -87,7 +90,7 @@ void main() {
     expect(decodedMessage.visionDescription, equals('Kurzbeschreibung'));
     expect(
       decodedMessage.createdAt.toIso8601String(),
-      equals(DateTime(2024, 5, 10, 9, 0, 0).toIso8601String()),
+      equals(DateTime(2024, 5, 10, 9).toIso8601String()),
     );
     expect(decodedMessage.reusedCachedDescription, isFalse);
   });
