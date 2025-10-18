@@ -17,10 +17,8 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/pointer_settings_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:flutter/material.dart';
 // import 'package:flutter/rendering.dart';
 
@@ -119,26 +117,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
-  Future<void> _editMetadata() async {
-    final controller = _maybeController;
-    if (controller == null) return;
-    final note = controller.note;
-    final result = await showNoteMetadataDialog(
-      context,
-      initialTitle: note.title,
-      initialPaperStyle: note.paperStyle,
-      isEditing: true,
-    );
-    if (result == null) {
-      return;
-    }
-
-    controller.updateMetadata(
-      title: result.title,
-      paperStyle: result.paperStyle,
-    );
-  }
-
   Future<void> _openToolConfigurator(DrawingTool tool) async {
     final controller = _maybeController;
     if (controller == null) return;
@@ -148,8 +126,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
     await controller.updateTool(updated);
   }
-
-  Future<void> _openPointerSettings() => PointerSettingsSheet.show(context);
 
   double _snapSidebarFraction(
     double previousFraction,
@@ -266,39 +242,13 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                 tooltip: 'Aktuelles Werkzeug bearbeiten',
                 icon: const Icon(Icons.design_services),
               ),
-              IconButton(
-                onPressed: _editMetadata,
-                tooltip: 'Titel & Papier anpassen',
-                icon: const Icon(Icons.edit_note),
-              ),
-              IconButton(
-                onPressed: _openPointerSettings,
-                tooltip: 'Eingabeoptionen',
-                icon: const Icon(Icons.tune),
-              ),
               AnimatedBuilder(
                 animation: drawingController,
-                builder: (context, child) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: drawingController.canUndo ? _handleUndo : null,
-                      icon: const Icon(Icons.undo),
-                      tooltip: 'Undo',
-                    ),
-                    IconButton(
-                      onPressed: drawingController.canRedo ? _handleRedo : null,
-                      icon: const Icon(Icons.redo),
-                      tooltip: 'Redo',
-                    ),
-                    IconButton(
-                      onPressed: drawingController.canUndo
-                          ? _handleClear
-                          : null,
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Zeichenfläche leeren',
-                    ),
-                  ],
+                builder: (context, _) => IconButton(
+                  onPressed:
+                      drawingController.canUndo ? _handleClear : null,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Zeichenfläche leeren',
                 ),
               ),
               const SizedBox(width: 8),
@@ -325,6 +275,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                 eraserRadiusFor: controller.eraserRadiusFor,
                 onPersistDrawing: controller.persistDrawing,
                 onTwoFingerUndo: _handleUndo,
+                onThreeFingerRedo: _handleRedo,
                 paperStyle: controller.note.paperStyle,
                 onRequestParentScrollLock: (lock) {
                   if (!mounted) return;

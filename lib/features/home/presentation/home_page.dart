@@ -15,7 +15,116 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+enum _NoteAction { open, metadata, delete }
+
 class _HomePageState extends State<HomePage> {
+  Future<void> _showNoteActions(InkNote note) async {
+    final _NoteAction? action = await showModalBottomSheet<_NoteAction>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        final textTheme = theme.textTheme;
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.note_alt_outlined,
+                        color: theme.colorScheme.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        note.title,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.draw_outlined),
+                title: const Text('Notiz öffnen'),
+                onTap: () => Navigator.of(context).pop(_NoteAction.open),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_note),
+                title: const Text('Titel & Papier anpassen'),
+                onTap: () => Navigator.of(context).pop(_NoteAction.metadata),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: theme.colorScheme.error,
+                ),
+                title: Text(
+                  'Notiz löschen',
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () => Navigator.of(context).pop(_NoteAction.delete),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    switch (action) {
+      case _NoteAction.open:
+        _open(note.id);
+        break;
+      case _NoteAction.metadata:
+        await _editNoteMetadata(note);
+        break;
+      case _NoteAction.delete:
+        await _deleteNote(note.id, note.title);
+        break;
+    }
+  }
+
+  Future<void> _editNoteMetadata(InkNote note) async {
+    final controller = InkNotesScope.of(context);
+    final NoteMetadataResult? result = await showNoteMetadataDialog(
+      context,
+      initialTitle: note.title,
+      initialPaperStyle: note.paperStyle,
+      isEditing: true,
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    final String trimmedTitle = result.title.trim();
+    final String nextTitle =
+        trimmedTitle.isEmpty ? InkNote.generateTitle() : trimmedTitle;
+    final InkNote updated = note.copyWith(
+      title: nextTitle,
+      paperStyle: result.paperStyle,
+      updatedAt: DateTime.now(),
+    );
+    controller.upsert(updated, changedPageIndices: const <int>{});
+  }
+
   Future<void> _createAndOpen() async {
     final controller = InkNotesScope.of(context);
     final result = await showNoteMetadataDialog(
@@ -103,6 +212,7 @@ class _HomePageState extends State<HomePage> {
                       '${n.currentPage.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
                     ),
                     onTap: () => _open(n.id),
+                    onLongPress: () => _showNoteActions(n),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

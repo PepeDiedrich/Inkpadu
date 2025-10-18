@@ -28,6 +28,7 @@ class DrawingCanvas extends StatefulWidget {
     required this.eraserRadiusFor,
     required this.onPersistDrawing,
     required this.onTwoFingerUndo,
+    required this.onThreeFingerRedo,
     required this.paperStyle,
     this.scrollKey,
     this.initScrollOffset,
@@ -55,6 +56,9 @@ class DrawingCanvas extends StatefulWidget {
 
   /// Wird ausgelöst, wenn die Zwei-Finger-Tap-Geste erkannt wurde.
   final VoidCallback onTwoFingerUndo;
+
+  /// Wird ausgelöst, wenn die Drei-Finger-Tap-Geste erkannt wurde.
+  final VoidCallback onThreeFingerRedo;
 
   /// Bestimmt den visuellen Hintergrund der Zeichenfläche.
   final NotePaperStyle paperStyle;
@@ -104,6 +108,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   String? _activeToolDuringStrokeId;
   bool _didEraseDuringDrag = false;
   int _lastObservedVersion = 0;
+  DateTime? _threeFingerTapStart;
+  final Map<int, Offset> _threeFingerTapInitialPositions =
+      <int, Offset>{};
   Timer? _hullDebounceTimer;
   List<List<Offset>> _convexHulls = const [];
   List<RotatedBoundingBox> _boundingBoxes = const <RotatedBoundingBox>[];
@@ -320,6 +327,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void _resetTwoFingerScrollState() {
     if (_activeTouchPositions.length < 2) {
       _clearTwoFingerGestureState();
+      _cancelThreeFingerTapCandidate();
     } else {
       _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       // keep track of focal point for two-finger scroll
@@ -339,6 +347,18 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void _cancelTwoFingerTapCandidate() {
     _twoFingerTapStart = null;
     _twoFingerTapInitialPositions.clear();
+  }
+
+  void _beginThreeFingerTapCandidate() {
+    _threeFingerTapStart = DateTime.now();
+    _threeFingerTapInitialPositions
+      ..clear()
+      ..addAll(_activeTouchPositions);
+  }
+
+  void _cancelThreeFingerTapCandidate() {
+    _threeFingerTapStart = null;
+    _threeFingerTapInitialPositions.clear();
   }
 
   bool _isTwoFingerTapMovementWithinThreshold() {
@@ -369,6 +389,35 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _twoFingerTapMaxDuration;
   }
 
+  bool _isThreeFingerTapMovementWithinThreshold() {
+    if (_threeFingerTapStart == null ||
+        _threeFingerTapInitialPositions.isEmpty) {
+      return false;
+    }
+    final double maxSquared =
+        _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
+    for (final entry in _threeFingerTapInitialPositions.entries) {
+      final Offset? current = _activeTouchPositions[entry.key];
+      if (current == null) {
+        continue;
+      }
+      final double dx = current.dx - entry.value.dx;
+      final double dy = current.dy - entry.value.dy;
+      if ((dx * dx + dy * dy) > maxSquared) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _isThreeFingerTapWithinTimeWindow() {
+    if (_threeFingerTapStart == null) {
+      return false;
+    }
+    return DateTime.now().difference(_threeFingerTapStart!) <=
+        _twoFingerTapMaxDuration;
+  }
+
   void _triggerTwoFingerUndo() {
     _clearTwoFingerGestureState();
     Feedback.forTap(context);
@@ -379,7 +428,18 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _setTwoFingerScrollActive(false);
     _lastTwoFingerFocalPoint = null;
     _cancelTwoFingerTapCandidate();
+    _cancelThreeFingerTapCandidate();
     // clear pinch/initial distance state (pinch removed)
+  }
+
+  void _triggerThreeFingerRedo() {
+    _clearThreeFingerGestureState();
+    Feedback.forTap(context);
+    widget.onThreeFingerRedo();
+  }
+
+  void _clearThreeFingerGestureState() {
+    _cancelThreeFingerTapCandidate();
   }
 
   void _setTwoFingerScrollActive(bool value) {
@@ -458,16 +518,26 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
     if (kind == PointerDeviceKind.touch) {
       _activeTouchPositions[details.pointer] = details.localPosition;
-      if (_activeTouchPositions.length > 2) {
+      final int touchCount = _activeTouchPositions.length;
+      if (touchCount >= 3) {
+        if (touchCount == 3) {
+          _beginThreeFingerTapCandidate();
+        } else {
+          _cancelThreeFingerTapCandidate();
+        }
         _cancelTwoFingerTapCandidate();
-        _setTwoFingerScrollActive(true);
-        _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
+        _setTwoFingerScrollActive(false);
+        _lastTwoFingerFocalPoint = null;
         _abortDrawing();
         touchAllowsDrawing = false;
-      } else if (_activeTouchPositions.length == 2) {
+      } else if (touchCount == 2) {
+        _cancelThreeFingerTapCandidate();
         _beginTwoFingerTapCandidate();
         _abortDrawing();
         touchAllowsDrawing = false;
+      } else {
+        _cancelTwoFingerTapCandidate();
+        _cancelThreeFingerTapCandidate();
       }
 
       if (!touchAllowsDrawing && !settings.accept(kind)) {
@@ -526,8 +596,36 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeTouchPositions[details.pointer] = details.localPosition;
 
       final int touchCount = _activeTouchPositions.length;
-      if (touchCount >= 2) {
-        // Two-finger gestures: handle two-finger-tap candidate and two-finger scroll
+      if (touchCount >= 4) {
+        _cancelThreeFingerTapCandidate();
+        _cancelTwoFingerTapCandidate();
+        _setTwoFingerScrollActive(true);
+        return;
+      }
+      if (touchCount == 3) {
+        _setTwoFingerScrollActive(false);
+        _lastTwoFingerFocalPoint = null;
+        if (_threeFingerTapStart != null) {
+          final bool movedTooFar = !_isThreeFingerTapMovementWithinThreshold();
+          final bool timedOut = !_isThreeFingerTapWithinTimeWindow();
+          if (movedTooFar || timedOut) {
+            _cancelThreeFingerTapCandidate();
+          }
+        }
+        return;
+      }
+      if (touchCount == 2) {
+        if (_threeFingerTapStart != null) {
+          final bool movedTooFar = !_isThreeFingerTapMovementWithinThreshold();
+          final bool timedOut = !_isThreeFingerTapWithinTimeWindow();
+          if (movedTooFar || timedOut) {
+            _cancelThreeFingerTapCandidate();
+          } else {
+            return;
+          }
+        }
+
+        // Two-finger gestures: handle two-finger-tap candidate und Scrollen
         if (_twoFingerTapStart != null) {
           final bool movedTooFar = !_isTwoFingerTapMovementWithinThreshold();
           final bool timedOut = !_isTwoFingerTapWithinTimeWindow();
@@ -595,29 +693,49 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (details.kind == PointerDeviceKind.touch) {
       _activeTouchPositions[details.pointer] = details.localPosition;
 
-      final bool candidateActive = _twoFingerTapStart != null;
-      final bool withinMovement =
-          candidateActive && _isTwoFingerTapMovementWithinThreshold();
-      final bool withinTime =
-          candidateActive && _isTwoFingerTapWithinTimeWindow();
+      final bool twoFingerCandidate = _twoFingerTapStart != null;
+      final bool twoWithinMovement =
+          twoFingerCandidate && _isTwoFingerTapMovementWithinThreshold();
+      final bool twoWithinTime =
+          twoFingerCandidate && _isTwoFingerTapWithinTimeWindow();
+
+      final bool threeFingerCandidate = _threeFingerTapStart != null;
+      final bool threeWithinMovement = threeFingerCandidate &&
+          _isThreeFingerTapMovementWithinThreshold();
+      final bool threeWithinTime =
+          threeFingerCandidate && _isThreeFingerTapWithinTimeWindow();
 
       _activeTouchPositions.remove(details.pointer);
-      final bool noMoreTouches = _activeTouchPositions.length < 2;
+      final int remainingTouches = _activeTouchPositions.length;
 
-      if (candidateActive &&
-          withinTime &&
-          withinMovement &&
-          noMoreTouches &&
+      final bool threeCandidateValid =
+          threeFingerCandidate && threeWithinTime && threeWithinMovement;
+
+      if (threeCandidateValid && remainingTouches == 0) {
+        _triggerThreeFingerRedo();
+        _clearTwoFingerGestureState();
+        return;
+      }
+
+      if (threeFingerCandidate && (!threeWithinTime || !threeWithinMovement)) {
+        _cancelThreeFingerTapCandidate();
+      }
+
+      if (threeCandidateValid && remainingTouches > 0) {
+        return;
+      }
+
+      if (twoFingerCandidate &&
+          twoWithinTime &&
+          twoWithinMovement &&
+          remainingTouches < 2 &&
           !_isTwoFingerScrollActive) {
         _triggerTwoFingerUndo();
-      } else if (noMoreTouches) {
+      } else if (remainingTouches < 2) {
         _clearTwoFingerGestureState();
-      } else {
-        _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       }
-      if (noMoreTouches) {
-        // nothing to reset for pinch; keep two-finger state cleared
-      } else {
+
+      if (remainingTouches >= 2) {
         // update focal point for ongoing two-finger scroll
         _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       }
@@ -665,6 +783,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (details.kind == PointerDeviceKind.touch) {
       _activeTouchPositions.remove(details.pointer);
       _resetTwoFingerScrollState();
+      _cancelThreeFingerTapCandidate();
       // pinch removed: nothing else to do
     }
 
