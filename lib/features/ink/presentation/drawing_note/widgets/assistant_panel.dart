@@ -72,6 +72,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
   String? _statusMessage = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
   AssistantRequestType? _activeRequestType;
   AssistantMessage? _pendingMessage;
+  final ValueNotifier<String> _streamingAnswer = ValueNotifier<String>('');
+  String? _pendingStreamingText;
+  bool _streamUpdateScheduled = false;
 
   late final Functions _functions;
   final DrawingSnapshotService _snapshotService =
@@ -108,6 +111,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   @override
   void dispose() {
+    _streamingAnswer.dispose();
     _contentScrollController.dispose();
     super.dispose();
   }
@@ -149,6 +153,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     final String questionLabel = _questionLabelFor(type);
     final String prompt = _promptTemplateFor(type);
+
+    _streamingAnswer.value = '';
+    _pendingStreamingText = null;
+    _streamUpdateScheduled = false;
 
     setState(() {
       _isLoading = true;
@@ -265,6 +273,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
             .transform(utf8.decoder)
             .transform(const LineSplitter());
 
+        var statusCleared = false;
+
         await for (final String line in lineStream) {
           if (!mounted) {
             break;
@@ -292,10 +302,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
           final String? delta = _extractDeltaContent(chunk, preserveWhitespace: true);
           if (delta != null && delta.isNotEmpty) {
             accumulatedContent += delta;
-            if (mounted) {
+            _scheduleStreamingUpdate(accumulatedContent);
+            if (!statusCleared && mounted && _statusMessage != null) {
+              statusCleared = true;
               setState(() {
-                _pendingMessage =
-                    _pendingMessage?.copyWith(answer: accumulatedContent);
                 _statusMessage = null;
               });
             }
@@ -310,11 +320,15 @@ class _AssistantPanelState extends State<AssistantPanel> {
         client.close();
       }
 
-      final String resolvedAnswer = accumulatedContent.trim().isNotEmpty
-          ? accumulatedContent.trim()
-          : finishReason == 'length'
-              ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
+    final String resolvedAnswer = accumulatedContent.trim().isNotEmpty
+      ? accumulatedContent.trim()
+      : finishReason == 'length'
+        ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
         : 'Das Modell hat keine Antwort gesendet.';
+
+    _pendingStreamingText = null;
+    _streamUpdateScheduled = false;
+    _streamingAnswer.value = resolvedAnswer;
 
       final AssistantMessage finalMessage = AssistantMessage(
         question: questionLabel,
@@ -342,6 +356,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
           _pendingMessage = _pendingMessage?.copyWith(answer: _statusMessage!);
         });
       }
+      _pendingStreamingText = null;
+      _streamUpdateScheduled = false;
+      _streamingAnswer.value = _statusMessage ?? '';
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -349,7 +366,13 @@ class _AssistantPanelState extends State<AssistantPanel> {
           _pendingMessage = _pendingMessage?.copyWith(answer: _statusMessage!);
         });
       }
+      _pendingStreamingText = null;
+      _streamUpdateScheduled = false;
+      _streamingAnswer.value = _statusMessage ?? '';
     } finally {
+      _pendingStreamingText = null;
+      _streamUpdateScheduled = false;
+      _streamingAnswer.value = '';
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -733,6 +756,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
         debugModeEnabled: debugModeEnabled,
         pendingMessage: _pendingMessage,
         isStreaming: _isStreaming,
+        streamingAnswerListenable: _streamingAnswer,
       ),
     ];
 
@@ -841,23 +865,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final AssistantRequestType type
-                        in AssistantRequestType.values)
-                      _AssistantActionButton(
-                        label: _buttonLabelFor(type),
-                        description: _buttonDescriptionFor(type),
-                        icon: _iconForType(type),
-                        isActive: _isStreaming && _activeRequestType == type,
-                        onPressed: _isLoading
-                            ? null
-                            : () => _handleAssistantRequest(type),
-                      ),
-                  ],
-                ),
+                _buildActionSelector(colorScheme),
               ],
             ),
           ),
@@ -903,6 +911,79 @@ class _AssistantPanelState extends State<AssistantPanel> {
         ),
       ],
     );
+  }
+
+  Widget _buildActionSelector(ColorScheme colorScheme) {
+    const Radius segmentRadius = Radius.circular(28);
+    final List<AssistantRequestType> types = AssistantRequestType.values;
+    final AssistantRequestType? activeType =
+        _isStreaming ? _activeRequestType : null;
+    final bool isBusy = _isLoading;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(segmentRadius),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: const BorderRadius.all(segmentRadius),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              for (int index = 0; index < types.length; index++) ...[
+                Expanded(
+                  child: _AssistantActionSegment(
+                    label: _buttonLabelFor(types[index]),
+                    description: _buttonDescriptionFor(types[index]),
+                    icon: _iconForType(types[index]),
+                    isActive: activeType == types[index],
+                    isDisabled: isBusy,
+                    showProgress:
+                        _isStreaming && _activeRequestType == types[index],
+                    onPressed: isBusy
+                        ? null
+                        : () => _handleAssistantRequest(types[index]),
+                    borderRadius: BorderRadius.only(
+                      topLeft: index == 0 ? segmentRadius : Radius.zero,
+                      bottomLeft: index == 0 ? segmentRadius : Radius.zero,
+                      topRight: index == types.length - 1
+                          ? segmentRadius
+                          : Radius.zero,
+                      bottomRight: index == types.length - 1
+                          ? segmentRadius
+                          : Radius.zero,
+                    ),
+                    showTrailingDivider: index != types.length - 1,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _scheduleStreamingUpdate(String text) {
+    _pendingStreamingText = text;
+    if (_streamUpdateScheduled) {
+      return;
+    }
+    _streamUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _streamUpdateScheduled = false;
+      if (!mounted) {
+        _pendingStreamingText = null;
+        return;
+      }
+      final String? pending = _pendingStreamingText;
+      if (pending != null) {
+        _streamingAnswer.value = pending;
+      }
+      _pendingStreamingText = null;
+    });
   }
 
   IconData _trendIcon(bool panelOnRight, SidebarResizeTrend trend) {
@@ -1040,13 +1121,17 @@ class _AssistantPanelState extends State<AssistantPanel> {
   }
 }
 
-class _AssistantActionButton extends StatelessWidget {
-  const _AssistantActionButton({
+class _AssistantActionSegment extends StatelessWidget {
+  const _AssistantActionSegment({
     required this.label,
     required this.description,
     required this.icon,
     required this.onPressed,
     required this.isActive,
+    required this.isDisabled,
+    required this.showProgress,
+    required this.borderRadius,
+    required this.showTrailingDivider,
   });
 
   final String label;
@@ -1054,44 +1139,95 @@ class _AssistantActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
   final bool isActive;
+  final bool isDisabled;
+  final bool showProgress;
+  final BorderRadius borderRadius;
+  final bool showTrailingDivider;
 
   @override
   Widget build(BuildContext context) {
-    final Color spinnerColor = Theme.of(context).colorScheme.onPrimary;
-    return Tooltip(
-      message: description,
-      waitDuration: const Duration(milliseconds: 400),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
-        child: FilledButton(
-          onPressed: onPressed,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (isActive) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(spinnerColor),
-                  ),
-                ),
-              ],
-            ],
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final Color activeBackground = AppColors.primaryAccent;
+    final Brightness accentBrightness =
+        ThemeData.estimateBrightnessForColor(activeBackground);
+    final Color activeForeground =
+        accentBrightness == Brightness.dark ? Colors.white : Colors.black87;
+    final Color baseForeground = colorScheme.onSurface;
+    final Color labelColor = isActive ? activeForeground : baseForeground;
+
+    final VoidCallback? effectiveOnTap = isDisabled ? null : onPressed;
+
+    final Widget content = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: labelColor,
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: labelColor,
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (showProgress) ...[
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(labelColor),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    final Widget button = Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: effectiveOnTap,
+        borderRadius: borderRadius,
+        splashColor: activeBackground.withValues(alpha: 0.12),
+        highlightColor: activeBackground.withValues(alpha: 0.08),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isActive ? activeBackground : Colors.transparent,
+            borderRadius: borderRadius,
+            border: showTrailingDivider
+                ? Border(
+                    right: BorderSide(
+                      color: colorScheme.outlineVariant
+                          .withValues(alpha: 0.4),
+                    ),
+                  )
+                : null,
+          ),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 120),
+            opacity: isDisabled && !showProgress ? 0.65 : 1,
+            child: content,
           ),
         ),
       ),
+    );
+
+    return Tooltip(
+      message: description,
+      waitDuration: const Duration(milliseconds: 400),
+      child: button,
     );
   }
 }

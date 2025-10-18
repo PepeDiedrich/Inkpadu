@@ -2,6 +2,7 @@ import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 // ignore_for_file: prefer_const_constructors
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -16,6 +17,7 @@ class AssistantConversationSection extends StatelessWidget {
     required this.debugModeEnabled,
     this.pendingMessage,
     this.isStreaming = false,
+    this.streamingAnswerListenable,
   });
 
   /// Optionale Statusmeldung oberhalb der Historie.
@@ -30,6 +32,8 @@ class AssistantConversationSection extends StatelessWidget {
   final AssistantMessage? pendingMessage;
   /// Ob gerade eine Antwort gestreamt wird.
   final bool isStreaming;
+  /// Live-Antwort, die während des Streamings aktualisiert wird.
+  final ValueListenable<String>? streamingAnswerListenable;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +74,7 @@ class AssistantConversationSection extends StatelessWidget {
           message: pendingMessage!,
           debugModeEnabled: debugModeEnabled,
           isPending: isStreaming,
+          streamingAnswerListenable: streamingAnswerListenable,
         ),
       );
     }
@@ -130,11 +135,13 @@ class _AssistantMessageGroup extends StatelessWidget {
     required this.message,
     required this.debugModeEnabled,
     this.isPending = false,
+    this.streamingAnswerListenable,
   });
 
   final AssistantMessage message;
   final bool debugModeEnabled;
   final bool isPending;
+  final ValueListenable<String>? streamingAnswerListenable;
 
   @override
   Widget build(BuildContext context) {
@@ -144,18 +151,21 @@ class _AssistantMessageGroup extends StatelessWidget {
     final MaterialLocalizations localizations =
         MaterialLocalizations.of(context);
 
-  final TimeOfDay timeOfDay = TimeOfDay.fromDateTime(message.createdAt);
-  final String timestamp =
-    '${localizations.formatMediumDate(message.createdAt)} · '
-    '${localizations.formatTimeOfDay(timeOfDay, alwaysUse24HourFormat: true)}';
-  final String displayTimestamp = isPending
-    ? 'Antwort wird gerade generiert…'
-    : timestamp;
+    final TimeOfDay timeOfDay = TimeOfDay.fromDateTime(message.createdAt);
+    final String timestamp =
+        '${localizations.formatMediumDate(message.createdAt)} · '
+        '${localizations.formatTimeOfDay(
+          timeOfDay,
+          alwaysUse24HourFormat: true,
+        )}';
+    final String displayTimestamp = isPending
+        ? 'Antwort wird gerade generiert…'
+        : timestamp;
 
-  final bool answerIsEmpty = message.answer.trim().isEmpty;
-  final String displayAnswer = answerIsEmpty && isPending
-    ? 'Antwort wird generiert…'
-    : message.answer;
+    final bool answerIsEmpty = message.answer.trim().isEmpty;
+    final String displayAnswer = answerIsEmpty && isPending
+        ? 'Antwort wird generiert…'
+        : message.answer;
 
     final String? description = message.visionDescription;
     final bool showDescription =
@@ -194,15 +204,39 @@ class _AssistantMessageGroup extends StatelessWidget {
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
-          child: _AssistantBubble(
-            backgroundColor: colorScheme.surfaceContainerHigh,
-            foregroundColor: colorScheme.onSurface,
-            borderColor: colorScheme.outlineVariant,
-            label: 'Antwort',
-            content: displayAnswer,
-            renderMath: true,
-            showSpinner: isPending,
-          ),
+          child: streamingAnswerListenable != null
+              ? ValueListenableBuilder<String>(
+                  valueListenable: streamingAnswerListenable!,
+                  builder:
+                      (BuildContext context, String streamedAnswer, _) {
+                    final String trimmedStream = streamedAnswer.trim();
+                    final bool hasStreamContent = trimmedStream.isNotEmpty;
+                    final String effectiveAnswer = hasStreamContent
+                        ? streamedAnswer
+                        : (answerIsEmpty && isPending
+                            ? 'Antwort wird generiert…'
+                            : message.answer);
+
+                    return _AssistantBubble(
+                      backgroundColor: colorScheme.surfaceContainerHigh,
+                      foregroundColor: colorScheme.onSurface,
+                      borderColor: colorScheme.outlineVariant,
+                      label: 'Antwort',
+                      content: effectiveAnswer,
+                      renderMath: !isPending,
+                      showSpinner: isPending,
+                    );
+                  },
+                )
+              : _AssistantBubble(
+                  backgroundColor: colorScheme.surfaceContainerHigh,
+                  foregroundColor: colorScheme.onSurface,
+                  borderColor: colorScheme.outlineVariant,
+                  label: 'Antwort',
+                  content: displayAnswer,
+                  renderMath: !isPending,
+                  showSpinner: isPending,
+                ),
         ),
         const SizedBox(height: 8),
         Text(
