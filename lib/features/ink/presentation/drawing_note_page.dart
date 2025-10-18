@@ -233,11 +233,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             ),
             actions: [
               IconButton(
-                onPressed: _createAndGoToNewPage,
-                tooltip: 'Neue Seite',
-                icon: const Icon(Icons.note_add_outlined),
-              ),
-              IconButton(
                 onPressed: () => _openToolConfigurator(currentTool),
                 tooltip: 'Aktuelles Werkzeug bearbeiten',
                 icon: const Icon(Icons.design_services),
@@ -263,10 +258,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               final bool isCollapsed =
                   sidebarFraction < _minVisibleSidebarFraction;
 
-              final notesScope = InkNotesScope.of(context);
-              final String noteId = controller.note.id;
-              final int pageIndex = controller.currentPageIndex;
-              final double? initOffset = notesScope.getScrollOffset(noteId, pageIndex);
+        final notesScope = InkNotesScope.of(context);
+        final String noteId = controller.note.id;
+        final int pageIndex = controller.currentPageIndex;
+        final double? initOffset =
+          notesScope.getScrollOffset(noteId, pageIndex);
 
               final Widget canvas = DrawingCanvas(
                 drawingController: drawingController,
@@ -305,6 +301,12 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   : rawHandleOffset;
               final double orientationFactor = panelOnRight ? 1 : -1;
 
+              final List<NotePage> pages = controller.pages;
+              final bool canCreateNewPage = controller.currentPageHasContent;
+              final int placeholderIndex =
+                  canCreateNewPage ? pages.length : -1;
+              final int pageCount = pages.length + (canCreateNewPage ? 1 : 0);
+
               return Stack(
                 children: [
                   Positioned.fill(
@@ -315,22 +317,30 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                           ? const NeverScrollableScrollPhysics()
                           : const PageScrollPhysics(),
                       onPageChanged: (index) {
-                        // Letztes Element ist der "+ Neue Seite"-Platzhalter.
-                        final int lastIndex = controller.pages.length;
-                        if (index == lastIndex) {
+                        if (canCreateNewPage && index == placeholderIndex) {
                           if (!_creatingPage) {
                             _creatingPage = true;
-                            final int newIndex = controller.addPageAfterCurrent();
-                            // Nach dem Erstellen zur neuen Seite animieren.
-                            if (_pageController?.hasClients == true) {
+                            final int? newIndex =
+                                controller.addPageAfterCurrent();
+                            if (newIndex != null &&
+                                _pageController?.hasClients == true) {
                               _pageController!.animateToPage(
                                 newIndex,
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                              );
+                            } else if (_pageController?.hasClients == true) {
+                              _pageController!.animateToPage(
+                                controller.currentPageIndex,
                                 duration: const Duration(milliseconds: 220),
                                 curve: Curves.easeOutCubic,
                               );
                             }
                             _creatingPage = false;
                           }
+                          return;
+                        }
+                        if (index >= pages.length) {
                           return;
                         }
                         if (index != controller.currentPageIndex) {
@@ -347,13 +357,15 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               // beim Neuaufbau (siehe oben), daher kein direkter jumpTo nötig.
                         }
                       },
-                      itemCount: controller.pages.length + 1,
+                      itemCount: pageCount,
                       itemBuilder: (context, index) {
-                        // Trailing Platzhalter zum Erstellen einer neuen Seite
-                        if (index == controller.pages.length) {
-                          return _AddPagePlaceholder(onAdd: _createAndGoToNewPage);
+                        if (canCreateNewPage && index == placeholderIndex) {
+                          return const _AddPagePlaceholder();
                         }
-                        final page = controller.pages[index];
+                        if (index >= pages.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final page = pages[index];
                         final bool isActive = index == controller.currentPageIndex;
                         if (isActive) {
                           return Padding(
@@ -480,24 +492,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
-  void _createAndGoToNewPage() {
-    final controller = _maybeController;
-    if (controller == null || !controller.isInitialized) {
-      return;
-    }
-    if (_creatingPage) return;
-    _creatingPage = true;
-    final int newIndex = controller.addPageAfterCurrent();
-    if (_pageController?.hasClients == true) {
-      _pageController!.animateToPage(
-        newIndex,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
-    }
-    _creatingPage = false;
-  }
-
   void _handleStrokeClustersChanged(
     List<StrokeBoundingBoxCluster> clusters,
   ) {
@@ -523,24 +517,22 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 }
 
 class _AddPagePlaceholder extends StatelessWidget {
-  const _AddPagePlaceholder({required this.onAdd});
-
-  final VoidCallback onAdd;
+  const _AddPagePlaceholder();
 
   @override
   Widget build(BuildContext context) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              iconSize: 48,
-              onPressed: onAdd,
-              icon: const Icon(Icons.note_add_outlined),
-              tooltip: 'Neue Seite hinzufügen',
+            Icon(
+              Icons.note_add_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(height: 12),
             Text(
-              'Neue Seite hinzufügen',
+              'Wische nach rechts, um eine neue Seite zu erstellen.',
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],

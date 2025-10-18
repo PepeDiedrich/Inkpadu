@@ -49,6 +49,7 @@ class DrawingNoteController extends ChangeNotifier {
   late String _selectedToolId;
   bool _initialized = false;
   bool _toolsLoaded = false;
+  List<bool> _pageContentHistory = <bool>[];
 
   /// Gibt an, ob der Controller vollständig initialisiert wurde.
   bool get isInitialized => _initialized;
@@ -71,6 +72,10 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Index der aktuell aktiven Seite.
   int get currentPageIndex => _currentPageIndex;
+
+  /// Gibt an, ob die aktuelle Seite Striche enthält.
+  bool get currentPageHasContent =>
+      _strokesHaveContent(drawingController.strokes);
 
   /// Die verfügbaren Werkzeuge als unveränderliche Liste.
   List<DrawingTool> get tools => List.unmodifiable(_tools);
@@ -111,6 +116,7 @@ class DrawingNoteController extends ChangeNotifier {
     }
     _currentPageIndex = _normalizePageIndex(_note.lastOpenedPageIndex);
     drawingController.initialize(_note.pages[_currentPageIndex].strokes);
+    _rebuildPageContentHistory(_note.pages);
     _tools = List<DrawingTool>.of(_defaultTools);
     _selectedToolId = _tools.first.id;
     _initialized = true;
@@ -291,37 +297,62 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Wechselt auf die Seite mit [pageIndex] und lädt deren Striche.
   void setCurrentPage(int pageIndex) {
-    if (!_initialized) {
+    if (!_initialized || _note.pages.isEmpty) {
       return;
     }
 
-    final int normalizedIndex = _normalizePageIndex(pageIndex);
-    if (normalizedIndex == _currentPageIndex) {
+    if (pageIndex == _currentPageIndex) {
       return;
     }
 
     _persistCurrentPageStrokes();
+
+    final ({int targetIndex, bool removedPage}) result =
+        _maybeRemoveCurrentPageIfEmpty(pageIndex);
+    final int normalizedIndex = _normalizePageIndex(result.targetIndex);
+
+    final bool targetUnchanged = normalizedIndex == _currentPageIndex;
+    if (targetUnchanged && !result.removedPage) {
+      return;
+    }
+
     _currentPageIndex = normalizedIndex;
     drawingController.initialize(_note.pages[_currentPageIndex].strokes);
+
     _note = _note.copyWith(
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
     _inkNotesController.upsert(
       _note,
-      changedPageIndices: const <int>{},
+      changedPageIndices:
+          result.removedPage ? {_currentPageIndex} : const <int>{},
     );
     notifyListeners();
   }
 
   /// Fügt nach der aktuellen Seite eine neue leere Seite ein und aktiviert sie.
-  int addPageAfterCurrent() {
+  /// Gibt den Index der neuen Seite zurück oder `null`, wenn keine Seite
+  /// erstellt wurde (z. B. weil die aktuelle Seite leer ist).
+  int? addPageAfterCurrent() {
+    if (!_initialized) {
+      return null;
+    }
+
     _persistCurrentPageStrokes();
+
+    if (!currentPageHasContent) {
+      return null;
+    }
+
+    _syncPageContentHistory();
 
     final List<NotePage> updatedPages = List<NotePage>.of(_note.pages)
       ..insert(_currentPageIndex + 1, NotePage(strokes: const <Stroke>[]));
+    _pageContentHistory.insert(_currentPageIndex + 1, false);
 
-    _currentPageIndex = (_currentPageIndex + 1).clamp(0, updatedPages.length - 1);
+    _currentPageIndex =
+        (_currentPageIndex + 1).clamp(0, updatedPages.length - 1);
     drawingController.initialize(updatedPages[_currentPageIndex].strokes);
 
     _note = _note.copyWith(
@@ -345,9 +376,14 @@ class DrawingNoteController extends ChangeNotifier {
     final NotePage currentPage = updatedPages[_currentPageIndex];
     final List<Stroke> persistedStrokes = drawingController.strokes;
 
-    final bool hasContent = persistedStrokes.any(
-      (Stroke stroke) => stroke.points.isNotEmpty,
-    );
+    final bool hasContent = _strokesHaveContent(persistedStrokes);
+
+    if (_pageContentHistory.length != updatedPages.length) {
+      _rebuildPageContentHistory(updatedPages);
+    }
+    if (_currentPageIndex < _pageContentHistory.length) {
+      _pageContentHistory[_currentPageIndex] = hasContent;
+    }
 
     final String? nextDescription =
         hasContent ? currentPage.cachedVisionDescription : null;
@@ -374,6 +410,64 @@ class DrawingNoteController extends ChangeNotifier {
     _note = _note.copyWith(
       pages: List<NotePage>.unmodifiable(updatedPages),
     );
+  }
+
+  bool _strokesHaveContent(List<Stroke> strokes) => strokes.any(
+        (Stroke stroke) => stroke.points.isNotEmpty,
+      );
+
+  ({int targetIndex, bool removedPage}) _maybeRemoveCurrentPageIfEmpty(
+    int targetIndex,
+  ) {
+    if (_note.pages.length <= 1) {
+      return (targetIndex: targetIndex, removedPage: false);
+    }
+
+    _syncPageContentHistory();
+
+    final List<NotePage> pages = List<NotePage>.of(_note.pages);
+    final NotePage currentPage = pages[_currentPageIndex];
+    final bool hasContent = _strokesHaveContent(currentPage.strokes);
+    final bool hadContentBefore =
+        _currentPageIndex < _pageContentHistory.length &&
+        _pageContentHistory[_currentPageIndex];
+    if (hasContent || hadContentBefore) {
+      return (targetIndex: targetIndex, removedPage: false);
+    }
+
+    pages.removeAt(_currentPageIndex);
+    final List<NotePage> nextPages = List<NotePage>.unmodifiable(pages);
+    if (_currentPageIndex < _pageContentHistory.length) {
+      _pageContentHistory.removeAt(_currentPageIndex);
+    }
+
+    int nextTarget = targetIndex;
+    if (targetIndex > _currentPageIndex) {
+      nextTarget = math.max(0, targetIndex - 1);
+    }
+
+    _note = _note.copyWith(
+      pages: nextPages,
+      updatedAt: DateTime.now(),
+    );
+
+    if (_currentPageIndex >= nextPages.length) {
+      _currentPageIndex = nextPages.length - 1;
+    }
+
+    return (targetIndex: nextTarget, removedPage: true);
+  }
+
+  void _rebuildPageContentHistory(List<NotePage> pages) {
+    _pageContentHistory = pages
+        .map((page) => _strokesHaveContent(page.strokes))
+        .toList(growable: true);
+  }
+
+  void _syncPageContentHistory() {
+    if (_pageContentHistory.length != _note.pages.length) {
+      _rebuildPageContentHistory(_note.pages);
+    }
   }
 
   int _normalizePageIndex(int index) {
