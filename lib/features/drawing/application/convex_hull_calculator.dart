@@ -12,14 +12,37 @@ class ConvexHullCalculator {
 
   static const double _boundingBoxComparisonEpsilon = 1e-6;
 
-  /// Erstellt Konturen für die gegebenen [strokes].
+  /// Erstellt Konturen für die gegebenen [strokes] asynchron in einem Isolate.
   ///
   /// [cellSize] bestimmt die Rasterauflösung (in Pixeln). Kleinere Werte führen
   /// zu präziseren, aber teureren Konturen. [padding] erweitert den betrachteten
   /// Bereich um die Striche, sodass der Rand nicht abgeschnitten wird. Mit
   /// [connectionMargin] kannst du steuern, wie stark nahe beieinander liegende
   /// Striche miteinander verschmelzen.
-  static List<List<Offset>> contoursForStrokes(
+  ///
+  /// Diese Methode wird in einem separaten Isolate ausgeführt, um die
+  /// UI-Thread nicht zu blockieren.
+  static Future<List<List<Offset>>> contoursForStrokes(
+    Iterable<Stroke> strokes, {
+    double cellSize = _defaultCellSize,
+    double padding = _defaultPadding,
+    double simplifyToleranceFactor = _rdpToleranceFactor,
+    double minimumArea = _minimumPolygonArea,
+    double connectionMargin = _defaultConnectionMargin,
+  }) {
+    final params = _ContoursParams(
+      strokes: strokes.toList(growable: false),
+      cellSize: cellSize,
+      padding: padding,
+      simplifyToleranceFactor: simplifyToleranceFactor,
+      minimumArea: minimumArea,
+      connectionMargin: connectionMargin,
+    );
+    return compute(_computeContoursIsolate, params);
+  }
+
+  /// Synchrone Version der Konturenberechnung für Tests und spezielle Fälle.
+  static List<List<Offset>> contoursForStrokesSync(
     Iterable<Stroke> strokes, {
     double cellSize = _defaultCellSize,
     double padding = _defaultPadding,
@@ -1116,3 +1139,34 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
   _GridPoint(0, 1),
   _GridPoint(0, -1),
 ];
+
+/// Parameter-Objekt für die Isolate-Kommunikation.
+class _ContoursParams {
+  const _ContoursParams({
+    required this.strokes,
+    required this.cellSize,
+    required this.padding,
+    required this.simplifyToleranceFactor,
+    required this.minimumArea,
+    required this.connectionMargin,
+  });
+
+  final List<Stroke> strokes;
+  final double cellSize;
+  final double padding;
+  final double simplifyToleranceFactor;
+  final double minimumArea;
+  final double connectionMargin;
+}
+
+/// Top-level Funktion für Isolate-Berechnung.
+List<List<Offset>> _computeContoursIsolate(_ContoursParams params) {
+  return ConvexHullCalculator.contoursForStrokesSync(
+    params.strokes,
+    cellSize: params.cellSize,
+    padding: params.padding,
+    simplifyToleranceFactor: params.simplifyToleranceFactor,
+    minimumArea: params.minimumArea,
+    connectionMargin: params.connectionMargin,
+  );
+}
