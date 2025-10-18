@@ -50,7 +50,14 @@ class ConvexHullCalculator {
     // Deserialisiere Offsets
     return serializedContours
         .map((contour) => contour
-            .map((offsetMap) => Offset(offsetMap['dx']!, offsetMap['dy']!))
+            .map((offsetMap) {
+              final dx = offsetMap[_offsetDxKey];
+              final dy = offsetMap[_offsetDyKey];
+              if (dx == null || dy == null) {
+                throw StateError('Ungültige Offset-Daten vom Isolate erhalten');
+              }
+              return Offset(dx, dy);
+            })
             .toList(growable: false))
         .toList(growable: false);
   }
@@ -1140,6 +1147,10 @@ const double _minimumPolygonArea = 32;
 const double _defaultConnectionMargin = 16;
 const double _minimumNodeRadiusFactor = 0.6;
 
+// Konstanten für Offset-Serialisierung
+const String _offsetDxKey = 'dx';
+const String _offsetDyKey = 'dy';
+
 class _GridPoint {
   const _GridPoint(this.x, this.y);
 
@@ -1202,7 +1213,7 @@ List<List<Map<String, double>>> _computeContoursIsolate(_ContoursParams params) 
   // Serialisiere Offsets als Maps für Isolate-Übertragung
   return contours
       .map((contour) => contour
-          .map((offset) => {'dx': offset.dx, 'dy': offset.dy})
+          .map((offset) => {_offsetDxKey: offset.dx, _offsetDyKey: offset.dy})
           .toList(growable: false))
       .toList(growable: false);
 }
