@@ -29,16 +29,30 @@ class ConvexHullCalculator {
     double simplifyToleranceFactor = _rdpToleranceFactor,
     double minimumArea = _minimumPolygonArea,
     double connectionMargin = _defaultConnectionMargin,
-  }) {
+  }) async {
+    // Serialisiere Strokes für Isolate-Übertragung
+    final strokesJson = strokes
+        .map((stroke) => stroke.toJson())
+        .toList(growable: false);
+
     final params = _ContoursParams(
-      strokes: strokes.toList(growable: false),
+      strokesJson: strokesJson,
       cellSize: cellSize,
       padding: padding,
       simplifyToleranceFactor: simplifyToleranceFactor,
       minimumArea: minimumArea,
       connectionMargin: connectionMargin,
     );
-    return compute(_computeContoursIsolate, params);
+
+    // Führe Berechnung im Isolate durch
+    final serializedContours = await compute(_computeContoursIsolate, params);
+
+    // Deserialisiere Offsets
+    return serializedContours
+        .map((contour) => contour
+            .map((offsetMap) => Offset(offsetMap['dx']!, offsetMap['dy']!))
+            .toList(growable: false))
+        .toList(growable: false);
   }
 
   /// Synchrone Version der Konturenberechnung für Tests und spezielle Fälle.
@@ -1141,9 +1155,12 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
 ];
 
 /// Parameter-Objekt für die Isolate-Kommunikation.
+/// 
+/// Dieses Objekt wird serialisiert, um über Isolate-Grenzen hinweg
+/// übertragen zu werden. Alle Felder müssen serialisierbar sein.
 class _ContoursParams {
   const _ContoursParams({
-    required this.strokes,
+    required this.strokesJson,
     required this.cellSize,
     required this.padding,
     required this.simplifyToleranceFactor,
@@ -1151,7 +1168,8 @@ class _ContoursParams {
     required this.connectionMargin,
   });
 
-  final List<Stroke> strokes;
+  /// Serialisierte Stroke-Daten als JSON-kompatible Liste.
+  final List<Map<String, dynamic>> strokesJson;
   final double cellSize;
   final double padding;
   final double simplifyToleranceFactor;
@@ -1160,13 +1178,31 @@ class _ContoursParams {
 }
 
 /// Top-level Funktion für Isolate-Berechnung.
-List<List<Offset>> _computeContoursIsolate(_ContoursParams params) {
-  return ConvexHullCalculator.contoursForStrokesSync(
-    params.strokes,
+/// 
+/// Diese Funktion dient als Einstiegspunkt für das Isolate und deserialisiert
+/// die übergebenen Parameter, bevor die eigentliche Berechnung durchgeführt wird.
+/// Die Funktion muss auf oberster Ebene definiert sein, da sie von einem
+/// separaten Isolate aufgerufen wird.
+List<List<Map<String, double>>> _computeContoursIsolate(_ContoursParams params) {
+  // Deserialisiere Strokes
+  final strokes = params.strokesJson
+      .map((json) => Stroke.fromJson(json))
+      .toList(growable: false);
+
+  // Führe Berechnung durch
+  final contours = ConvexHullCalculator.contoursForStrokesSync(
+    strokes,
     cellSize: params.cellSize,
     padding: params.padding,
     simplifyToleranceFactor: params.simplifyToleranceFactor,
     minimumArea: params.minimumArea,
     connectionMargin: params.connectionMargin,
   );
+
+  // Serialisiere Offsets als Maps für Isolate-Übertragung
+  return contours
+      .map((contour) => contour
+          .map((offset) => {'dx': offset.dx, 'dy': offset.dy})
+          .toList(growable: false))
+      .toList(growable: false);
 }
