@@ -12,14 +12,58 @@ class ConvexHullCalculator {
 
   static const double _boundingBoxComparisonEpsilon = 1e-6;
 
-  /// Erstellt Konturen für die gegebenen [strokes].
+  /// Erstellt Konturen für die gegebenen [strokes] asynchron in einem Isolate.
   ///
   /// [cellSize] bestimmt die Rasterauflösung (in Pixeln). Kleinere Werte führen
   /// zu präziseren, aber teureren Konturen. [padding] erweitert den betrachteten
   /// Bereich um die Striche, sodass der Rand nicht abgeschnitten wird. Mit
   /// [connectionMargin] kannst du steuern, wie stark nahe beieinander liegende
   /// Striche miteinander verschmelzen.
-  static List<List<Offset>> contoursForStrokes(
+  ///
+  /// Diese Methode wird in einem separaten Isolate ausgeführt, um die
+  /// UI-Thread nicht zu blockieren.
+  static Future<List<List<Offset>>> contoursForStrokes(
+    Iterable<Stroke> strokes, {
+    double cellSize = _defaultCellSize,
+    double padding = _defaultPadding,
+    double simplifyToleranceFactor = _rdpToleranceFactor,
+    double minimumArea = _minimumPolygonArea,
+    double connectionMargin = _defaultConnectionMargin,
+  }) async {
+    // Serialisiere Strokes für Isolate-Übertragung
+    final strokesJson = strokes
+        .map((stroke) => stroke.toJson())
+        .toList(growable: false);
+
+    final params = _ContoursParams(
+      strokesJson: strokesJson,
+      cellSize: cellSize,
+      padding: padding,
+      simplifyToleranceFactor: simplifyToleranceFactor,
+      minimumArea: minimumArea,
+      connectionMargin: connectionMargin,
+    );
+
+    // Führe Berechnung im Isolate durch
+    final serializedContours = await compute(_computeContoursIsolate, params);
+
+    // Deserialisiere Offsets
+    return serializedContours
+        .map((contour) => contour
+            .map((offsetMap) {
+              final dx = offsetMap[_offsetDxKey];
+              final dy = offsetMap[_offsetDyKey];
+              if (dx == null || dy == null) {
+                throw StateError('Ungültige Offset-Daten vom Isolate erhalten');
+              }
+              return Offset(dx, dy);
+            })
+            .toList(growable: false))
+        .toList(growable: false);
+  }
+
+  /// Synchrone Version der Konturenberechnung für Tests und spezielle Fälle.
+  static List<List<Offset>> contoursForStrokesSync(
     Iterable<Stroke> strokes, {
     double cellSize = _defaultCellSize,
     double padding = _defaultPadding,
@@ -1103,6 +1147,10 @@ const double _minimumPolygonArea = 32;
 const double _defaultConnectionMargin = 16;
 const double _minimumNodeRadiusFactor = 0.6;
 
+// Konstanten für Offset-Serialisierung
+const String _offsetDxKey = 'dx';
+const String _offsetDyKey = 'dy';
+
 class _GridPoint {
   const _GridPoint(this.x, this.y);
 
@@ -1116,3 +1164,56 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
   _GridPoint(0, 1),
   _GridPoint(0, -1),
 ];
+
+/// Parameter-Objekt für die Isolate-Kommunikation.
+/// 
+/// Dieses Objekt wird serialisiert, um über Isolate-Grenzen hinweg
+/// übertragen zu werden. Alle Felder müssen serialisierbar sein.
+class _ContoursParams {
+  const _ContoursParams({
+    required this.strokesJson,
+    required this.cellSize,
+    required this.padding,
+    required this.simplifyToleranceFactor,
+    required this.minimumArea,
+    required this.connectionMargin,
+  });
+
+  /// Serialisierte Stroke-Daten als JSON-kompatible Liste.
+  final List<Map<String, dynamic>> strokesJson;
+  final double cellSize;
+  final double padding;
+  final double simplifyToleranceFactor;
+  final double minimumArea;
+  final double connectionMargin;
+}
+
+/// Top-level Funktion für Isolate-Berechnung.
+/// 
+/// Diese Funktion dient als Einstiegspunkt für das Isolate und deserialisiert
+/// die übergebenen Parameter, bevor die eigentliche Berechnung durchgeführt wird.
+/// Die Funktion muss auf oberster Ebene definiert sein, da sie von einem
+/// separaten Isolate aufgerufen wird.
+List<List<Map<String, double>>> _computeContoursIsolate(_ContoursParams params) {
+  // Deserialisiere Strokes
+  final strokes = params.strokesJson
+      .map((json) => Stroke.fromJson(json))
+      .toList(growable: false);
+
+  // Führe Berechnung durch
+  final contours = ConvexHullCalculator.contoursForStrokesSync(
+    strokes,
+    cellSize: params.cellSize,
+    padding: params.padding,
+    simplifyToleranceFactor: params.simplifyToleranceFactor,
+    minimumArea: params.minimumArea,
+    connectionMargin: params.connectionMargin,
+  );
+
+  // Serialisiere Offsets als Maps für Isolate-Übertragung
+  return contours
+      .map((contour) => contour
+          .map((offset) => {_offsetDxKey: offset.dx, _offsetDyKey: offset.dy})
+          .toList(growable: false))
+      .toList(growable: false);
+}

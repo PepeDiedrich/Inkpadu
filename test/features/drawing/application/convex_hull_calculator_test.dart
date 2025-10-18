@@ -76,7 +76,7 @@ bool _anglesApproximatelyEquivalent(
 }
 
 void main() {
-  group('ConvexHullCalculator.contoursForStrokes', () {
+  group('ConvexHullCalculator.contoursForStrokesSync', () {
     test('returns tight contour for rectangle stroke', () {
       final stroke = _strokeWithPoints(const [
         Offset(0, 0),
@@ -86,7 +86,7 @@ void main() {
         Offset(0, 0),
       ], width: 6);
 
-      final contours = ConvexHullCalculator.contoursForStrokes([stroke]);
+      final contours = ConvexHullCalculator.contoursForStrokesSync([stroke]);
 
       expect(contours, isNotEmpty);
       final Rect box = _unionBox(contours);
@@ -114,7 +114,7 @@ void main() {
         ], width: 5),
       ];
 
-      final contours = ConvexHullCalculator.contoursForStrokes(strokes);
+      final contours = ConvexHullCalculator.contoursForStrokesSync(strokes);
 
       expect(contours, isNotEmpty);
       final Rect box = _unionBox(contours);
@@ -128,7 +128,7 @@ void main() {
         Offset(10, 70),
       ], width: 1.2);
 
-      final contours = ConvexHullCalculator.contoursForStrokes([stroke]);
+      final contours = ConvexHullCalculator.contoursForStrokesSync([stroke]);
 
       expect(contours, isNotEmpty);
       final Rect box = _unionBox(contours);
@@ -143,7 +143,7 @@ void main() {
         width: 5,
       );
 
-      final contours = ConvexHullCalculator.contoursForStrokes([stroke]);
+      final contours = ConvexHullCalculator.contoursForStrokesSync([stroke]);
 
       expect(contours.length, 1);
       final Rect box = _unionBox(contours);
@@ -171,7 +171,7 @@ void main() {
         ]),
       ];
 
-      final contours = ConvexHullCalculator.contoursForStrokes(strokes);
+      final contours = ConvexHullCalculator.contoursForStrokesSync(strokes);
 
       expect(contours, isNotEmpty);
       final Rect box = _unionBox(contours);
@@ -181,7 +181,32 @@ void main() {
     });
 
     test('returns empty list when no strokes present', () {
-      expect(ConvexHullCalculator.contoursForStrokes(const []), isEmpty);
+      expect(ConvexHullCalculator.contoursForStrokesSync(const []), isEmpty);
+    });
+  });
+
+  group('ConvexHullCalculator.contoursForStrokes (async)', () {
+    test('returns tight contour for rectangle stroke', () async {
+      final stroke = _strokeWithPoints(const [
+        Offset(0, 0),
+        Offset(0, 40),
+        Offset(40, 40),
+        Offset(40, 0),
+        Offset(0, 0),
+      ], width: 6);
+
+      final contours = await ConvexHullCalculator.contoursForStrokes([stroke]);
+
+      expect(contours, isNotEmpty);
+      final Rect box = _unionBox(contours);
+      expect(box.left, lessThan(0));
+      expect(box.top, lessThan(0));
+      expect(box.right, greaterThan(40));
+      expect(box.bottom, greaterThan(40));
+    });
+
+    test('returns empty list when no strokes present', () async {
+      expect(await ConvexHullCalculator.contoursForStrokes(const []), isEmpty);
     });
   });
 

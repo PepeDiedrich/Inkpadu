@@ -202,7 +202,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _hullDebounceTimer = Timer(_hullDebounceDuration, _rebuildConvexHulls);
   }
 
-  void _rebuildConvexHulls() {
+  void _rebuildConvexHulls() async {
     if (!mounted) {
       return;
     }
@@ -213,9 +213,12 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (currentStroke != null && currentStroke.points.length >= 2) {
       allStrokes.add(currentStroke);
     }
-    final List<List<Offset>> hulls = ConvexHullCalculator.contoursForStrokes(
+    final List<List<Offset>> hulls = await ConvexHullCalculator.contoursForStrokes(
       allStrokes,
     );
+    if (!mounted) {
+      return;
+    }
     final List<StrokeBoundingBoxCluster> clusters =
         ConvexHullCalculator.clustersForContours(hulls, allStrokes);
     final List<RotatedBoundingBox> boxes = clusters
