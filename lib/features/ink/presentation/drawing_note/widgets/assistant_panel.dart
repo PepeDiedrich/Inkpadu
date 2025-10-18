@@ -1,34 +1,22 @@
-import 'dart:convert';
-
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-    show StrokeBoundingBoxCluster, ConvexHullCalculator;
+  show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_snapshot_service.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_cluster_utils.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_prompt_manager.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_request_type.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/azure_assistant_api_service.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/cluster_shape_data.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/conversation_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/debug_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
-import 'package:http/http.dart' as http;
-import 'package:appwrite/models.dart' show Execution;
-import 'package:appwrite/enums.dart' as appwrite_enums;
-
-/// Unterstützte Aktionen, die der Assistent auslösen kann.
-enum AssistantRequestType {
-  /// Liefert einen kurzen Hinweis ohne die Lösung zu verraten.
-  tip,
-
-  /// Generiert eine ausführliche Hilfestellung mit Erklärungen.
-  help,
-
-  /// Prüft die aktuelle Lösung auf Fehler oder bestätigt sie.
-  review,
-}
 
 /// Zeigt den Platzhalter für den KI-Assistenten an und reagiert auf
 /// Größenänderungen der Sidebar.
@@ -77,6 +65,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
   bool _streamUpdateScheduled = false;
 
   late final Functions _functions;
+  late final AzureAssistantApiService _assistantService;
+  late final AssistantPromptManager _promptManager;
   final DrawingSnapshotService _snapshotService =
       const DrawingSnapshotService();
   final ScrollController _contentScrollController = ScrollController();
@@ -107,6 +97,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
   void initState() {
     super.initState();
     _functions = Functions(AppwriteConfig.client);
+    _assistantService = AzureAssistantApiService(
+      functions: _functions,
+      functionId: _functionId,
+      azureResourceName: _azureResourceName,
+      azureDeploymentName: _azureDeploymentName,
+      azureApiVersion: _azureApiVersion,
+    );
+    _promptManager = const AssistantPromptManager();
   }
 
   @override
@@ -140,8 +138,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     final NotePage currentPage = pages[pageIndex];
     final List<AssistantMessage> history = currentPage.assistantHistory;
-    final List<AssistantMessage> recentHistory = _selectRecentHistory(history);
-    final String? historySummary = _summarizeHistory(recentHistory);
+    final List<AssistantMessage> recentHistory =
+        _promptManager.selectRecentHistory(history);
+    final String? historySummary =
+        _promptManager.summarizeHistory(recentHistory);
 
     final List<StrokeBoundingBoxCluster> availableClusters = widget
         .strokeClusters
@@ -149,10 +149,10 @@ class _AssistantPanelState extends State<AssistantPanel> {
         .toList(growable: false);
     final int totalClusterCount = availableClusters.length;
     final String? currentSignature =
-        _computeClusterSignature(availableClusters);
+        AssistantClusterUtils.computeClusterSignature(availableClusters);
 
     final String questionLabel = _questionLabelFor(type);
-    final String prompt = _promptTemplateFor(type);
+    final String prompt = _promptManager.promptTemplateFor(type);
 
     _streamingAnswer.value = '';
     _pendingStreamingText = null;
@@ -180,56 +180,29 @@ class _AssistantPanelState extends State<AssistantPanel> {
             .captureCombinedSnapshot(availableClusters);
       }
 
-      final Execution execution = await _functions.createExecution(
-        functionId: _functionId,
-        xasync: false,
-      );
-
-      final String responseBody = await _resolveExecutionResponse(execution);
-      final Map<String, dynamic> data =
-          json.decode(responseBody) as Map<String, dynamic>;
-
-      if (data['success'] != true) {
-        throw Exception('Konnte Azure-Token nicht erhalten: ${data['error']}');
-      }
-
-      final String token = data['accessToken'] as String;
-
-      final Uri url = Uri.parse(
-        'https://$_azureResourceName.openai.azure.com/openai/deployments/$_azureDeploymentName/chat/completions?api-version=$_azureApiVersion',
-      );
-
-      final List<Map<String, dynamic>> userContent = _buildUserContent(
+      final List<Map<String, dynamic>> userContent =
+          _promptManager.buildUserContent(
         prompt: prompt,
         combinedSnapshot: combinedSnapshot,
         totalClusters: totalClusterCount,
         historySummary: historySummary,
       );
 
-      final Map<String, dynamic> payload = <String, dynamic>{
-        'messages': [
-          {
-            'role': 'system',
-            'content': const [
-              {'type': 'text', 'text': _systemPrompt},
-            ],
-          },
-          {'role': 'user', 'content': userContent},
-        ],
-        'max_completion_tokens': _maxCompletionTokens,
-        'response_format': const {'type': 'text'},
-        'stream': true,
-      };
-
-      final int tokenEstimate = _estimateTokenUsage(
+      final int tokenEstimate = _promptManager.estimateTokenUsage(
+        systemPrompt: _systemPrompt,
         prompt: prompt,
         combinedSnapshot: combinedSnapshot,
         historySummary: historySummary,
       );
 
-      final String payloadPreview = const JsonEncoder.withIndent(
-        '  ',
-      ).convert(payload);
+      final AzureAssistantPreparedRequest preparedRequest =
+          _assistantService.prepareRequest(
+        AzureAssistantRequest(
+          systemPrompt: _systemPrompt,
+          userContent: userContent,
+          maxCompletionTokens: _maxCompletionTokens,
+        ),
+      );
 
       if (mounted) {
         setState(() {
@@ -237,102 +210,38 @@ class _AssistantPanelState extends State<AssistantPanel> {
           _debugTokenEstimate = tokenEstimate;
           _debugTotalClusters = totalClusterCount;
           _debugSnapshot = combinedSnapshot;
-          _debugPayloadPreview = payloadPreview;
+          _debugPayloadPreview = preparedRequest.payloadPreview;
           _showDebugPanel = true;
         });
       }
 
-      final http.Client client = http.Client();
-      String accumulatedContent = '';
-      String? finishReason;
-
-      try {
-        final http.Request request = http.Request('POST', url)
-          ..headers.addAll({
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          })
-          ..body = json.encode(payload);
-
-        final http.StreamedResponse azureRes = await client.send(request);
-
-        if (azureRes.statusCode != 200) {
-          final String errorBody = await azureRes.stream.bytesToString();
-          throw Exception(
-            'Azure-Fehler: ${azureRes.statusCode} $errorBody',
-          );
-        }
-
-        if (mounted) {
-          setState(() {
-            _statusMessage = '${_buttonLabelFor(type)} wird generiert…';
-          });
-        }
-
-        final Stream<String> lineStream = azureRes.stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter());
-
-        var statusCleared = false;
-
-        await for (final String line in lineStream) {
-          if (!mounted) {
-            break;
+      final AzureAssistantResult result =
+          await _assistantService.streamCompletion(
+        preparedRequest: preparedRequest,
+        onStreamUpdate: (String text) {
+          _scheduleStreamingUpdate(text);
+          if (mounted && _statusMessage != null) {
+            setState(() {
+              _statusMessage = null;
+            });
           }
-          final String trimmed = line.trim();
-          if (trimmed.isEmpty || !trimmed.startsWith('data:')) {
-            continue;
+        },
+        onStreamStarted: () {
+          if (mounted) {
+            setState(() {
+              _statusMessage = '${_buttonLabelFor(type)} wird generiert…';
+            });
           }
+        },
+      );
 
-          final String dataPayload = trimmed.substring(5).trim();
-          if (dataPayload.isEmpty) {
-            continue;
-          }
-          if (dataPayload == '[DONE]') {
-            break;
-          }
-
-          Map<String, dynamic> chunk;
-          try {
-            chunk = json.decode(dataPayload) as Map<String, dynamic>;
-          } catch (_) {
-            continue;
-          }
-
-          final String? delta = _extractDeltaContent(chunk, preserveWhitespace: true);
-          if (delta != null && delta.isNotEmpty) {
-            accumulatedContent += delta;
-            _scheduleStreamingUpdate(accumulatedContent);
-            if (!statusCleared && mounted && _statusMessage != null) {
-              statusCleared = true;
-              setState(() {
-                _statusMessage = null;
-              });
-            }
-          }
-
-          final String? chunkFinish = _firstFinishReason(chunk);
-          if (chunkFinish != null) {
-            finishReason ??= chunkFinish;
-          }
-        }
-      } finally {
-        client.close();
-      }
-
-    final String resolvedAnswer = accumulatedContent.trim().isNotEmpty
-      ? accumulatedContent.trim()
-      : finishReason == 'length'
-        ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
-        : 'Das Modell hat keine Antwort gesendet.';
-
-    _pendingStreamingText = null;
-    _streamUpdateScheduled = false;
-    _streamingAnswer.value = resolvedAnswer;
+      _pendingStreamingText = null;
+      _streamUpdateScheduled = false;
+      _streamingAnswer.value = result.answer;
 
       final AssistantMessage finalMessage = AssistantMessage(
         question: questionLabel,
-        answer: resolvedAnswer,
+        answer: result.answer,
         createdAt: DateTime.now(),
       );
 
@@ -344,7 +253,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
       if (mounted) {
         setState(() {
           _pendingMessage = null;
-          _statusMessage = finishReason == 'length'
+          _statusMessage = result.wasTruncated
               ? '⚠️ Antwort wurde nach $_maxCompletionTokens Tokens abgeschnitten.'
               : null;
         });
@@ -405,17 +314,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
     }
   }
 
-  String _promptTemplateFor(AssistantRequestType type) {
-    switch (type) {
-      case AssistantRequestType.tip:
-        return 'Gib einen kurzen Tipp zur Aufgabe in der Notiz, ohne die vollständige Lösung zu verraten. Nutze für Formeln LaTeX (\$…\$ bzw. \$\$…\$\$) und lasse übrige Texte mit korrekten Leerzeichen.';
-      case AssistantRequestType.help:
-        return 'Erkläre ausführlich, wie man die Aufgabe in der Notiz lösen kann und gib eine strukturierte Hilfestellung. Mathematische Ausdrücke sollen immer in LaTeX notiert sein (\$…\$ oder \$\$…\$\$).';
-      case AssistantRequestType.review:
-        return 'Überprüfe die dargestellte Lösung in der Notiz. Bestätige kurz, ob sie korrekt ist, oder beschreibe kompakt die wichtigsten Fehler. Verwende LaTeX-Notation (\$…\$ bzw. \$\$…\$\$) für Formeln.';
-    }
-  }
-
   String _buttonDescriptionFor(AssistantRequestType type) {
     switch (type) {
       case AssistantRequestType.tip:
@@ -438,261 +336,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
     }
   }
 
-  String? _extractDeltaContent(
-    Map<String, dynamic> chunk, {
-    bool preserveWhitespace = false,
-  }) {
-    final dynamic choices = chunk['choices'];
-    if (choices is! List || choices.isEmpty) {
-      return null;
-    }
-
-    final dynamic firstChoice = choices.first;
-    if (firstChoice is! Map<String, dynamic>) {
-      return null;
-    }
-
-    final dynamic delta = firstChoice['delta'];
-    if (delta is Map<String, dynamic>) {
-      final String? extracted = _normalizeContent(
-        delta['content'],
-        trimWhitespace: !preserveWhitespace,
-      );
-      if (extracted != null) {
-        return extracted;
-      }
-
-      final dynamic inner = delta['text'] ?? delta['value'];
-      final String? fallback = _normalizeContent(
-        inner,
-        trimWhitespace: !preserveWhitespace,
-      );
-      if (fallback != null) {
-        return fallback;
-      }
-    }
-
-    final dynamic message = firstChoice['message'];
-    if (message is Map<String, dynamic>) {
-      return _normalizeContent(
-        message['content'],
-        trimWhitespace: !preserveWhitespace,
-      );
-    }
-
-    return null;
-  }
-
-  String? _firstFinishReason(Map<String, dynamic> body) {
-    final dynamic choices = body['choices'];
-    if (choices is! List || choices.isEmpty) {
-      return null;
-    }
-
-    final dynamic firstChoice = choices.first;
-    if (firstChoice is Map<String, dynamic>) {
-      final dynamic reason = firstChoice['finish_reason'];
-      if (reason is String && reason.isNotEmpty) {
-        return reason;
-      }
-    }
-    return null;
-  }
-
-  List<Map<String, dynamic>> _buildUserContent({
-    required String prompt,
-    required CombinedSnapshot? combinedSnapshot,
-    required int totalClusters,
-    required String? historySummary,
-  }) {
-    final List<Map<String, dynamic>> content = <Map<String, dynamic>>[
-      {
-        'type': 'text',
-        'text':
-            'Beantworte die Frage zur handschriftlichen Notiz präzise und markiere Unsicherheiten ausdrücklich.',
-      },
-    ];
-
-    if (historySummary != null && historySummary.isNotEmpty) {
-      content.add({
-        'type': 'text',
-        'text': 'Bisherige Unterhaltung:\n$historySummary',
-      });
-    }
-
-    if (combinedSnapshot != null) {
-      content.add({
-        'type': 'image_url',
-        'image_url': {
-          'url': 'data:image/png;base64,${combinedSnapshot.base64Data}',
-          'detail': 'auto',
-        },
-      });
-    } else if (totalClusters > 0) {
-      content.add({
-        'type': 'text',
-        'text':
-            'Hinweis: Es standen $totalClusters Cluster zur Verfügung, es konnte aber kein Bild erzeugt werden.',
-      });
-    }
-
-    content.add({
-      'type': 'text',
-      'text': 'Frage: $prompt',
-    });
-
-    return content;
-  }
-
-  String? _normalizeContent(
-    dynamic content, {
-    bool trimWhitespace = true,
-  }) {
-    if (content is String) {
-      if (trimWhitespace) {
-        final String trimmed = content.trim();
-        return trimmed.isEmpty ? null : trimmed;
-      }
-      return content.isEmpty ? null : content;
-    }
-
-    if (content is List) {
-      final StringBuffer buffer = StringBuffer();
-      for (final dynamic entry in content) {
-        if (entry is Map<String, dynamic>) {
-          final String? textValue = _resolvedText(
-            entry['text'] ?? entry['content'] ?? entry['value'],
-            trimWhitespace: trimWhitespace,
-          );
-          if (textValue != null && textValue.isNotEmpty) {
-            if (buffer.isNotEmpty && trimWhitespace) {
-              buffer.writeln();
-            }
-            buffer.write(textValue);
-          }
-        } else if (entry is String) {
-          final String candidate = trimWhitespace ? entry.trim() : entry;
-          if (candidate.isNotEmpty) {
-            if (buffer.isNotEmpty && trimWhitespace) {
-              buffer.writeln();
-            }
-            buffer.write(candidate);
-          }
-        }
-      }
-
-      if (buffer.isEmpty) {
-        return null;
-      }
-
-      if (trimWhitespace) {
-        final String trimmed = buffer.toString().trim();
-        return trimmed.isEmpty ? null : trimmed;
-      }
-
-      final String combined = buffer.toString();
-      return combined.isEmpty ? null : combined;
-    }
-
-    return null;
-  }
-
-  String? _resolvedText(
-    dynamic value, {
-    bool trimWhitespace = true,
-  }) {
-    if (value is String) {
-      if (trimWhitespace) {
-        final String trimmed = value.trim();
-        return trimmed.isEmpty ? null : trimmed;
-      }
-      return value.isEmpty ? null : value;
-    }
-
-    if (value is Map<String, dynamic>) {
-      final dynamic primary =
-          value['text'] ?? value['content'] ?? value['value'];
-      final String? inner = _resolvedText(
-        primary,
-        trimWhitespace: trimWhitespace,
-      );
-      if (inner != null) {
-        return inner;
-      }
-
-      final dynamic parts =
-          value['parts'] ?? value['content'] ?? value['segments'];
-      if (parts is List) {
-        return _normalizeContent(parts, trimWhitespace: trimWhitespace);
-      }
-    }
-
-    if (value is List) {
-      return _normalizeContent(value, trimWhitespace: trimWhitespace);
-    }
-
-    return null;
-  }
-
-  Future<String> _resolveExecutionResponse(Execution execution) async {
-    if (execution.responseBody.trim().isNotEmpty) {
-      return execution.responseBody;
-    }
-
-    if (execution.errors.trim().isNotEmpty) {
-      throw FormatException(execution.errors.trim());
-    }
-
-    final Execution finalExecution = await _pollExecution(execution.$id);
-    if (finalExecution.responseBody.trim().isNotEmpty) {
-      return finalExecution.responseBody;
-    }
-
-    if (finalExecution.errors.trim().isNotEmpty) {
-      throw FormatException(finalExecution.errors.trim());
-    }
-
-    throw const FormatException('Server lieferte eine leere Antwort.');
-  }
-
-  Future<Execution> _pollExecution(String executionId) async {
-    Execution lastExecution = await _functions.getExecution(
-      functionId: _functionId,
-      executionId: executionId,
-    );
-
-    if (_hasTerminalResponse(lastExecution)) {
-      return lastExecution;
-    }
-
-    const int maxAttempts = 5;
-    const Duration pollInterval = Duration(milliseconds: 200);
-
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
-      await Future<void>.delayed(pollInterval);
-      lastExecution = await _functions.getExecution(
-        functionId: _functionId,
-        executionId: executionId,
-      );
-
-      if (_hasTerminalResponse(lastExecution)) {
-        return lastExecution;
-      }
-    }
-
-    return lastExecution;
-  }
-
-  bool _hasTerminalResponse(Execution execution) {
-    if (execution.responseBody.trim().isNotEmpty) {
-      return true;
-    }
-    if (execution.errors.trim().isNotEmpty) {
-      return true;
-    }
-    return execution.status == appwrite_enums.ExecutionStatus.completed ||
-        execution.status == appwrite_enums.ExecutionStatus.failed;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -702,9 +345,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final bool debugModeEnabled = EditorSettingsScope.of(
       context,
     ).debugModeEnabled;
-  final List<ClusterShapeData> clusterShapes = debugModeEnabled
-        ? _computeClusterShapes(widget.strokeClusters)
-    : const <ClusterShapeData>[];
+    final List<ClusterShapeData> clusterShapes = debugModeEnabled
+        ? AssistantClusterUtils.computeClusterShapes(widget.strokeClusters)
+        : const <ClusterShapeData>[];
 
     final bool hasPayloadDebugContent =
         _debugPrompt.isNotEmpty ||
@@ -1000,125 +643,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
     return Icons.open_with;
   }
 
-  int _estimateTokenUsage({
-    required String prompt,
-    required CombinedSnapshot? combinedSnapshot,
-    String? historySummary,
-  }) {
-    var total = _approxTokens(_systemPrompt) + _approxTokens(prompt) + 32;
-    if (historySummary != null) {
-      total += _approxTokens(historySummary);
-    }
-    if (combinedSnapshot != null) {
-      final double kiloBytes = combinedSnapshot.pngBytes.lengthInBytes / 1024;
-      final int imageTokens = (80 + kiloBytes * 1.6).ceil();
-      total += imageTokens;
-    }
-    return total;
-  }
-
-  int _approxTokens(String text) {
-    if (text.isEmpty) {
-      return 0;
-    }
-    return (text.length / 4).ceil();
-  }
-
-  List<AssistantMessage> _selectRecentHistory(
-    List<AssistantMessage> history,
-  ) {
-    if (history.length <= 5) {
-      return history;
-    }
-    return history.sublist(history.length - 5);
-  }
-
-  String? _summarizeHistory(List<AssistantMessage> history) {
-    if (history.isEmpty) {
-      return null;
-    }
-    final StringBuffer buffer = StringBuffer();
-    for (var i = 0; i < history.length; i++) {
-      final AssistantMessage message = history[i];
-      if (buffer.isNotEmpty) {
-        buffer.writeln('---');
-      }
-      buffer
-        ..writeln('Frage: ${_condenseForPrompt(message.question)}')
-        ..writeln('Antwort: ${_condenseForPrompt(message.answer)}');
-    }
-    final String result = buffer.toString().trim();
-    return result.isEmpty ? null : result;
-  }
-
-  String _condenseForPrompt(String value, {int maxLength = 420}) {
-    final String trimmed = value.trim();
-    if (trimmed.length <= maxLength) {
-      return trimmed;
-    }
-    return '${trimmed.substring(0, maxLength - 1)}…';
-  }
-
-  String? _computeClusterSignature(
-    List<StrokeBoundingBoxCluster> clusters,
-  ) {
-    if (clusters.isEmpty) {
-      return null;
-    }
-
-    final List<String> entries = <String>[];
-    for (final StrokeBoundingBoxCluster cluster in clusters) {
-      final List<String> strokeIds = List<String>.from(cluster.strokeIds)
-        ..sort();
-      final List<String> corners = cluster.boundingBox.corners
-          .map(
-            (Offset corner) =>
-                '${corner.dx.toStringAsFixed(1)}:${corner.dy.toStringAsFixed(1)}',
-          )
-          .toList(growable: false);
-      entries.add(
-        '${strokeIds.join(',')}|${corners.join(';')}|'
-        '${cluster.boundingBox.width.toStringAsFixed(1)}|'
-        '${cluster.boundingBox.height.toStringAsFixed(1)}|'
-        '${cluster.boundingBox.angle.toStringAsFixed(3)}',
-      );
-    }
-
-    entries.sort();
-    return entries.join('#');
-  }
-
-  List<ClusterShapeData> _computeClusterShapes(
-    List<StrokeBoundingBoxCluster> clusters,
-  ) {
-    if (clusters.isEmpty) {
-      return const <ClusterShapeData>[];
-    }
-
-    final List<ClusterShapeData> shapes = <ClusterShapeData>[];
-    for (final StrokeBoundingBoxCluster cluster in clusters) {
-      if (!cluster.hasContent) {
-        continue;
-      }
-
-      final List<Offset> hull = List<Offset>.from(
-        ConvexHullCalculator.convexHullForCluster(cluster),
-        growable: false,
-      );
-      final List<Offset> corners = List<Offset>.from(
-        cluster.boundingBox.corners,
-        growable: false,
-      );
-
-      if (hull.isEmpty && corners.isEmpty) {
-        continue;
-      }
-
-      shapes.add(ClusterShapeData(hull: hull, boundingCorners: corners));
-    }
-
-    return shapes;
-  }
 }
 
 class _AssistantActionSegment extends StatelessWidget {
