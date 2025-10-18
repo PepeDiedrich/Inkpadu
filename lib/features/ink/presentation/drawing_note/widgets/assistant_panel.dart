@@ -87,10 +87,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
   // einer sicheren Konfiguration (Environment / Secrets).
   // Hinweis: Für die URL, die du erwähnt hast, setze Deployment auf
   // 'gpt-5-nano' und api-version auf '2025-01-01-preview'.
-  static const String _functionId = 'llm_auth';
-  static const String _azureResourceName = 'peped-mgjk16o0-eastus2';
-  static const String _azureDeploymentName = 'gpt-5-nano';
-  static const String _azureApiVersion = '2025-01-01-preview';
   static const int _maxCompletionTokens = 10768;
 
   @override
@@ -99,10 +95,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
     _functions = Functions(AppwriteConfig.client);
     _assistantService = AzureAssistantApiService(
       functions: _functions,
-      functionId: _functionId,
-      azureResourceName: _azureResourceName,
-      azureDeploymentName: _azureDeploymentName,
-      azureApiVersion: _azureApiVersion,
     );
     _promptManager = const AssistantPromptManager();
   }

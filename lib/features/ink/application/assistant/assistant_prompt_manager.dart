@@ -4,7 +4,13 @@ import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dar
 import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_request_type.dart';
 
 /// Verwaltet Prompts, Nachrichtenzusammenfassungen und Token-Schätzungen.
+/// 
+/// Diese Klasse bietet Funktionen zur Verwaltung von Assistenten-Prompts,
+/// einschließlich Prompt-Vorlagen für verschiedene Anfragety­pen, Erstellung
+/// von Benutzerinhalten für Chat-Vorlagen, Token-Schätzung und
+/// Nachrichtenzusammenfassung.
 class AssistantPromptManager {
+  /// Erstellt eine neue Instanz des Prompt-Managers.
   const AssistantPromptManager();
 
   /// Liefert den passenden Prompt-Text für den gewünschten Anfrage-Typ.

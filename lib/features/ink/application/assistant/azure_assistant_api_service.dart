@@ -7,7 +7,14 @@ import 'package:appwrite/models.dart';
 import 'package:http/http.dart' as http;
 
 /// Verwaltet Authentifizierung, Request-Aufbau und Streaming gegen Azure OpenAI.
+/// 
+/// Diese Klasse kümmert sich um die Kommunikation mit der Azure OpenAI API,
+/// einschließlich Token-Verwaltung, Request-Vorbereitung, Streaming und
+/// Antwort-Verarbeitung.
 class AzureAssistantApiService {
+  /// Erstellt eine neue Instanz des Azure Assistant API Service.
+  /// 
+  /// Die Parameter ermöglichen die Konfiguration der Azure OpenAI Verbindung.
   AzureAssistantApiService({
     required Functions functions,
     String functionId = 'llm_auth',
@@ -138,12 +145,10 @@ class AzureAssistantApiService {
     );
   }
 
-  Future<Execution> _createExecution() {
-    return _functions.createExecution(
-      functionId: _functionId,
-      xasync: false,
-    );
-  }
+  Future<Execution> _createExecution() => _functions.createExecution(
+    functionId: _functionId,
+    xasync: false,
+  );
 
   Future<String> _resolveExecutionResponse(Execution execution) async {
     if (execution.responseBody.trim().isNotEmpty) {
@@ -194,33 +199,26 @@ class AzureAssistantApiService {
     return lastExecution;
   }
 
-  bool _hasTerminalResponse(Execution execution) {
-    if (execution.responseBody.trim().isNotEmpty) {
-      return true;
-    }
-    if (execution.errors.trim().isNotEmpty) {
-      return true;
-    }
-    return execution.status == appwrite_enums.ExecutionStatus.completed ||
-        execution.status == appwrite_enums.ExecutionStatus.failed;
-  }
+  bool _hasTerminalResponse(Execution execution) =>
+    execution.responseBody.trim().isNotEmpty ||
+    execution.errors.trim().isNotEmpty ||
+    execution.status == appwrite_enums.ExecutionStatus.completed ||
+    execution.status == appwrite_enums.ExecutionStatus.failed;
 
-  Map<String, dynamic> _buildAzureRequest(AzureAssistantRequest request) {
-    return <String, dynamic>{
-      'messages': [
-        {
-          'role': 'system',
-          'content': [
-            {'type': 'text', 'text': request.systemPrompt},
-          ],
-        },
-        {'role': 'user', 'content': request.userContent},
-      ],
-      'max_completion_tokens': request.maxCompletionTokens,
-      'response_format': const {'type': 'text'},
-      'stream': true,
-    };
-  }
+  Map<String, dynamic> _buildAzureRequest(AzureAssistantRequest request) => <String, dynamic>{
+    'messages': [
+      {
+        'role': 'system',
+        'content': [
+          {'type': 'text', 'text': request.systemPrompt},
+        ],
+      },
+      {'role': 'user', 'content': request.userContent},
+    ],
+    'max_completion_tokens': request.maxCompletionTokens,
+    'response_format': const {'type': 'text'},
+    'stream': true,
+  };
 
   String? _extractDeltaContent(
     Map<String, dynamic> chunk, {
@@ -376,40 +374,69 @@ class AzureAssistantApiService {
 
 /// Eingabestruktur für einen Chat-Vorgang beim Azure-Deployment.
 class AzureAssistantRequest {
+  /// Erstellt eine neue Request-Struktur für Azure OpenAI.
+  /// 
+  /// [systemPrompt] ist die System-Anweisung für das Modell.
+  /// [userContent] enthält die Nachrichteninhalte des Benutzers (möglicherweise mit Bildern).
+  /// [maxCompletionTokens] begrenzt die Länge der Antwort.
   const AzureAssistantRequest({
     required this.systemPrompt,
     required this.userContent,
     required this.maxCompletionTokens,
   });
 
+  /// Die System-Anweisung für das Modell.
   final String systemPrompt;
+
+  /// Die Nachrichteninhalte des Benutzers.
   final List<Map<String, dynamic>> userContent;
+
+  /// Die maximale Anzahl von Tokens für die Antwort.
   final int maxCompletionTokens;
 }
 
 /// Enthält die serialisierte Payload inklusive Vorschau für Debug-Zwecke.
 class AzureAssistantPreparedRequest {
+  /// Erstellt eine vorbereitet Request-Struktur mit Payload und Vorschau.
+  /// 
+  /// Diese Struktur wird verwendet, um die Payload vor dem Absenden an Azure
+  /// zu debuggen und anzuzeigen.
   const AzureAssistantPreparedRequest({
     required this.request,
     required this.payload,
     required this.payloadPreview,
   });
 
+  /// Die ursprüngliche Request-Struktur.
   final AzureAssistantRequest request;
+
+  /// Die serialisierte Payload für Azure OpenAI.
   final Map<String, dynamic> payload;
+
+  /// Die formatierte Payload-Vorschau zur Anzeige.
   final String payloadPreview;
 }
 
 /// Ergebnis eines Streaming-Aufrufs inklusive Abschlussgrund.
 class AzureAssistantResult {
+  /// Erstellt eine neue Result-Struktur für die Antwort von Azure OpenAI.
+  /// 
+  /// [answer] enthält die Antwort des Modells.
+  /// [finishReason] gibt den Grund für das Abschließen an (z.B. 'length' bei Tokenüberlauf).
+  /// [payloadPreview] enthält die Debug-Vorschau der Payload.
   const AzureAssistantResult({
     required this.answer,
     required this.finishReason,
     required this.payloadPreview,
   });
 
+  /// Die Antwort des Modells.
   final String answer;
+
+  /// Der Grund, warum die Antwort beendet wurde.
   final String? finishReason;
+
+  /// Die formatierte Payload-Vorschau zur Anzeige.
   final String payloadPreview;
 
   /// Kennzeichnet, ob Azure die Antwort aufgrund eines Tokenlimits abgebrochen hat.
