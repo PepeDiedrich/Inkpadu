@@ -213,17 +213,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     onTap: () => _open(n.id),
                     onLongPress: () => _showNoteActions(n),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _deleteNote(n.id, n.title),
-                          tooltip: 'Notiz löschen',
-                        ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
+                     trailing: const Icon(Icons.chevron_right),
                   ),
                 );
               },

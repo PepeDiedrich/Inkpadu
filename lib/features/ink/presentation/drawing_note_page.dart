@@ -109,13 +109,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
-  void _handleClear() {
-    final controller = _maybeController;
-    if (controller == null) return;
-    if (controller.drawingController.clear()) {
-      controller.persistDrawing();
-    }
-  }
 
   Future<void> _openToolConfigurator(DrawingTool tool) async {
     final controller = _maybeController;
@@ -232,20 +225,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               ],
             ),
             actions: [
-              IconButton(
-                onPressed: () => _openToolConfigurator(currentTool),
-                tooltip: 'Aktuelles Werkzeug bearbeiten',
-                icon: const Icon(Icons.design_services),
-              ),
-              AnimatedBuilder(
-                animation: drawingController,
-                builder: (context, _) => IconButton(
-                  onPressed:
-                      drawingController.canUndo ? _handleClear : null,
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Zeichenfläche leeren',
-                ),
-              ),
+              // Delete / clear button removed per user request.
               const SizedBox(width: 8),
             ],
           ),
