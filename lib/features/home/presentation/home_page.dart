@@ -181,7 +181,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final notes = InkNotesScope.of(context).notes;
+  final notes = InkNotesScope.of(context).notes;
+  final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Notizen')),
       floatingActionButton: FloatingActionButton.extended(
@@ -213,7 +214,20 @@ class _HomePageState extends State<HomePage> {
                     ),
                     onTap: () => _open(n.id),
                     onLongPress: () => _showNoteActions(n),
-                     trailing: const Icon(Icons.chevron_right),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Notiz löschen',
+                          icon: const Icon(Icons.delete_outline),
+                          style: IconButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                          ),
+                          onPressed: () => _deleteNote(n.id, n.title),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
                   ),
                 );
               },
