@@ -41,6 +41,15 @@ void main() {
       expect(config.systemPrompt, contains('hilfreicher Assistent'));
     });
 
+    test('liefert Fallback-Prompt wenn custom mit leerem Prompt', () {
+      const config = AssistantPersonaConfig(
+        type: AssistantPersonaType.custom,
+        customPrompt: '',
+      );
+      expect(config.systemPrompt, isNotEmpty);
+      expect(config.systemPrompt, contains('hilfreicher Assistent'));
+    });
+
     test('copyWith erstellt Kopie mit geänderten Werten', () {
       const original = AssistantPersonaConfig(
         type: AssistantPersonaType.critical,

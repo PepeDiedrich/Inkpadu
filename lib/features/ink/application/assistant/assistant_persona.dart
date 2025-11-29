@@ -33,7 +33,8 @@ class AssistantPersonaConfig {
       case AssistantPersonaType.praising:
         return _praisingPrompt;
       case AssistantPersonaType.custom:
-        return customPrompt ?? _defaultPrompt;
+        final prompt = customPrompt;
+        return (prompt != null && prompt.isNotEmpty) ? prompt : _defaultPrompt;
     }
   }
 
