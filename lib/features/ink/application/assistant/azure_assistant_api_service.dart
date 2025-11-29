@@ -205,20 +205,42 @@ class AzureAssistantApiService {
     execution.status == appwrite_enums.ExecutionStatus.completed ||
     execution.status == appwrite_enums.ExecutionStatus.failed;
 
-  Map<String, dynamic> _buildAzureRequest(AzureAssistantRequest request) => <String, dynamic>{
-    'messages': [
+  Map<String, dynamic> _buildAzureRequest(AzureAssistantRequest request) {
+    final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[
       {
         'role': 'system',
-        'content': [
+        'content': <Map<String, dynamic>>[
           {'type': 'text', 'text': request.systemPrompt},
         ],
       },
-      {'role': 'user', 'content': request.userContent},
-    ],
-    'max_completion_tokens': request.maxCompletionTokens,
-    'response_format': const {'type': 'text'},
-    'stream': true,
-  };
+    ];
+
+    // PDF-Kontext als separate System-Nachricht hinzufügen.
+    // Dieser wird immer vollständig mitgesendet und nicht abgeschnitten.
+    if (request.pdfContext != null && request.pdfContext!.isNotEmpty) {
+      messages.add({
+        'role': 'system',
+        'content': <Map<String, dynamic>>[
+          {
+            'type': 'text',
+            'text':
+                'Der folgende Text wurde aus einem PDF importiert und dient als Kontext für die Aufgabe. '
+                'Dieser Kontext ist vollständig und soll bei der Beantwortung berücksichtigt werden:\n\n'
+                '${request.pdfContext}',
+          },
+        ],
+      });
+    }
+
+    messages.add({'role': 'user', 'content': request.userContent});
+
+    return <String, dynamic>{
+      'messages': messages,
+      'max_completion_tokens': request.maxCompletionTokens,
+      'response_format': const {'type': 'text'},
+      'stream': true,
+    };
+  }
 
   String? _extractDeltaContent(
     Map<String, dynamic> chunk, {
@@ -379,10 +401,13 @@ class AzureAssistantRequest {
   /// [systemPrompt] ist die System-Anweisung für das Modell.
   /// [userContent] enthält die Nachrichteninhalte des Benutzers (möglicherweise mit Bildern).
   /// [maxCompletionTokens] begrenzt die Länge der Antwort.
+  /// [pdfContext] ist optionaler PDF-Text, der immer vollständig als
+  /// Kontext mitgesendet wird und nicht zum Token-Limit zählt.
   const AzureAssistantRequest({
     required this.systemPrompt,
     required this.userContent,
     required this.maxCompletionTokens,
+    this.pdfContext,
   });
 
   /// Die System-Anweisung für das Modell.
@@ -393,6 +418,10 @@ class AzureAssistantRequest {
 
   /// Die maximale Anzahl von Tokens für die Antwort.
   final int maxCompletionTokens;
+
+  /// Optionaler PDF-Text, der als Kontext immer vollständig mitgesendet wird.
+  /// Dieser zählt nicht zum max_completion_tokens Limit.
+  final String? pdfContext;
 }
 
 /// Enthält die serialisierte Payload inklusive Vorschau für Debug-Zwecke.

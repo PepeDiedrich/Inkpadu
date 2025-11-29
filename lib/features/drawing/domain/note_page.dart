@@ -9,6 +9,7 @@ class NotePage {
     List<AssistantMessage>? assistantHistory,
     this.cachedVisionDescription,
     this.cachedVisionSignature,
+    this.importedPdfText,
   }) : assistantHistory = List<AssistantMessage>.unmodifiable(
           assistantHistory ?? const <AssistantMessage>[],
         );
@@ -25,6 +26,9 @@ class NotePage {
   /// Fingerabdruck der Bounding-Boxen zum Zeitpunkt der Beschreibung.
   final String? cachedVisionSignature;
 
+  /// Text, der aus einer importierten PDF-Seite extrahiert wurde.
+  final String? importedPdfText;
+
   static const Object _sentinel = Object();
 
   /// Erstellt eine Kopie der Seite mit optional geänderten Werten.
@@ -33,6 +37,7 @@ class NotePage {
     List<AssistantMessage>? assistantHistory,
     Object? cachedVisionDescription = _sentinel,
     Object? cachedVisionSignature = _sentinel,
+    Object? importedPdfText = _sentinel,
   }) =>
       NotePage(
         strokes: strokes ?? this.strokes,
@@ -43,6 +48,9 @@ class NotePage {
         cachedVisionSignature: cachedVisionSignature == _sentinel
             ? this.cachedVisionSignature
             : cachedVisionSignature as String?,
+        importedPdfText: importedPdfText == _sentinel
+            ? this.importedPdfText
+            : importedPdfText as String?,
       );
 
   /// Wandelt das Objekt in eine JSON-Map um.
@@ -52,6 +60,7 @@ class NotePage {
             assistantHistory.map((m) => m.toJson()).toList(growable: false),
     'cached_vision_description': cachedVisionDescription,
     'cached_vision_signature': cachedVisionSignature,
+    'imported_pdf_text': importedPdfText,
   };
 
   /// Erstellt ein [NotePage]-Objekt aus einer JSON-Map.
@@ -82,11 +91,17 @@ class NotePage {
         ? (rawSignature.trim().isEmpty ? null : rawSignature.trim())
         : null;
 
+    final Object? rawPdfText = json['imported_pdf_text'];
+    final String? importedPdfText = rawPdfText is String
+        ? (rawPdfText.trim().isEmpty ? null : rawPdfText.trim())
+        : null;
+
     return NotePage(
       strokes: decodedStrokes,
       assistantHistory: history,
       cachedVisionDescription: cachedVisionDescription,
       cachedVisionSignature: cachedVisionSignature,
+      importedPdfText: importedPdfText,
     );
   }
 }

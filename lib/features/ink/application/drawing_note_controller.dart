@@ -104,6 +104,53 @@ class DrawingNoteController extends ChangeNotifier {
   /// Berechnet den Radierer-Radius basierend auf der Werkzeugbreite.
   double eraserRadiusFor(DrawingTool tool) => math.max(tool.baseWidth * 0.6, 8);
 
+  /// Aktualisiert die interne Notiz-Kopie mit den neuesten Daten aus dem InkNotesController.
+  ///
+  /// Dies ist nützlich, wenn die Notiz extern aktualisiert wurde (z.B. durch PDF-Import).
+  /// Gibt `true` zurück, wenn die Notiz aktualisiert wurde.
+  bool refreshFromSource() {
+    final InkNote? sourceNote = _inkNotesController.notes
+        .where((n) => n.id == noteId)
+        .firstOrNull;
+    
+    if (sourceNote == null) {
+      return false;
+    }
+
+    // Prüfe ob sich die Notiz tatsächlich geändert hat
+    if (sourceNote.updatedAt == _note.updatedAt) {
+      return false;
+    }
+
+    debugPrint('[DrawingNoteController] Refreshing note from source');
+    debugPrint('[DrawingNoteController] Old updatedAt: ${_note.updatedAt}');
+    debugPrint('[DrawingNoteController] New updatedAt: ${sourceNote.updatedAt}');
+
+    // Aktualisiere die Notiz, aber behalte die aktuellen Striche der aktiven Seite
+    final List<NotePage> mergedPages = <NotePage>[];
+    for (int i = 0; i < sourceNote.pages.length; i++) {
+      if (i == _currentPageIndex) {
+        // Für die aktuelle Seite: Behalte die Striche aus dem DrawingController,
+        // aber übernehme andere Felder (wie importedPdfText) aus der Quelle
+        mergedPages.add(sourceNote.pages[i].copyWith(
+          strokes: drawingController.strokes,
+        ));
+      } else {
+        mergedPages.add(sourceNote.pages[i]);
+      }
+    }
+
+    _note = sourceNote.copyWith(
+      pages: List<NotePage>.unmodifiable(mergedPages),
+    );
+    
+    _rebuildPageContentHistory(_note.pages);
+    notifyListeners();
+    
+    debugPrint('[DrawingNoteController] Note refreshed successfully');
+    return true;
+  }
+
   /// Führt die asynchrone Initialisierung der Notiz- und Werkzeugdaten aus.
   Future<void> initialize() async {
     _note = _ensureNote();

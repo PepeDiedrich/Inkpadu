@@ -8,4 +8,7 @@ enum AssistantRequestType {
 
   /// Prüft die aktuelle Lösung auf Fehler oder bestätigt sie.
   review,
+
+  /// Extrahiert Text aus einem PDF-Seitenbild ohne Interpretation.
+  pdfExtract,
 }

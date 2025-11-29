@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:appwrite/appwrite.dart';
 
+import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
+import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_service.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/pdf_picker_dialog.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.
 class HomePage extends StatefulWidget {
@@ -125,6 +129,111 @@ class _HomePageState extends State<HomePage> {
     controller.upsert(updated, changedPageIndices: const <int>{});
   }
 
+  Future<void> _showCreateOptions() async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    final String? choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.add_circle_outline, color: colorScheme.primary),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Neue Notiz erstellen',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.note_add_outlined),
+                title: const Text('Leere Notiz'),
+                subtitle: const Text('Starte mit einer leeren Seite'),
+                onTap: () => Navigator.of(context).pop('empty'),
+              ),
+              if (PdfImportService.isAvailable)
+                ListTile(
+                  leading: const Icon(Icons.picture_as_pdf),
+                  title: const Text('PDF importieren'),
+                  subtitle: const Text('Text wird automatisch extrahiert'),
+                  onTap: () => Navigator.of(context).pop('pdf'),
+                ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+    );
+
+    if (!mounted || choice == null) return;
+
+    switch (choice) {
+      case 'empty':
+        await _createAndOpen();
+        break;
+      case 'pdf':
+        await _importPdfAndCreate();
+        break;
+    }
+  }
+
+  Future<void> _importPdfAndCreate() async {
+    // PDF auswählen
+    final PdfPickerResult? pickerResult = await PdfPickerDialog.show(context);
+
+    if (!mounted || pickerResult == null) return;
+
+    // Metadaten-Dialog anzeigen
+    final result = await showNoteMetadataDialog(
+      context,
+      initialTitle: InkNote.generateTitle(),
+      initialPaperStyle: NotePaperStyle.plain,
+    );
+
+    if (!mounted || result == null) return;
+
+    final controller = InkNotesScope.of(context);
+    
+    // Notiz mit leeren Seiten erstellen (Anzahl = PDF-Seitenzahl)
+    final note = controller.createEmptyForPdfImport(
+      pageCount: pickerResult.pageCount,
+      title: result.title,
+      paperStyle: result.paperStyle,
+    );
+
+    // Notiz sofort öffnen
+    _open(note.id);
+
+    // PDF-Verarbeitung im Hintergrund starten
+    final functions = Functions(AppwriteConfig.client);
+    
+    // Optional: Anderes Modell für PDF-Extraktion konfigurieren
+    // const pdfConfig = PdfExtractionConfig(
+    //   deploymentName: 'gpt-4o',  // Oder ein anderes Vision-Modell
+    // );
+    final pdfImportService = PdfImportService(functions: functions);
+
+    // Hintergrundverarbeitung starten (fire and forget)
+    controller.startPdfBackgroundProcessing(
+      noteId: note.id,
+      pdfBytes: pickerResult.pdfBytes,
+      pdfImportService: pdfImportService,
+    );
+  }
+
   Future<void> _createAndOpen() async {
     final controller = InkNotesScope.of(context);
     final result = await showNoteMetadataDialog(
@@ -186,7 +295,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Notizen')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createAndOpen(),
+        onPressed: () => _showCreateOptions(),
         icon: const Icon(Icons.add),
         label: const Text('Neue Notiz'),
       ),

@@ -18,6 +18,7 @@ class AssistantConversationSection extends StatelessWidget {
     this.pendingMessage,
     this.isStreaming = false,
     this.streamingAnswerListenable,
+    this.importedPdfText,
   });
 
   /// Optionale Statusmeldung oberhalb der Historie.
@@ -34,12 +35,23 @@ class AssistantConversationSection extends StatelessWidget {
   final bool isStreaming;
   /// Live-Antwort, die während des Streamings aktualisiert wird.
   final ValueListenable<String>? streamingAnswerListenable;
+  /// Importierter PDF-Text für diese Seite (wird als Kontext angezeigt).
+  final String? importedPdfText;
 
   @override
   Widget build(BuildContext context) {
     final List<Widget> children = <Widget>[];
 
+    // PDF-Text als Kontext anzeigen (falls vorhanden)
+    final String? pdfText = importedPdfText?.trim();
+    if (pdfText != null && pdfText.isNotEmpty) {
+      children.add(_PdfContextBanner(pdfText: pdfText));
+    }
+
     if (statusMessage != null) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: 12));
+      }
       children.add(_AssistantStatusBanner(
         message: statusMessage!,
         isLoading: isLoading,
@@ -82,6 +94,138 @@ class AssistantConversationSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children,
+    );
+  }
+}
+
+class _PdfContextBanner extends StatefulWidget {
+  const _PdfContextBanner({required this.pdfText});
+
+  final String pdfText;
+
+  @override
+  State<_PdfContextBanner> createState() => _PdfContextBannerState();
+}
+
+class _PdfContextBannerState extends State<_PdfContextBanner> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
+    // Vorschau: Erste 150 Zeichen oder bis zum ersten Zeilenumbruch
+    final String preview = widget.pdfText.length > 150
+        ? '${widget.pdfText.substring(0, 150).replaceAll('\n', ' ')}...'
+        : widget.pdfText.replaceAll('\n', ' ');
+
+    final int charCount = widget.pdfText.length;
+    final String charLabel = charCount > 1000
+        ? '~${(charCount / 1000).toStringAsFixed(1)}k Zeichen'
+        : '$charCount Zeichen';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.tertiaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.tertiary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    color: colorScheme.tertiary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PDF-Kontext',
+                          style: textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onTertiaryContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          charLabel,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onTertiaryContainer
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    color: colorScheme.onTertiaryContainer.withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Content
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Text(
+                preview,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onTertiaryContainer.withValues(alpha: 0.8),
+                  fontStyle: FontStyle.italic,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            secondChild: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  widget.pdfText,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
