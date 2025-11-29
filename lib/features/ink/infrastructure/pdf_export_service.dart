@@ -57,8 +57,8 @@ class PdfExportService {
     final _PageBounds bounds = _calculatePageBounds(page.strokes);
 
     // Verwende A4-Seitengröße
-    const double pdfWidth = PdfPageFormat.a4.width;
-    const double pdfHeight = PdfPageFormat.a4.height;
+    final double pdfWidth = PdfPageFormat.a4.width;
+    final double pdfHeight = PdfPageFormat.a4.height;
     const double margin = 20;
     final double availableWidth = pdfWidth - 2 * margin;
     final double availableHeight = pdfHeight - 2 * margin;
@@ -80,7 +80,7 @@ class PdfExportService {
 
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(0),
+      margin: pw.EdgeInsets.zero,
       build: (pw.Context context) => pw.Stack(
         children: <pw.Widget>[
           // Papierhintergrund
@@ -127,8 +127,6 @@ class PdfExportService {
       case NotePaperStyle.grid:
         return PdfColors.white;
       case NotePaperStyle.dotted:
-        return PdfColors.white;
-      case NotePaperStyle.cornell:
         return PdfColors.white;
     }
   }
@@ -178,22 +176,6 @@ class PdfExportService {
               ..drawEllipse(x, height - y, dotRadius, dotRadius)
               ..fillPath();
           }
-        }
-      case NotePaperStyle.cornell:
-        // Linke Randspalte
-        const double leftMargin = 60;
-        canvas
-          ..setStrokeColor(PdfColor.fromInt(Colors.red.shade300.toARGB32()))
-          ..setLineWidth(1)
-          ..drawLine(leftMargin, 0, leftMargin, height)
-          ..strokePath();
-        // Horizontale Linien
-        for (double y = lineSpacing; y < height; y += lineSpacing) {
-          canvas
-            ..setStrokeColor(lineColor)
-            ..setLineWidth(0.5)
-            ..drawLine(0, height - y, width, height - y)
-            ..strokePath();
         }
     }
   }
