@@ -12,6 +12,8 @@ import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_
 import 'package:ai_handwriting_app/features/ink/application/assistant/azure_assistant_api_service.dart';
 import 'package:ai_handwriting_app/features/ink/application/assistant/cluster_shape_data.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
+import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
+import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/conversation_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/debug_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
@@ -82,6 +84,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
   int _debugTotalClusters = 0;
   String? _debugPayloadPreview;
   bool _showDebugPanel = false;
+  int _debugPdfContextTokens = 0;
 
   // TODO: Ersetze diese Platzhalter durch deine Werte oder lade sie aus
   // einer sicheren Konfiguration (Environment / Secrets).
@@ -97,10 +100,43 @@ class _AssistantPanelState extends State<AssistantPanel> {
       functions: _functions,
     );
     _promptManager = const AssistantPromptManager();
+    
+    // Listener für InkNotesController hinzufügen, um auf PDF-Updates zu reagieren
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupInkNotesListener();
+    });
+  }
+
+  void _setupInkNotesListener() {
+    final inkNotesController = InkNotesScope.maybeOf(context);
+    if (inkNotesController != null) {
+      inkNotesController.addListener(_onInkNotesChanged);
+      debugPrint('[AssistantPanel] InkNotes listener registered');
+    }
+  }
+
+  void _onInkNotesChanged() {
+    debugPrint('[AssistantPanel] InkNotes changed, checking for updates...');
+    // Versuche, die Notiz im Controller zu aktualisieren
+    if (widget.controller.isInitialized) {
+      final bool updated = widget.controller.refreshFromSource();
+      debugPrint('[AssistantPanel] Controller refresh result: $updated');
+      if (updated && mounted) {
+        final String? fullPdfText = _collectAllPdfText(widget.controller.note.pages);
+        debugPrint('[AssistantPanel] Total PDF text: ${fullPdfText?.length ?? 0} chars');
+        setState(() {
+          // UI neu aufbauen um den aktualisierten PDF-Text anzuzeigen
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
+    // Listener entfernen
+    final inkNotesController = InkNotesScope.maybeOf(context);
+    inkNotesController?.removeListener(_onInkNotesChanged);
+    
     _streamingAnswer.dispose();
     _contentScrollController.dispose();
     super.dispose();
@@ -187,12 +223,19 @@ class _AssistantPanelState extends State<AssistantPanel> {
         historySummary: historySummary,
       );
 
+      // Sammle PDF-Text von ALLEN Seiten, nicht nur der aktuellen
+      final String? fullPdfText = _collectAllPdfText(pages);
+
+      final int pdfContextTokens =
+          _promptManager.estimatePdfContextTokens(fullPdfText);
+
       final AzureAssistantPreparedRequest preparedRequest =
           _assistantService.prepareRequest(
         AzureAssistantRequest(
           systemPrompt: _systemPrompt,
           userContent: userContent,
           maxCompletionTokens: _maxCompletionTokens,
+          pdfContext: fullPdfText,
         ),
       );
 
@@ -203,6 +246,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
           _debugTotalClusters = totalClusterCount;
           _debugSnapshot = combinedSnapshot;
           _debugPayloadPreview = preparedRequest.payloadPreview;
+          _debugPdfContextTokens = pdfContextTokens;
           _showDebugPanel = true;
         });
       }
@@ -292,6 +336,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
         return 'Hilfe anfordern';
       case AssistantRequestType.review:
         return 'Lösung überprüfen lassen';
+      case AssistantRequestType.pdfExtract:
+        return 'PDF-Text extrahieren';
     }
   }
 
@@ -303,6 +349,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
         return 'Hilfe';
       case AssistantRequestType.review:
         return 'Überprüfen';
+      case AssistantRequestType.pdfExtract:
+        return 'PDF';
     }
   }
 
@@ -314,6 +362,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
         return 'Ausführliche Schritt-für-Schritt-Hilfe.';
       case AssistantRequestType.review:
         return 'Überprüfung der aktuellen Lösung.';
+      case AssistantRequestType.pdfExtract:
+        return 'Text aus PDF extrahieren.';
     }
   }
 
@@ -325,6 +375,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
         return Icons.support_agent;
       case AssistantRequestType.review:
         return Icons.fact_check_outlined;
+      case AssistantRequestType.pdfExtract:
+        return Icons.picture_as_pdf;
     }
   }
 
@@ -383,6 +435,12 @@ class _AssistantPanelState extends State<AssistantPanel> {
         ? widget.controller.currentAssistantHistory
         : const <AssistantMessage>[];
 
+    // PDF-Text von ALLEN Seiten sammeln (nicht nur der aktuellen)
+    final String? importedPdfText = widget.controller.isInitialized &&
+            widget.controller.pages.isNotEmpty
+        ? _collectAllPdfText(widget.controller.pages)
+        : null;
+
     final List<Widget> listViewChildren = <Widget>[
       AssistantConversationSection(
         statusMessage: _statusMessage,
@@ -392,6 +450,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
         pendingMessage: _pendingMessage,
         isStreaming: _isStreaming,
         streamingAnswerListenable: _streamingAnswer,
+        importedPdfText: importedPdfText,
       ),
     ];
 
@@ -432,6 +491,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                     payloadPreview: _debugPayloadPreview,
                     clusterShapes: clusterShapes,
                     showClusterInfo: shouldShowClusterInfo,
+                    pdfContextTokens: _debugPdfContextTokens,
                   )
                 : const SizedBox.shrink(),
           ),
@@ -550,56 +610,119 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   Widget _buildActionSelector(ColorScheme colorScheme) {
     const Radius segmentRadius = Radius.circular(28);
-    final List<AssistantRequestType> types = AssistantRequestType.values;
+    // Nur die UI-relevanten Typen anzeigen (pdfExtract ist nur intern)
+    final List<AssistantRequestType> types = AssistantRequestType.values
+        .where((t) => t != AssistantRequestType.pdfExtract)
+        .toList();
     final AssistantRequestType? activeType =
         _isStreaming ? _activeRequestType : null;
-    final bool isBusy = _isLoading;
+    
+    // Prüfe ob PDF-Verarbeitung für diese Notiz läuft
+    final String? noteId = widget.controller.isInitialized 
+        ? widget.controller.noteId 
+        : null;
+    final bool isPdfProcessing = noteId != null && 
+        InkNotesScope.of(context).isPdfProcessing(noteId);
+    final bool isBusy = _isLoading || isPdfProcessing;
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.all(segmentRadius),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // PDF-Verarbeitungs-Hinweis
+          if (isPdfProcessing)
+            _buildPdfProcessingBanner(colorScheme, noteId),
+          ClipRRect(
             borderRadius: const BorderRadius.all(segmentRadius),
-            border: Border.all(color: colorScheme.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              for (int index = 0; index < types.length; index++) ...[
-                Expanded(
-                  child: _AssistantActionSegment(
-                    label: _buttonLabelFor(types[index]),
-                    description: _buttonDescriptionFor(types[index]),
-                    icon: _iconForType(types[index]),
-                    isActive: activeType == types[index],
-                    isDisabled: isBusy,
-                    showProgress:
-                        _isStreaming && _activeRequestType == types[index],
-                    onPressed: isBusy
-                        ? null
-                        : () => _handleAssistantRequest(types[index]),
-                    borderRadius: BorderRadius.only(
-                      topLeft: index == 0 ? segmentRadius : Radius.zero,
-                      bottomLeft: index == 0 ? segmentRadius : Radius.zero,
-                      topRight: index == types.length - 1
-                          ? segmentRadius
-                          : Radius.zero,
-                      bottomRight: index == types.length - 1
-                          ? segmentRadius
-                          : Radius.zero,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: const BorderRadius.all(segmentRadius),
+                border: Border.all(color: colorScheme.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  for (int index = 0; index < types.length; index++) ...[
+                    Expanded(
+                      child: _AssistantActionSegment(
+                        label: _buttonLabelFor(types[index]),
+                        description: _buttonDescriptionFor(types[index]),
+                        icon: _iconForType(types[index]),
+                        isActive: activeType == types[index],
+                        isDisabled: isBusy,
+                        showProgress:
+                            _isStreaming && _activeRequestType == types[index],
+                        onPressed: isBusy
+                            ? null
+                            : () => _handleAssistantRequest(types[index]),
+                        borderRadius: BorderRadius.only(
+                          topLeft: index == 0 ? segmentRadius : Radius.zero,
+                          bottomLeft: index == 0 ? segmentRadius : Radius.zero,
+                          topRight: index == types.length - 1
+                              ? segmentRadius
+                              : Radius.zero,
+                          bottomRight: index == types.length - 1
+                              ? segmentRadius
+                              : Radius.zero,
+                        ),
+                        showTrailingDivider: index != types.length - 1,
+                      ),
                     ),
-                    showTrailingDivider: index != types.length - 1,
-                  ),
-                ),
-              ],
-            ],
+                  ],
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
+
+  Widget _buildPdfProcessingBanner(ColorScheme colorScheme, String noteId) =>
+      StreamBuilder<PdfProcessingUpdate>(
+        stream: InkNotesScope.of(context)
+            .pdfProcessingUpdates
+            .where((update) => update.noteId == noteId),
+        builder: (context, snapshot) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border:
+                Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  snapshot.data != null
+                      ? 'PDF: Seite ${snapshot.data!.currentPage}/${snapshot.data!.totalPages}'
+                      : 'PDF wird verarbeitet...',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSecondaryContainer,
+                      ),
+                ),
+              ),
+              Icon(
+                Icons.hourglass_top,
+                size: 16,
+                color: colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
+      );
 
   void _scheduleStreamingUpdate(String text) {
     _pendingStreamingText = text;
@@ -635,6 +758,30 @@ class _AssistantPanelState extends State<AssistantPanel> {
     return Icons.open_with;
   }
 
+  /// Sammelt den PDF-Text von allen Seiten und fügt ihn zusammen.
+  /// 
+  /// Jede Seite wird mit "--- Seite X ---" markiert, damit der Assistent
+  /// weiß, welcher Text zu welcher Seite gehört.
+  String? _collectAllPdfText(List<NotePage> pages) {
+    final List<String> pdfTexts = <String>[];
+    
+    for (int i = 0; i < pages.length; i++) {
+      final String? pageText = pages[i].importedPdfText;
+      if (pageText != null && pageText.trim().isNotEmpty) {
+        if (pages.length > 1) {
+          pdfTexts.add('--- Seite ${i + 1} ---\n$pageText');
+        } else {
+          pdfTexts.add(pageText);
+        }
+      }
+    }
+    
+    if (pdfTexts.isEmpty) {
+      return null;
+    }
+    
+    return pdfTexts.join('\n\n');
+  }
 }
 
 class _AssistantActionSegment extends StatelessWidget {

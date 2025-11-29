@@ -17,6 +17,7 @@ class AssistantDebugSection extends StatelessWidget {
     required this.payloadPreview,
     required this.clusterShapes,
     required this.showClusterInfo,
+    this.pdfContextTokens = 0,
   });
 
   /// Vollständiger Prompttext, der an das Modell gesendet wurde.
@@ -33,12 +34,20 @@ class AssistantDebugSection extends StatelessWidget {
   final List<ClusterShapeData> clusterShapes;
   /// Ob Bounding-Boxen und Hüllen angezeigt werden sollen.
   final bool showClusterInfo;
+  /// Geschätzte Tokens für den PDF-Kontext (zählt nicht zum Limit).
+  final int pdfContextTokens;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
     final TextTheme textTheme = theme.textTheme;
+
+    final String tokenLabel = tokenEstimate != null
+        ? pdfContextTokens > 0
+            ? 'Tokens: $tokenEstimate (+$pdfContextTokens PDF)'
+            : 'Token-Schätzung: $tokenEstimate T.'
+        : 'Token-Schätzung: –';
 
     final List<Widget> children = <Widget>[
       Row(
@@ -52,9 +61,7 @@ class AssistantDebugSection extends StatelessWidget {
             ),
           ),
           Text(
-            tokenEstimate != null
-                ? 'Token-Schätzung: $tokenEstimate T.'
-                : 'Token-Schätzung: –',
+            tokenLabel,
             style: textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -63,9 +70,13 @@ class AssistantDebugSection extends StatelessWidget {
       ),
       const SizedBox(height: 8),
       Text(
-        'Heuristik: Text ≈ Zeichen/4 · Tokens, Bilder ≈ 80 + 1,6 · KiB',
+        pdfContextTokens > 0
+            ? 'PDF-Kontext wird separat übertragen und nicht abgeschnitten.'
+            : 'Heuristik: Text ≈ Zeichen/4 · Tokens, Bilder ≈ 80 + 1,6 · KiB',
         style: textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
+          color: pdfContextTokens > 0
+              ? colorScheme.tertiary
+              : colorScheme.onSurfaceVariant,
         ),
       ),
     ];

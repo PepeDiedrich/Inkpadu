@@ -22,10 +22,15 @@ class AssistantPromptManager {
         return 'Erkläre ausführlich, wie man die Aufgabe in der Notiz lösen kann und gib eine strukturierte Hilfestellung. Mathematische Ausdrücke sollen immer in LaTeX notiert sein (\$…\$ oder \$\$…\$\$).';
       case AssistantRequestType.review:
         return 'Überprüfe die dargestellte Lösung in der Notiz. Bestätige kurz, ob sie korrekt ist, oder beschreibe kompakt die wichtigsten Fehler. Verwende LaTeX-Notation (\$…\$ bzw. \$\$…\$\$) für Formeln.';
+      case AssistantRequestType.pdfExtract:
+        return 'Extrahiere den gesamten sichtbaren Text aus dem Bild. Behalte die Struktur bei. Mathematische Formeln in LaTeX (\$…\$ bzw. \$\$…\$\$). Füge keine Interpretationen hinzu.';
     }
   }
 
   /// Baut die Nutzlast für den `user`-Teil der Chat-Vorgabe zusammen.
+  /// 
+  /// Der [importedPdfText] wird NICHT mehr hier eingefügt, sondern separat
+  /// als System-Nachricht gesendet, damit er immer vollständig im Kontext bleibt.
   List<Map<String, dynamic>> buildUserContent({
     required String prompt,
     required CombinedSnapshot? combinedSnapshot,
@@ -72,6 +77,9 @@ class AssistantPromptManager {
   }
 
   /// Schätzt die zu erwartenden Tokens für Text- und Bildanteile.
+  /// 
+  /// Der [pdfContextTokens] wird separat berechnet und hier nicht einbezogen,
+  /// da der PDF-Kontext nicht zum max_completion_tokens Limit zählt.
   int estimateTokenUsage({
     required String systemPrompt,
     required String prompt,
@@ -88,6 +96,18 @@ class AssistantPromptManager {
       total += imageTokens;
     }
     return total;
+  }
+
+  /// Schätzt die Tokens für den PDF-Kontext.
+  /// 
+  /// Diese werden separat ausgewiesen, da der PDF-Kontext immer vollständig
+  /// mitgesendet wird und nicht zum max_completion_tokens Limit zählt.
+  int estimatePdfContextTokens(String? pdfText) {
+    if (pdfText == null || pdfText.isEmpty) {
+      return 0;
+    }
+    // Zusätzliche ~50 Tokens für den System-Nachricht-Wrapper
+    return _approxTokens(pdfText) + 50;
   }
 
   /// Wählt bis zu fünf der jüngsten Dialognachrichten aus.

@@ -177,8 +177,10 @@ class InkNotePageCodec {
     final bool hasDescription =
         (page.cachedVisionDescription?.trim().isNotEmpty ?? false);
     final bool hasHistory = page.assistantHistory.isNotEmpty;
+    final bool hasPdfText =
+        (page.importedPdfText?.trim().isNotEmpty ?? false);
 
-    if (!hasDescription && !hasHistory) {
+    if (!hasDescription && !hasHistory && !hasPdfText) {
       return null;
     }
 
@@ -188,6 +190,7 @@ class InkNotePageCodec {
         'history': page.assistantHistory
             .map((message) => message.toJson())
             .toList(growable: false),
+      if (hasPdfText) 'pdfText': page.importedPdfText,
     };
   }
 
@@ -208,11 +211,13 @@ class InkNotePageCodec {
 
     final List<AssistantMessage> history = _decodeHistory(rawContext['history']);
     final String? description = _decodeVisionDescription(rawContext['vision']);
+    final String? pdfText = _decodePdfText(rawContext['pdfText']);
 
     return NotePage(
       strokes: strokes,
       assistantHistory: history,
       cachedVisionDescription: description,
+      importedPdfText: pdfText,
     );
   }
 
@@ -230,6 +235,14 @@ class InkNotePageCodec {
   static String? _decodeVisionDescription(Object? rawDescription) {
     if (rawDescription is String) {
       final String trimmed = rawDescription.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    return null;
+  }
+
+  static String? _decodePdfText(Object? rawPdfText) {
+    if (rawPdfText is String) {
+      final String trimmed = rawPdfText.trim();
       return trimmed.isEmpty ? null : trimmed;
     }
     return null;
