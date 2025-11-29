@@ -6,6 +6,7 @@ import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart
 import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_service.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/pdf_picker_dialog.dart';
@@ -19,7 +20,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _NoteAction { open, metadata, delete }
+enum _NoteAction { open, metadata, exportPdf, delete }
 
 class _HomePageState extends State<HomePage> {
   Future<void> _showNoteActions(InkNote note) async {
@@ -68,6 +69,11 @@ class _HomePageState extends State<HomePage> {
                 onTap: () => Navigator.of(context).pop(_NoteAction.metadata),
               ),
               ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: const Text('Als PDF exportieren'),
+                onTap: () => Navigator.of(context).pop(_NoteAction.exportPdf),
+              ),
+              ListTile(
                 leading: Icon(
                   Icons.delete_outline,
                   color: theme.colorScheme.error,
@@ -99,9 +105,37 @@ class _HomePageState extends State<HomePage> {
       case _NoteAction.metadata:
         await _editNoteMetadata(note);
         break;
+      case _NoteAction.exportPdf:
+        await _exportNoteToPdf(note);
+        break;
       case _NoteAction.delete:
         await _deleteNote(note.id, note.title);
         break;
+    }
+  }
+
+  Future<void> _exportNoteToPdf(InkNote note) async {
+    final scaffold = ScaffoldMessenger.of(context);
+
+    // Zeige Ladeanzeige
+    scaffold.showSnackBar(
+      const SnackBar(
+        content: Text('PDF wird erstellt...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final service = PdfExportService();
+      await service.exportAndShare(note);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      scaffold.showSnackBar(
+        SnackBar(
+          content: Text('PDF-Export fehlgeschlagen: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 

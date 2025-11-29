@@ -13,6 +13,7 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
+import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
@@ -120,6 +121,34 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     await controller.updateTool(updated);
   }
 
+  Future<void> _exportNoteToPdf(DrawingNoteController controller) async {
+    final scaffold = ScaffoldMessenger.of(context);
+
+    // Persistiere aktuelle Striche bevor Export
+    controller.persistDrawing();
+
+    // Zeige Ladeanzeige
+    scaffold.showSnackBar(
+      const SnackBar(
+        content: Text('PDF wird erstellt...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final service = PdfExportService();
+      await service.exportAndShare(controller.note);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      scaffold.showSnackBar(
+        SnackBar(
+          content: Text('PDF-Export fehlgeschlagen: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
   double _snapSidebarFraction(
     double previousFraction,
     double proposedFraction,
@@ -225,7 +254,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               ],
             ),
             actions: [
-              // Delete / clear button removed per user request.
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                tooltip: 'Als PDF exportieren',
+                onPressed: () => _exportNoteToPdf(controller),
+              ),
               const SizedBox(width: 8),
             ],
           ),
