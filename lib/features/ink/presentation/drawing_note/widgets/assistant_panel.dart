@@ -72,11 +72,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
   final DrawingSnapshotService _snapshotService =
       const DrawingSnapshotService();
   final ScrollController _contentScrollController = ScrollController();
-  static const String _systemPrompt =
-      'Du bist ein hilfreicher Assistent innerhalb einer Notiz-App. '
-      'Nutze angehängte Bildausschnitte, um die handschriftlichen Inhalte zu interpretieren. '
-    'Beschreibe Unsicherheiten oder unlesbare Bereiche transparent. '
-    'Alle mathematischen Ausdrücke sollen in LaTeX-Notation ausgegeben werden, verwende dafür \$…\$ oder \$\$…\$\$ und erhalte Leerzeichen im restlichen Text.';
 
   CombinedSnapshot? _debugSnapshot;
   String _debugPrompt = '';
@@ -86,10 +81,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
   bool _showDebugPanel = false;
   int _debugPdfContextTokens = 0;
 
-  // TODO: Ersetze diese Platzhalter durch deine Werte oder lade sie aus
-  // einer sicheren Konfiguration (Environment / Secrets).
-  // Hinweis: Für die URL, die du erwähnt hast, setze Deployment auf
-  // 'gpt-5-nano' und api-version auf '2025-01-01-preview'.
   static const int _maxCompletionTokens = 10768;
 
   @override
@@ -182,6 +173,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final String questionLabel = _questionLabelFor(type);
     final String prompt = _promptManager.promptTemplateFor(type);
 
+    // Get the system prompt from the persona settings
+    final String systemPrompt = EditorSettingsScope.of(context).assistantPersona.systemPrompt;
+
     _streamingAnswer.value = '';
     _pendingStreamingText = null;
     _streamUpdateScheduled = false;
@@ -217,7 +211,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
       );
 
       final int tokenEstimate = _promptManager.estimateTokenUsage(
-        systemPrompt: _systemPrompt,
+        systemPrompt: systemPrompt,
         prompt: prompt,
         combinedSnapshot: combinedSnapshot,
         historySummary: historySummary,
@@ -232,7 +226,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
       final AzureAssistantPreparedRequest preparedRequest =
           _assistantService.prepareRequest(
         AzureAssistantRequest(
-          systemPrompt: _systemPrompt,
+          systemPrompt: systemPrompt,
           userContent: userContent,
           maxCompletionTokens: _maxCompletionTokens,
           pdfContext: fullPdfText,

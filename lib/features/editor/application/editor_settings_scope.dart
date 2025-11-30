@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_persona.dart';
+
 /// Legt fest, auf welcher Seite das Editor-Seitenpanel angezeigt wird.
 enum EditorSidebarSide {
   /// Panel befindet sich links neben der Zeichenfläche (empfohlen für Rechtshänder:innen).
@@ -18,7 +20,10 @@ class EditorSettings extends ChangeNotifier {
     this.lineSimplifierStrength = 0.25,
     this.lineSimplifierMinTolerance = 0.3,
     this.debugModeEnabled = false,
-  });
+    AssistantPersonaType assistantPersonaType = AssistantPersonaType.praising,
+    String? customAssistantPrompt,
+  }) : _assistantPersonaType = assistantPersonaType,
+       _customAssistantPrompt = customAssistantPrompt;
 
   /// `true`, wenn Debug-Overlays im Editor angezeigt werden sollen.
   bool debugModeEnabled;
@@ -37,6 +42,24 @@ class EditorSettings extends ChangeNotifier {
   /// Wertebereich: >= 0.05.
   double lineSimplifierMinTolerance;
 
+  /// Der aktuell gewählte Persona-Typ für den KI-Assistenten.
+  AssistantPersonaType _assistantPersonaType;
+
+  /// Das benutzerdefinierte System-Prompt für den Custom-Modus.
+  String? _customAssistantPrompt;
+
+  /// Liefert den aktuellen Persona-Typ.
+  AssistantPersonaType get assistantPersonaType => _assistantPersonaType;
+
+  /// Liefert das benutzerdefinierte System-Prompt.
+  String? get customAssistantPrompt => _customAssistantPrompt;
+
+  /// Liefert die aktuelle Persona-Konfiguration.
+  AssistantPersonaConfig get assistantPersona => AssistantPersonaConfig(
+    type: _assistantPersonaType,
+    customPrompt: _customAssistantPrompt,
+  );
+
   /// Convenience: `true`, wenn das Panel links erscheinen soll.
   bool get isPanelOnLeft => sidebarSide == EditorSidebarSide.left;
 
@@ -50,6 +73,8 @@ class EditorSettings extends ChangeNotifier {
     double? lineSimplifierStrength,
     double? lineSimplifierMinTolerance,
     bool? debugModeEnabled,
+    AssistantPersonaType? assistantPersonaType,
+    String? customAssistantPrompt,
   }) {
     var hasChanged = false;
     if (sidebarSide != null && sidebarSide != this.sidebarSide) {
@@ -76,6 +101,16 @@ class EditorSettings extends ChangeNotifier {
     }
     if (debugModeEnabled != null && debugModeEnabled != this.debugModeEnabled) {
       this.debugModeEnabled = debugModeEnabled;
+      hasChanged = true;
+    }
+    if (assistantPersonaType != null &&
+        assistantPersonaType != _assistantPersonaType) {
+      _assistantPersonaType = assistantPersonaType;
+      hasChanged = true;
+    }
+    if (customAssistantPrompt != null &&
+        customAssistantPrompt != _customAssistantPrompt) {
+      _customAssistantPrompt = customAssistantPrompt;
       hasChanged = true;
     }
     if (hasChanged) {
