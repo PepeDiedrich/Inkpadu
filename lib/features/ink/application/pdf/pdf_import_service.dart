@@ -10,11 +10,15 @@ import 'package:ai_handwriting_app/features/ink/application/assistant/azure_assi
 /// Konfiguration für das PDF-Extraktions-LLM.
 class PdfExtractionConfig {
   /// Erstellt eine neue Konfiguration.
+  /// 
+  /// [maxCompletionTokens] ist auf 16384 gesetzt, um auch sehr textreiche
+  /// PDF-Seiten vollständig extrahieren zu können, ohne dass die Antwort
+  /// abgeschnitten wird.
   const PdfExtractionConfig({
     this.deploymentName = defaultDeploymentName,
     this.resourceName = defaultResourceName,
     this.apiVersion = defaultApiVersion,
-    this.maxCompletionTokens = 4096,
+    this.maxCompletionTokens = 16384,
   });
 
   /// Standard-Deployment für PDF-Extraktion.
