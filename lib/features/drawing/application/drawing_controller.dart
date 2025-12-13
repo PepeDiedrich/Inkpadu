@@ -76,6 +76,8 @@ class DrawingController extends ChangeNotifier {
   }
 
   /// Entfernt Striche, deren Punkte innerhalb des gegebenen Radius liegen.
+  /// 
+  /// Nutzt Bounding-Box-Vorfilterung für bessere Performance bei vielen Strichen.
   bool eraseAt(Offset position, {required double radius}) {
     if (_strokes.isEmpty) {
       return false;
@@ -85,7 +87,19 @@ class DrawingController extends ChangeNotifier {
     final List<Stroke> retained = <Stroke>[];
     var removedAny = false;
 
+    // Eraser-Kreis als Rect für schnellen Bounding-Box-Test
+    final Rect eraserRect = Rect.fromCircle(center: position, radius: radius);
+
     for (final stroke in _strokes) {
+      // Schneller Bounding-Box-Check: Überschneidet sich überhaupt?
+      final Rect strokeBounds = stroke.boundingBox;
+      if (!eraserRect.overlaps(strokeBounds)) {
+        // Keine Überschneidung -> Strich bleibt sicher erhalten
+        retained.add(stroke);
+        continue;
+      }
+
+      // Detaillierter Punkt-für-Punkt-Check nur bei Überschneidung
       final bool shouldRemove = stroke.points.any((point) {
         final double dx = point.position.dx - position.dx;
         final double dy = point.position.dy - position.dy;

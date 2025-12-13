@@ -19,6 +19,32 @@ class Stroke {
   /// Kennzeichnet, ob es sich um einen Textmarker-Strich handelt.
   final bool isHighlighter;
 
+  /// Gecachte Bounding Box für schnelle Hit-Tests.
+  Rect? _cachedBoundingBox;
+
+  /// Liefert die Bounding Box aller Punkte des Strichs (lazy berechnet).
+  Rect get boundingBox {
+    if (_cachedBoundingBox != null) return _cachedBoundingBox!;
+    if (points.isEmpty) {
+      _cachedBoundingBox = Rect.zero;
+      return _cachedBoundingBox!;
+    }
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+    for (final point in points) {
+      final dx = point.position.dx;
+      final dy = point.position.dy;
+      if (dx < minX) minX = dx;
+      if (dx > maxX) maxX = dx;
+      if (dy < minY) minY = dy;
+      if (dy > maxY) maxY = dy;
+    }
+    _cachedBoundingBox = Rect.fromLTRB(minX, minY, maxX, maxY);
+    return _cachedBoundingBox!;
+  }
+
   /// Erstellt eine neue Instanz eines Strichs.
   Stroke({
     required this.points,
