@@ -4,6 +4,7 @@ import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
 import 'package:appwrite/enums.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
@@ -43,6 +44,8 @@ class AuthController extends ChangeNotifier {
   static const _kCachedEmailKey = 'inkpadu_cached_email';
   static const _kHasLoggedInKey = 'inkpadu_has_logged_in';
 
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
   /// Gibt den aktuellen Authentifizierungsstatus zurück.
   AuthStatus get status => _status;
   /// Gibt den aktuellen Benutzer zurück, falls authentifiziert.
@@ -60,8 +63,10 @@ class AuthController extends ChangeNotifier {
 
   /// Lädt den aktuellen Auth-Status inklusive gecachter Offline-Daten.
   Future<void> initialize() async {
+    // Keep using SharedPreferences for non-sensitive "hasLoggedIn" flag
     final prefs = await SharedPreferences.getInstance();
     _hasLoggedIn = prefs.getBool(_kHasLoggedInKey) ?? false;
+
     try {
       _status = AuthStatus.loading;
       notifyListeners();
@@ -70,15 +75,37 @@ class AuthController extends ChangeNotifier {
       _status = AuthStatus.authenticated;
       await _saveCachedUserFromUser();
     } on AppwriteException {
-      // No network or Appwrite error: try load cached credentials
+      // No network or Appwrite error: try load cached credentials from SecureStorage
       _user = null;
-      final cachedId = prefs.getString(_kCachedUserIdKey);
-      final cachedEmail = prefs.getString(_kCachedEmailKey);
-      if (cachedId != null) {
-        _cachedUserId = cachedId;
-        _cachedEmail = cachedEmail;
-        _status = AuthStatus.authenticated; // treat as authenticated offline
-      } else {
+      try {
+        final cachedId = await _secureStorage.read(key: _kCachedUserIdKey);
+        final cachedEmail = await _secureStorage.read(key: _kCachedEmailKey);
+
+        if (cachedId != null) {
+          _cachedUserId = cachedId;
+          _cachedEmail = cachedEmail;
+          _status = AuthStatus.authenticated; // treat as authenticated offline
+        } else {
+           // Fallback check for old SharedPreferences data (migration path)
+           final oldCachedId = prefs.getString(_kCachedUserIdKey);
+           if (oldCachedId != null) {
+             _cachedUserId = oldCachedId;
+             _cachedEmail = prefs.getString(_kCachedEmailKey);
+             _status = AuthStatus.authenticated;
+             // Migrate to secure storage
+             await _secureStorage.write(key: _kCachedUserIdKey, value: _cachedUserId);
+             if (_cachedEmail != null) {
+               await _secureStorage.write(key: _kCachedEmailKey, value: _cachedEmail);
+             }
+             // Clean up old insecure storage
+             await prefs.remove(_kCachedUserIdKey);
+             await prefs.remove(_kCachedEmailKey);
+           } else {
+             _status = AuthStatus.unauthenticated;
+           }
+        }
+      } catch (e) {
+        // Secure storage error
         _status = AuthStatus.unauthenticated;
       }
     } finally {
@@ -130,15 +157,17 @@ class AuthController extends ChangeNotifier {
 
   Future<void> _saveCachedUserFromUser() async {
     if (_user == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    _cachedUserId = _user!.
-        $id; // ignore: invalid_use_of_visible_for_testing_member
+
+    _cachedUserId = _user!.$id; // ignore: invalid_use_of_visible_for_testing_member
     _cachedEmail = _user!.email;
-    await prefs.setString(_kCachedUserIdKey, _cachedUserId!);
+
+    await _secureStorage.write(key: _kCachedUserIdKey, value: _cachedUserId);
     if (_cachedEmail != null) {
-      await prefs.setString(_kCachedEmailKey, _cachedEmail!);
+      await _secureStorage.write(key: _kCachedEmailKey, value: _cachedEmail);
     }
+
     // ensure the "has logged in" flag is set as well
+    final prefs = await SharedPreferences.getInstance();
     _hasLoggedIn = true;
     await prefs.setBool(_kHasLoggedInKey, true);
   }
@@ -146,9 +175,10 @@ class AuthController extends ChangeNotifier {
   Future<void> _clearCachedUser() async {
     _cachedUserId = null;
     _cachedEmail = null;
+    await _secureStorage.delete(key: _kCachedUserIdKey);
+    await _secureStorage.delete(key: _kCachedEmailKey);
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kCachedUserIdKey);
-    await prefs.remove(_kCachedEmailKey);
     _hasLoggedIn = false;
     await prefs.setBool(_kHasLoggedInKey, false);
   }
