@@ -323,10 +323,14 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
   }
 
   String _getProgressText(PdfImportProgress progress) {
-    final stage = progress.stage == PdfImportStage.rendering
-        ? 'Rendere'
-        : 'Extrahiere Text von';
-    return '$stage Seite ${progress.currentPage} von ${progress.totalPages}...';
+    switch (progress.stage) {
+      case PdfImportStage.rendering:
+        return 'Rendere Seite ${progress.currentPage} von ${progress.totalPages}...';
+      case PdfImportStage.extracting:
+        return 'Extrahiere Text von Seite ${progress.currentPage} von ${progress.totalPages}...';
+      case PdfImportStage.parsingTasks:
+        return 'Erkenne Aufgaben...';
+    }
   }
 
   List<Widget> _buildActions(ColorScheme colorScheme) {

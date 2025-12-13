@@ -701,7 +701,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
               Expanded(
                 child: Text(
                   snapshot.data != null
-                      ? 'PDF: Seite ${snapshot.data!.currentPage}/${snapshot.data!.totalPages}'
+                      ? _getPdfProcessingText(snapshot.data!)
                       : 'PDF wird verarbeitet...',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSecondaryContainer,
@@ -717,6 +717,20 @@ class _AssistantPanelState extends State<AssistantPanel> {
           ),
         ),
       );
+
+  String _getPdfProcessingText(PdfProcessingUpdate update) {
+    switch (update.stage) {
+      case PdfImportStage.rendering:
+        return 'PDF: Rendere Seite ${update.currentPage}/${update.totalPages}';
+      case PdfImportStage.extracting:
+        return 'PDF: Extrahiere Seite ${update.currentPage}/${update.totalPages}';
+      case PdfImportStage.parsingTasks:
+        if (update.parsedTasks != null) {
+          return 'PDF: ${update.parsedTasks!.length} Aufgaben erkannt';
+        }
+        return 'PDF: Erkenne Aufgaben...';
+    }
+  }
 
   void _scheduleStreamingUpdate(String text) {
     _pendingStreamingText = text;

@@ -37,6 +37,7 @@ class DrawingCanvas extends StatefulWidget {
     this.canvasBottomPadding = 600,
     this.onRequestParentScrollLock,
     this.onStrokeClustersChanged,
+    this.importedPdfText,
   });
 
   /// Controller, der die Striche verwaltet.
@@ -85,6 +86,9 @@ class DrawingCanvas extends StatefulWidget {
 
   /// Optionaler Callback, der über aktualisierte Stroke-Cluster informiert.
   final ValueChanged<List<StrokeBoundingBoxCluster>>? onStrokeClustersChanged;
+
+  /// Optionaler Text aus einem importierten PDF.
+  final String? importedPdfText;
 
   @override
   State<DrawingCanvas> createState() => _DrawingCanvasState();
@@ -864,6 +868,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
               alignment: Alignment.topCenter,
               child: NotePaperBackground(
                 paperStyle: widget.paperStyle,
+                importedPdfText: widget.importedPdfText,
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
                   onPointerDown: _start,

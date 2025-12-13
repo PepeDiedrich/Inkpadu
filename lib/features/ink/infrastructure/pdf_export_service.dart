@@ -265,7 +265,9 @@ class PdfExportService {
 
   Future<String> _savePdfToFile(Uint8List bytes, String fileName) async {
     final Directory tempDir = await getTemporaryDirectory();
-    final String filePath = '${tempDir.path}/$fileName.pdf';
+    final String stampedFileName =
+        '${fileName}_${DateTime.now().millisecondsSinceEpoch}';
+    final String filePath = '${tempDir.path}/$stampedFileName.pdf';
     final File file = File(filePath);
     await file.writeAsBytes(bytes);
     return filePath;

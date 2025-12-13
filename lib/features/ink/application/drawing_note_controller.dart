@@ -463,6 +463,11 @@ class DrawingNoteController extends ChangeNotifier {
         (Stroke stroke) => stroke.points.isNotEmpty,
       );
 
+  /// Prüft, ob eine Seite relevanten Inhalt hat (Striche oder importierten PDF-Text).
+  bool _pageHasContent(NotePage page) =>
+      _strokesHaveContent(page.strokes) ||
+      (page.importedPdfText != null && page.importedPdfText!.trim().isNotEmpty);
+
   ({int targetIndex, bool removedPage}) _maybeRemoveCurrentPageIfEmpty(
     int targetIndex,
   ) {
@@ -474,7 +479,8 @@ class DrawingNoteController extends ChangeNotifier {
 
     final List<NotePage> pages = List<NotePage>.of(_note.pages);
     final NotePage currentPage = pages[_currentPageIndex];
-    final bool hasContent = _strokesHaveContent(currentPage.strokes);
+    // Prüfe ob die Seite Striche, importierten PDF-Text oder historischen Inhalt hat
+    final bool hasContent = _pageHasContent(currentPage);
     final bool hadContentBefore =
         _currentPageIndex < _pageContentHistory.length &&
         _pageContentHistory[_currentPageIndex];
@@ -507,7 +513,7 @@ class DrawingNoteController extends ChangeNotifier {
 
   void _rebuildPageContentHistory(List<NotePage> pages) {
     _pageContentHistory = pages
-        .map((page) => _strokesHaveContent(page.strokes))
+        .map((page) => _pageHasContent(page))
         .toList(growable: true);
   }
 

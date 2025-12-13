@@ -20,6 +20,7 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
 import 'package:flutter/material.dart';
 // import 'package:flutter/rendering.dart';
 
@@ -313,6 +314,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   ? baseWidth
                   : rawHandleOffset;
               final double orientationFactor = panelOnRight ? 1 : -1;
+              final double contentInset =
+                  isCollapsed ? 0 : baseWidth * previewFraction;
 
               final List<NotePage> pages = controller.pages;
               final bool canCreateNewPage = controller.currentPageHasContent;
@@ -323,7 +326,12 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
               return Stack(
                 children: [
                   Positioned.fill(
-                    child: PageView.builder(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: panelOnRight ? 0 : contentInset,
+                        right: panelOnRight ? contentInset : 0,
+                      ),
+                      child: PageView.builder(
                       key: PageStorageKey('note_${controller.note.id}_page_view'),
                       controller: _pageController,
                       physics: _pageScrollLocked
@@ -380,10 +388,18 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                         }
                         final page = pages[index];
                         final bool isActive = index == controller.currentPageIndex;
+                        final String? pdfText = page.importedPdfText;
+                        
                         if (isActive) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: canvas,
+                            child: Column(
+                              children: [
+                                if (pdfText != null && pdfText.isNotEmpty)
+                                  _ImportedTaskHeader(taskText: pdfText),
+                                Expanded(child: canvas),
+                              ],
+                            ),
                           );
                         }
                         return Padding(
@@ -391,13 +407,22 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () => _focusPage(index),
-                            child: _StaticNotePage(
-                              page: page,
-                              paperStyle: controller.note.paperStyle,
+                            child: Column(
+                              children: [
+                                if (pdfText != null && pdfText.isNotEmpty)
+                                  _ImportedTaskHeader(taskText: pdfText),
+                                Expanded(
+                                  child: _StaticNotePage(
+                                    page: page,
+                                    paperStyle: controller.note.paperStyle,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
                       },
+                      ),
                     ),
                   ),
                   AnimatedPositioned(
@@ -593,6 +618,76 @@ class _StaticNotePage extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Header-Widget zur Anzeige von importiertem Aufgabentext aus PDFs.
+class _ImportedTaskHeader extends StatefulWidget {
+  const _ImportedTaskHeader({required this.taskText});
+
+  final String taskText;
+
+  @override
+  State<_ImportedTaskHeader> createState() => _ImportedTaskHeaderState();
+}
+
+class _ImportedTaskHeaderState extends State<_ImportedTaskHeader> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    // Zeige immer den vollständigen Aufgabentext
+    final String displayText = widget.taskText;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header-Zeile mit Icon und Titel
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.assignment_outlined,
+                  size: 18,
+                  color: colorScheme.secondary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Aufgabe',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.secondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Aufgabentext
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            child: MathRichText(
+              text: displayText,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSecondaryContainer,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

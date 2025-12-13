@@ -66,6 +66,7 @@ class PdfProcessingUpdate {
     required this.totalPages,
     required this.stage,
     this.extractedText,
+    this.parsedTasks,
     this.error,
   });
 
@@ -84,11 +85,14 @@ class PdfProcessingUpdate {
   /// Der extrahierte Text (nur bei abgeschlossener Seite).
   final String? extractedText;
 
+  /// Die erkannten Aufgaben (nur bei stage == parsingTasks und Abschluss).
+  final List<String>? parsedTasks;
+
   /// Fehlermeldung, falls aufgetreten.
   final String? error;
 
   /// Prüft, ob die Verarbeitung abgeschlossen ist.
-  bool get isComplete => currentPage >= totalPages && stage == PdfImportStage.extracting;
+  bool get isComplete => stage == PdfImportStage.parsingTasks && parsedTasks != null;
 
   /// Prüft, ob ein Fehler aufgetreten ist.
   bool get hasError => error != null;
@@ -134,10 +138,14 @@ class PdfImportProgress {
   /// Fortschritt als Prozentsatz (0.0 - 1.0).
   double get progress {
     if (totalPages == 0) return 0.0;
+    // 80% für Rendering + Extraktion, 20% für Aufgaben-Parsing
     final double pageProgress = (currentPage - 1) / totalPages;
-    final double stageOffset = stage == PdfImportStage.rendering ? 0.0 : 0.5;
-    final double stageWeight = 0.5 / totalPages;
-    return pageProgress + stageOffset + (stage == PdfImportStage.extracting ? stageWeight : 0);
+    final double stageOffset = stage == PdfImportStage.rendering ? 0.0 : 0.4;
+    final double stageWeight = 0.4 / totalPages;
+    if (stage == PdfImportStage.parsingTasks) {
+      return 0.8 + 0.2; // 100% wenn parsingTasks erreicht
+    }
+    return (pageProgress + stageOffset + (stage == PdfImportStage.extracting ? stageWeight : 0)) * 0.8;
   }
 }
 
@@ -148,6 +156,9 @@ enum PdfImportStage {
 
   /// Text wird via LLM aus dem Bild extrahiert.
   extracting,
+
+  /// Aufgaben werden aus dem extrahierten Text erkannt.
+  parsingTasks,
 }
 
 /// Service für den Import von PDFs und die Textextraktion via LLM.
@@ -191,6 +202,28 @@ Regeln:
 5. Füge KEINE Interpretationen, Zusammenfassungen oder Kommentare hinzu
 6. Bei unleserlichem Text schreibe [unleserlich]
 7. Behalte die Reihenfolge des Textes bei (oben nach unten, links nach rechts)
+''';
+
+  /// Der System-Prompt für die Aufgaben-Erkennung aus extrahiertem PDF-Text.
+  static const String taskExtractionPrompt = '''
+Du bist ein Assistent zur Erkennung von Aufgaben in Dokumenten. Deine Aufgabe ist es,
+einzelne Aufgaben aus dem gegebenen Text zu identifizieren und als JSON-Array zurückzugeben.
+
+Erkenne Aufgaben anhand typischer Muster:
+- Nummerierte Aufgaben: "1.", "2.", "1)", "2)", "a)", "b)", "i.", "ii."
+- Schlüsselwörter: "Aufgabe", "Exercise", "Problem", "Übung", "Frage", "Question", "Task"
+- Aufzählungszeichen mit Inhalt: "•", "-", "*" gefolgt von einer Aufgabenstellung
+
+Regeln:
+1. Gib NUR ein valides JSON-Array zurück, keine anderen Texte
+2. Jedes Array-Element ist der vollständige Text EINER Aufgabe (inkl. Teilaufgaben)
+3. Behalte mathematische Formeln in LaTeX-Syntax
+4. Wenn keine Aufgaben erkannt werden, gib ein leeres Array zurück: []
+5. Fasse zusammengehörige Teilaufgaben (a, b, c) unter der Hauptaufgabe zusammen
+6. Entferne Seitenzahlen, Kopf-/Fußzeilen und irrelevante Metadaten
+
+Beispiel-Ausgabe:
+["Aufgabe 1: Berechne den Wert von x^2 + 2x - 3 = 0", "Aufgabe 2: a) Zeichne den Graphen b) Bestimme die Nullstellen"]
 ''';
 
   /// Importiert eine PDF-Datei und extrahiert den Text aller Seiten.
@@ -337,5 +370,162 @@ Regeln:
         Platform.isMacOS ||
         Platform.isWindows ||
         Platform.isLinux;
+  }
+
+  /// Extrahiert einzelne Aufgaben aus dem kombinierten PDF-Text via Azure OpenAI.
+  ///
+  /// Bei API-Fehlern wird automatisch auf Regex-basiertes Parsing zurückgefallen.
+  /// Gibt eine Liste von Aufgaben-Strings zurück. Bei leerer Liste oder Fehler
+  /// wird der gesamte Text als einzelne "Aufgabe" zurückgegeben.
+  Future<List<String>> extractTasksFromText(String combinedText) async {
+    if (combinedText.trim().isEmpty) {
+      return <String>[];
+    }
+
+    debugPrint('[PdfImportService] Extracting tasks from ${combinedText.length} chars...');
+
+    try {
+      final List<Map<String, dynamic>> userContent = <Map<String, dynamic>>[
+        {
+          'type': 'text',
+          'text': 'Extrahiere alle Aufgaben aus dem folgenden Text und gib sie als JSON-Array zurück:\n\n$combinedText',
+        },
+      ];
+
+      final AzureAssistantRequest request = AzureAssistantRequest(
+        systemPrompt: taskExtractionPrompt,
+        userContent: userContent,
+        maxCompletionTokens: _config.maxCompletionTokens,
+      );
+
+      final AzureAssistantPreparedRequest preparedRequest =
+          _azureService.prepareRequest(request);
+
+      final AzureAssistantResult result = await _azureService.streamCompletion(
+        preparedRequest: preparedRequest,
+        onStreamUpdate: (_) {},
+      );
+
+      debugPrint('[PdfImportService] Task extraction response: ${result.answer.length} chars');
+
+      // Parse JSON-Array aus der Antwort
+      final List<String> tasks = _parseTasksFromJson(result.answer);
+      
+      if (tasks.isNotEmpty) {
+        debugPrint('[PdfImportService] Azure extracted ${tasks.length} tasks');
+        return tasks;
+      }
+
+      // Fallback auf Regex wenn keine Aufgaben erkannt wurden
+      debugPrint('[PdfImportService] No tasks from Azure, trying regex fallback...');
+      return _extractTasksWithRegex(combinedText);
+    } catch (e, stackTrace) {
+      debugPrint('[PdfImportService] Task extraction ERROR: $e');
+      debugPrint('[PdfImportService] Stack: $stackTrace');
+      
+      // Fallback auf Regex bei API-Fehler
+      debugPrint('[PdfImportService] Using regex fallback due to error...');
+      return _extractTasksWithRegex(combinedText);
+    }
+  }
+
+  /// Parst ein JSON-Array aus der Azure-Antwort.
+  List<String> _parseTasksFromJson(String response) {
+    try {
+      // Versuche zuerst, die Antwort direkt als JSON zu parsen
+      String jsonString = response.trim();
+      
+      // Entferne mögliche Markdown-Code-Blöcke
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.substring(7);
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.substring(3);
+      }
+      if (jsonString.endsWith('```')) {
+        jsonString = jsonString.substring(0, jsonString.length - 3);
+      }
+      jsonString = jsonString.trim();
+
+      // Finde das JSON-Array in der Antwort
+      final int startIndex = jsonString.indexOf('[');
+      final int endIndex = jsonString.lastIndexOf(']');
+      
+      if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) {
+        debugPrint('[PdfImportService] No valid JSON array found in response');
+        return <String>[];
+      }
+
+      jsonString = jsonString.substring(startIndex, endIndex + 1);
+      
+      final dynamic decoded = jsonDecode(jsonString);
+      if (decoded is List) {
+        return decoded
+            .whereType<String>()
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
+      }
+      
+      return <String>[];
+    } catch (e) {
+      debugPrint('[PdfImportService] JSON parsing error: $e');
+      return <String>[];
+    }
+  }
+
+  /// Regex-basierter Fallback für Aufgaben-Erkennung.
+  ///
+  /// Erkennt typische Aufgaben-Muster wie:
+  /// - "Aufgabe 1:", "Aufgabe 1.", "Aufgabe 1)"
+  /// - "1.", "2.", "1)", "2)"
+  /// - "a)", "b)", "a.", "b."
+  /// - "Exercise", "Problem", "Übung", "Frage"
+  List<String> _extractTasksWithRegex(String text) {
+    debugPrint('[PdfImportService] Extracting tasks with regex...');
+    
+    final List<String> tasks = <String>[];
+
+    // Vereinfachter Ansatz: Splitte nach Aufgaben-Markern
+    final RegExp markerPattern = RegExp(
+      r'(?:^|\n)' // Zeilenanfang
+      r'\s*'
+      r'(?:'
+        r'(?:Aufgabe|Exercise|Problem|Übung|Frage|Question|Task)\s*[:\.]?\s*\d*[:\.]?\s*' // Keyword
+        r'|'
+        r'\d+\s*[.):]\s+' // Nummerierung
+      r')',
+      multiLine: true,
+      caseSensitive: false,
+    );
+
+    final Iterable<RegExpMatch> matches = markerPattern.allMatches(text);
+    final List<int> positions = matches.map((m) => m.start).toList();
+    
+    if (positions.isEmpty) {
+      // Keine Aufgaben-Marker gefunden - gesamten Text als eine Aufgabe zurückgeben
+      final String trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        debugPrint('[PdfImportService] No task markers found, returning full text as single task');
+        return <String>[trimmed];
+      }
+      return <String>[];
+    }
+
+    // Extrahiere Text zwischen den Markern
+    for (int i = 0; i < positions.length; i++) {
+      final int start = positions[i];
+      final int end = i + 1 < positions.length ? positions[i + 1] : text.length;
+      
+      String taskText = text.substring(start, end).trim();
+      
+      // Entferne führende Whitespace nach Zeilenumbrüchen
+      taskText = taskText.replaceAll(RegExp(r'\n\s+'), '\n');
+      
+      if (taskText.isNotEmpty) {
+        tasks.add(taskText);
+      }
+    }
+
+    debugPrint('[PdfImportService] Regex extracted ${tasks.length} tasks');
+    return tasks;
   }
 }

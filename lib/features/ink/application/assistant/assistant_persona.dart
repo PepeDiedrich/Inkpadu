@@ -69,12 +69,10 @@ class AssistantPersonaConfig {
   AssistantPersonaConfig copyWith({
     AssistantPersonaType? type,
     String? customPrompt,
-  }) {
-    return AssistantPersonaConfig(
+  }) => AssistantPersonaConfig(
       type: type ?? this.type,
       customPrompt: customPrompt ?? this.customPrompt,
     );
-  }
 
   @override
   bool operator ==(Object other) {
