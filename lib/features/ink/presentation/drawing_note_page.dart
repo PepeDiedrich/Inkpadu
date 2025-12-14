@@ -2,34 +2,27 @@ import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-  show StrokeBoundingBoxCluster;
-import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
+    show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_service.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/animated_sidebar.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_note_app_bar.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
 import 'package:flutter/material.dart';
-// import 'package:flutter/rendering.dart';
 
-/// Seite zum Bearbeiten / Zeichnen einer einzelnen handschriftlichen Notiz.
+/// Page for editing/drawing a single handwritten note.
 class DrawingNotePage extends StatefulWidget {
-  /// Erstellt eine Seite für die Notiz mit der gegebenen [noteId].
+  /// Creates a page for the note with the given [noteId].
   const DrawingNotePage({super.key, required this.noteId});
 
-  /// ID der zu bearbeitenden Notiz.
+  /// ID of the note to edit.
   final String noteId;
 
   @override
@@ -41,8 +34,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   static const double _minVisibleSidebarFraction = 0.15;
   static const double _maxSidebarFraction = 0.45;
   static const double _dragHandleWidth = 12;
-  static const Duration _panelAnimationDuration = Duration(milliseconds: 220);
-  static const Curve _panelAnimationCurve = Curves.easeOutCubic;
 
   DrawingToolPreferencesRepository? _toolPreferencesRepository;
   DrawingNoteController? _controller;
@@ -111,7 +102,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
-
   Future<void> _openToolConfigurator(DrawingTool tool) async {
     final controller = _maybeController;
     if (controller == null) return;
@@ -125,10 +115,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   Future<void> _exportNoteToPdf(DrawingNoteController controller) async {
     final scaffold = ScaffoldMessenger.of(context);
 
-    // Persistiere aktuelle Striche bevor Export
+    // Persist current strokes before export
     controller.persistDrawing();
 
-    // Zeige Ladeanzeige
+    // Show loading indicator
     scaffold.showSnackBar(
       const SnackBar(
         content: Text('PDF wird erstellt...'),
@@ -168,351 +158,45 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     return clamped;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final controller = _maybeController;
-    if (controller == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+  void _handlePageChanged(int index, DrawingNoteController controller) {
+    final notesScope = InkNotesScope.of(context);
+    final canCreateNewPage = controller.currentPageHasContent;
+    final placeholderIndex = canCreateNewPage ? controller.pages.length : -1;
+    final pages = controller.pages;
 
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        if (!controller.isInitialized) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+    if (canCreateNewPage && index == placeholderIndex) {
+      if (!_creatingPage) {
+        _creatingPage = true;
+        final int? newIndex = controller.addPageAfterCurrent();
+        if (newIndex != null && _pageController?.hasClients == true) {
+          _pageController!.animateToPage(
+            newIndex,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          );
+        } else if (_pageController?.hasClients == true) {
+          _pageController!.animateToPage(
+            controller.currentPageIndex,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
           );
         }
+        _creatingPage = false;
+      }
+      return;
+    }
+    if (index >= pages.length) {
+      return;
+    }
+    if (index != controller.currentPageIndex) {
+      // Save scroll offset of old page on page change
+      final oldId = controller.note.id;
+      final oldPage = controller.currentPageIndex;
+      final scrollOffset = notesScope.getScrollOffset(oldId, oldPage) ?? 0.0;
+      notesScope.setScrollOffset(oldId, oldPage, scrollOffset);
 
-        final EditorSettings editorSettings = EditorSettingsScope.of(context);
-        final bool panelOnRight = editorSettings.isPanelOnRight;
-        final double sidebarFraction = _sidebarFraction
-            .clamp(_minSidebarFraction, _maxSidebarFraction)
-            .toDouble();
-        final double previewFraction =
-            (_previewSidebarFraction ?? sidebarFraction)
-                .clamp(_minSidebarFraction, _maxSidebarFraction)
-                .toDouble();
-
-        final DrawingController drawingController =
-            controller.drawingController;
-        final DrawingTool currentTool = controller.currentTool;
-
-        // PageController beim ersten initialisierten Build anlegen
-        _pageController ??= PageController(
-          initialPage: controller.currentPageIndex,
-        );
-
-        return PopScope(
-          onPopInvokedWithResult: (didPop, result) {
-            if (didPop) {
-              // Sicherstellen, dass die aktuelle Seite und Striche persistiert werden,
-              // damit beim nächsten Öffnen genau diese Seite wieder geladen wird.
-              controller.persistDrawing();
-              // Letzten geöffneten Seitenindex speichern
-              final notes = InkNotesScope.of(context);
-              final note = controller.note;
-              notes.upsert(
-                note.copyWith(
-                  lastOpenedPageIndex: controller.currentPageIndex,
-                  updatedAt: DateTime.now(),
-                ),
-                changedPageIndices: const <int>{},
-              );
-            }
-          },
-          child: Scaffold(
-          appBar: AppBar(
-            leading: const BackButton(),
-            centerTitle: true,
-            toolbarHeight: 94,
-            titleSpacing: 0,
-            title: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  controller.note.title,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Seite ${controller.currentPageIndex + 1} / ${controller.pages.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 40),
-                  child: DrawingToolPalette(
-                    tools: controller.tools,
-                    selectedToolId: controller.selectedToolId,
-                    onToolSelected: controller.selectTool,
-                    onToolLongPress: _openToolConfigurator,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.picture_as_pdf_outlined),
-                tooltip: 'Als PDF exportieren',
-                onPressed: () => _exportNoteToPdf(controller),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxWidth = constraints.maxWidth;
-              final double baseWidth = maxWidth <= 0 ? 1 : maxWidth;
-              final double panelWidth = baseWidth * sidebarFraction;
-              final double handlePreviewWidth = baseWidth * previewFraction;
-              final bool isCollapsed =
-                  sidebarFraction < _minVisibleSidebarFraction;
-
-        final notesScope = InkNotesScope.of(context);
-        final String noteId = controller.note.id;
-        final int pageIndex = controller.currentPageIndex;
-        final double? initOffset =
-          notesScope.getScrollOffset(noteId, pageIndex);
-
-              final Widget canvas = DrawingCanvas(
-                drawingController: drawingController,
-                currentTool: currentTool,
-                resolveTool: controller.resolveTool,
-                eraserRadiusFor: controller.eraserRadiusFor,
-                onPersistDrawing: controller.persistDrawing,
-                onTwoFingerUndo: _handleUndo,
-                onThreeFingerRedo: _handleRedo,
-                paperStyle: controller.note.paperStyle,
-                onRequestParentScrollLock: (lock) {
-                  if (!mounted) return;
-                  if (_pageScrollLocked == lock) return;
-                  setState(() => _pageScrollLocked = lock);
-                },
-                scrollKey: PageStorageKey(
-                  'note_${controller.note.id}_page_${controller.currentPageIndex}_scroll',
-                ),
-                initScrollOffset: initOffset,
-                onScrollOffsetChanged: (offset) {
-                  final c = _maybeController;
-                  if (c == null || !c.isInitialized) return;
-                  final currentId = c.note.id;
-                  final currentPage = c.currentPageIndex;
-                  notesScope.setScrollOffset(currentId, currentPage, offset);
-                },
-                onStrokeClustersChanged: _handleStrokeClustersChanged,
-              );
-
-              final double rawHandleOffset = math.max(
-                handlePreviewWidth - _dragHandleWidth,
-                0,
-              );
-              final double handleOffset = rawHandleOffset > baseWidth
-                  ? baseWidth
-                  : rawHandleOffset;
-              final double orientationFactor = panelOnRight ? 1 : -1;
-              final double contentInset =
-                  isCollapsed ? 0 : baseWidth * previewFraction;
-
-              final List<NotePage> pages = controller.pages;
-              final bool canCreateNewPage = controller.currentPageHasContent;
-              final int placeholderIndex =
-                  canCreateNewPage ? pages.length : -1;
-              final int pageCount = pages.length + (canCreateNewPage ? 1 : 0);
-
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: panelOnRight ? 0 : contentInset,
-                        right: panelOnRight ? contentInset : 0,
-                      ),
-                      child: PageView.builder(
-                      key: PageStorageKey('note_${controller.note.id}_page_view'),
-                      controller: _pageController,
-                      physics: _pageScrollLocked
-                          ? const NeverScrollableScrollPhysics()
-                          : const PageScrollPhysics(),
-                      onPageChanged: (index) {
-                        if (canCreateNewPage && index == placeholderIndex) {
-                          if (!_creatingPage) {
-                            _creatingPage = true;
-                            final int? newIndex =
-                                controller.addPageAfterCurrent();
-                            if (newIndex != null &&
-                                _pageController?.hasClients == true) {
-                              _pageController!.animateToPage(
-                                newIndex,
-                                duration: const Duration(milliseconds: 220),
-                                curve: Curves.easeOutCubic,
-                              );
-                            } else if (_pageController?.hasClients == true) {
-                              _pageController!.animateToPage(
-                                controller.currentPageIndex,
-                                duration: const Duration(milliseconds: 220),
-                                curve: Curves.easeOutCubic,
-                              );
-                            }
-                            _creatingPage = false;
-                          }
-                          return;
-                        }
-                        if (index >= pages.length) {
-                          return;
-                        }
-                        if (index != controller.currentPageIndex) {
-                          // Beim Seitenwechsel: aktuellen Offset der alten Seite sichern
-                          final oldId = controller.note.id;
-                          final oldPage = controller.currentPageIndex;
-                          final scrollOffset =
-                              notesScope.getScrollOffset(oldId, oldPage) ?? 0.0;
-                          notesScope.setScrollOffset(oldId, oldPage, scrollOffset);
-
-                          controller.setCurrentPage(index);
-
-              // Für die neue Seite: der Canvas liest initScrollOffset
-              // beim Neuaufbau (siehe oben), daher kein direkter jumpTo nötig.
-                        }
-                      },
-                      itemCount: pageCount,
-                      itemBuilder: (context, index) {
-                        if (canCreateNewPage && index == placeholderIndex) {
-                          return const _AddPagePlaceholder();
-                        }
-                        if (index >= pages.length) {
-                          return const SizedBox.shrink();
-                        }
-                        final page = pages[index];
-                        final bool isActive = index == controller.currentPageIndex;
-                        final String? pdfText = page.importedPdfText;
-                        
-                        if (isActive) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Column(
-                              children: [
-                                if (pdfText != null && pdfText.isNotEmpty)
-                                  _ImportedTaskHeader(taskText: pdfText),
-                                Expanded(child: canvas),
-                              ],
-                            ),
-                          );
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _focusPage(index),
-                            child: Column(
-                              children: [
-                                if (pdfText != null && pdfText.isNotEmpty)
-                                  _ImportedTaskHeader(taskText: pdfText),
-                                Expanded(
-                                  child: _StaticNotePage(
-                                    page: page,
-                                    paperStyle: controller.note.paperStyle,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      ),
-                    ),
-                  ),
-                  AnimatedPositioned(
-                    duration: _panelAnimationDuration,
-                    curve: _panelAnimationCurve,
-                    top: 0,
-                    bottom: 0,
-                    left: panelOnRight ? null : 0,
-                    right: panelOnRight ? 0 : null,
-                    width: panelWidth,
-                    child: IgnorePointer(
-                      ignoring: isCollapsed,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 120),
-                        opacity: isCollapsed ? 0 : 1,
-                        child: AssistantPanel(
-                          isActive: _isResizing,
-                          widthFraction: previewFraction,
-                          resizeTrend: _resizeTrend,
-                          side: editorSettings.sidebarSide,
-                          controller: controller,
-                          strokeClusters: _latestStrokeClusters,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    left: panelOnRight ? null : handleOffset,
-                    right: panelOnRight ? handleOffset : null,
-                    child: SizedBox(
-                      width: _dragHandleWidth,
-                      child: SidebarResizeHandle(
-                        isActive: _isResizing,
-                        side: editorSettings.sidebarSide,
-                        onDragStart: () => setState(() {
-                          _isResizing = true;
-                          _previewSidebarFraction = _sidebarFraction;
-                          _resizeTrend = SidebarResizeTrend.none;
-                        }),
-                        onDragUpdate: (delta) {
-                          setState(() {
-                            final double currentPreview =
-                                _previewSidebarFraction ?? _sidebarFraction;
-                            final double deltaFraction =
-                                (delta / baseWidth) * orientationFactor;
-                            final double proposedFraction =
-                                currentPreview - deltaFraction;
-                            final double nextPreview = _snapSidebarFraction(
-                              currentPreview,
-                              proposedFraction,
-                            );
-
-                            _previewSidebarFraction = nextPreview;
-
-                            if (nextPreview > currentPreview) {
-                              _resizeTrend = SidebarResizeTrend.expand;
-                            } else if (nextPreview < currentPreview) {
-                              _resizeTrend = SidebarResizeTrend.shrink;
-                            } else {
-                              _resizeTrend = SidebarResizeTrend.none;
-                            }
-                          });
-                        },
-                        onDragEnd: () => setState(() {
-                          final double previous = _sidebarFraction;
-                          final double target =
-                              _previewSidebarFraction ?? _sidebarFraction;
-                          final double adjustedTarget = _snapSidebarFraction(
-                            previous,
-                            target,
-                          );
-
-                          _sidebarFraction = adjustedTarget;
-                          _previewSidebarFraction = null;
-                          _isResizing = false;
-                          _resizeTrend = SidebarResizeTrend.none;
-                        }),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        );
-      },
-    );
+      controller.setCurrentPage(index);
+    }
   }
 
   void _focusPage(int index) {
@@ -552,143 +236,212 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       _latestStrokeClusters = clusters;
     });
   }
-}
-
-class _AddPagePlaceholder extends StatelessWidget {
-  const _AddPagePlaceholder();
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.note_add_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Wische nach rechts, um eine neue Seite zu erstellen.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      );
-}
-
-class _StaticNotePage extends StatelessWidget {
-  const _StaticNotePage({required this.page, required this.paperStyle});
-
-  final NotePage page;
-  final NotePaperStyle paperStyle;
-
-  static const double _initialCanvasHeight = 1600;
-  static const double _canvasBottomPadding = 600;
-
-  double _requiredCanvasHeight() {
-    var maxY = 0.0;
-    for (final stroke in page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dy > maxY) {
-          maxY = point.position.dy;
-        }
-      }
+  Widget build(BuildContext context) {
+    final controller = _maybeController;
+    if (controller == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return math.max(_initialCanvasHeight, maxY + _canvasBottomPadding);
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final double height = _requiredCanvasHeight();
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: double.infinity,
-        height: height,
-        child: NotePaperBackground(
-          paperStyle: paperStyle,
-          child: RepaintBoundary(
-            child: CustomPaint(
-              painter: FinishedStrokesPainter(
-                strokes: page.strokes,
-                version: page.strokes.hashCode,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        if (!controller.isInitialized) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-/// Header-Widget zur Anzeige von importiertem Aufgabentext aus PDFs.
-class _ImportedTaskHeader extends StatefulWidget {
-  const _ImportedTaskHeader({required this.taskText});
+        final EditorSettings editorSettings = EditorSettingsScope.of(context);
+        final bool panelOnRight = editorSettings.isPanelOnRight;
+        final double sidebarFraction = _sidebarFraction
+            .clamp(_minSidebarFraction, _maxSidebarFraction)
+            .toDouble();
+        final double previewFraction =
+            (_previewSidebarFraction ?? sidebarFraction)
+                .clamp(_minSidebarFraction, _maxSidebarFraction)
+                .toDouble();
 
-  final String taskText;
+        // Initialize PageController on first build
+        _pageController ??= PageController(
+          initialPage: controller.currentPageIndex,
+        );
 
-  @override
-  State<_ImportedTaskHeader> createState() => _ImportedTaskHeaderState();
-}
-
-class _ImportedTaskHeaderState extends State<_ImportedTaskHeader> {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    // Zeige immer den vollständigen Aufgabentext
-    final String displayText = widget.taskText;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header-Zeile mit Icon und Titel
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.assignment_outlined,
-                  size: 18,
-                  color: colorScheme.secondary,
+        return PopScope(
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) {
+              // Persist current page and strokes
+              controller.persistDrawing();
+              // Save last opened page index
+              final notes = InkNotesScope.of(context);
+              final note = controller.note;
+              notes.upsert(
+                note.copyWith(
+                  lastOpenedPageIndex: controller.currentPageIndex,
+                  updatedAt: DateTime.now(),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'Aufgabe',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.secondary,
-                  ),
-                ),
-              ],
+                changedPageIndices: const <int>{},
+              );
+            }
+          },
+          child: Scaffold(
+            appBar: DrawingNoteAppBar(
+              title: controller.note.title,
+              currentPageIndex: controller.currentPageIndex,
+              totalPages: controller.pages.length,
+              tools: controller.tools,
+              selectedToolId: controller.selectedToolId,
+              onToolSelected: controller.selectTool,
+              onToolLongPress: _openToolConfigurator,
+              onExportPdf: () => _exportNoteToPdf(controller),
+            ),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final double maxWidth = constraints.maxWidth;
+                final double baseWidth = maxWidth <= 0 ? 1 : maxWidth;
+                final double panelWidth = baseWidth * sidebarFraction;
+                final double handlePreviewWidth = baseWidth * previewFraction;
+                final bool isCollapsed =
+                    sidebarFraction < _minVisibleSidebarFraction;
+
+                final notesScope = InkNotesScope.of(context);
+                final String noteId = controller.note.id;
+                final int pageIndex = controller.currentPageIndex;
+                final double? initOffset =
+                    notesScope.getScrollOffset(noteId, pageIndex);
+
+                final double rawHandleOffset = math.max(
+                  handlePreviewWidth - _dragHandleWidth,
+                  0,
+                );
+                final double handleOffset = rawHandleOffset > baseWidth
+                    ? baseWidth
+                    : rawHandleOffset;
+                final double orientationFactor = panelOnRight ? 1 : -1;
+                final double contentInset =
+                    isCollapsed ? 0 : baseWidth * previewFraction;
+
+                return Stack(
+                  children: [
+                    // Main canvas area
+                    Positioned.fill(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: panelOnRight ? 0 : contentInset,
+                          right: panelOnRight ? contentInset : 0,
+                        ),
+                        child: NotePageContent(
+                          noteId: noteId,
+                          pages: controller.pages,
+                          currentPageIndex: controller.currentPageIndex,
+                          pageController: _pageController!,
+                          pageScrollLocked: _pageScrollLocked,
+                          drawingController: controller.drawingController,
+                          currentTool: controller.currentTool,
+                          resolveTool: controller.resolveTool,
+                          eraserRadiusFor: controller.eraserRadiusFor,
+                          onPersistDrawing: controller.persistDrawing,
+                          onTwoFingerUndo: _handleUndo,
+                          onThreeFingerRedo: _handleRedo,
+                          paperStyle: controller.note.paperStyle,
+                          onRequestParentScrollLock: (lock) {
+                            if (!mounted) return;
+                            if (_pageScrollLocked == lock) return;
+                            setState(() => _pageScrollLocked = lock);
+                          },
+                          initScrollOffset: initOffset,
+                          onScrollOffsetChanged: (offset) {
+                            final c = _maybeController;
+                            if (c == null || !c.isInitialized) return;
+                            final currentId = c.note.id;
+                            final currentPage = c.currentPageIndex;
+                            notesScope.setScrollOffset(
+                                currentId, currentPage, offset);
+                          },
+                          onStrokeClustersChanged: _handleStrokeClustersChanged,
+                          onPageChanged: (index) =>
+                              _handlePageChanged(index, controller),
+                          onFocusPage: _focusPage,
+                          canCreateNewPage: controller.currentPageHasContent,
+                        ),
+                      ),
+                    ),
+                    // Sidebar panel
+                    AnimatedSidebar(
+                      panelWidth: panelWidth,
+                      isResizing: _isResizing,
+                      previewFraction: previewFraction,
+                      resizeTrend: _resizeTrend,
+                      sidebarSide: editorSettings.sidebarSide,
+                      controller: controller,
+                      strokeClusters: _latestStrokeClusters,
+                      isCollapsed: isCollapsed,
+                    ),
+                    // Resize handle
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: panelOnRight ? null : handleOffset,
+                      right: panelOnRight ? handleOffset : null,
+                      child: SizedBox(
+                        width: _dragHandleWidth,
+                        child: SidebarResizeHandle(
+                          isActive: _isResizing,
+                          side: editorSettings.sidebarSide,
+                          onDragStart: () => setState(() {
+                            _isResizing = true;
+                            _previewSidebarFraction = _sidebarFraction;
+                            _resizeTrend = SidebarResizeTrend.none;
+                          }),
+                          onDragUpdate: (delta) {
+                            setState(() {
+                              final double currentPreview =
+                                  _previewSidebarFraction ?? _sidebarFraction;
+                              final double deltaFraction =
+                                  (delta / baseWidth) * orientationFactor;
+                              final double proposedFraction =
+                                  currentPreview - deltaFraction;
+                              final double nextPreview = _snapSidebarFraction(
+                                currentPreview,
+                                proposedFraction,
+                              );
+
+                              _previewSidebarFraction = nextPreview;
+
+                              if (nextPreview > currentPreview) {
+                                _resizeTrend = SidebarResizeTrend.expand;
+                              } else if (nextPreview < currentPreview) {
+                                _resizeTrend = SidebarResizeTrend.shrink;
+                              } else {
+                                _resizeTrend = SidebarResizeTrend.none;
+                              }
+                            });
+                          },
+                          onDragEnd: () => setState(() {
+                            final double previous = _sidebarFraction;
+                            final double target =
+                                _previewSidebarFraction ?? _sidebarFraction;
+                            final double adjustedTarget = _snapSidebarFraction(
+                              previous,
+                              target,
+                            );
+
+                            _sidebarFraction = adjustedTarget;
+                            _previewSidebarFraction = null;
+                            _isResizing = false;
+                            _resizeTrend = SidebarResizeTrend.none;
+                          }),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          // Aufgabentext
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-            child: MathRichText(
-              text: displayText,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSecondaryContainer,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
