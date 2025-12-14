@@ -15,6 +15,7 @@ import 'package:ai_handwriting_app/features/input/application/pointer_settings_s
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Zeichenfläche, die Eingaben an den [DrawingController] weiterleitet und
 /// dynamisch in der Höhe wächst.
@@ -116,6 +117,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   final Map<int, Offset> _threeFingerTapInitialPositions =
       <int, Offset>{};
   Timer? _hullDebounceTimer;
+  Timer? _straightenTimer;
+  Offset? _holdAnchorPosition;
+
   List<List<Offset>> _convexHulls = const [];
   List<RotatedBoundingBox> _boundingBoxes = const <RotatedBoundingBox>[];
   List<StrokeBoundingBoxCluster> _strokeClusters =
@@ -166,6 +170,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   @override
   void dispose() {
     _hullDebounceTimer?.cancel();
+    _straightenTimer?.cancel();
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
     super.dispose();
@@ -592,6 +597,11 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     );
     _notifyDrawingActivity();
     _activeDrawingPointerId = details.pointer;
+
+    _straightenTimer?.cancel();
+    _holdAnchorPosition = details.localPosition;
+    _startHoldTimer();
+
     // Lock parent horizontal scrolling while drawing
     widget.onRequestParentScrollLock?.call(true);
   }
@@ -693,6 +703,21 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _ensureCanvasHeightForPosition(newPoint.position.dy);
 
     widget.drawingController.updateStroke(newPoint);
+
+    // Hold-to-straighten logic
+    if (_holdAnchorPosition != null) {
+      final double dist = (details.localPosition - _holdAnchorPosition!).distance;
+      if (dist > 8.0) {
+        // Moved too far, reset hold timer
+        _straightenTimer?.cancel();
+        _holdAnchorPosition = details.localPosition;
+        _startHoldTimer();
+      }
+    } else {
+       _holdAnchorPosition = details.localPosition;
+       _startHoldTimer();
+    }
+
     _notifyDrawingActivity();
   }
 
@@ -752,6 +777,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       return;
     }
 
+    _straightenTimer?.cancel();
+    _holdAnchorPosition = null;
+
     final tool = widget.resolveTool(_activeToolDuringStrokeId);
     _activeDrawingPointerId = null;
     _activeToolDuringStrokeId = null;
@@ -804,7 +832,20 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeDrawingPointerId = null;
       _activeToolDuringStrokeId = null;
     }
+
+    _straightenTimer?.cancel();
+    _holdAnchorPosition = null;
+
     _notifyDrawingActivity();
+  }
+
+  void _startHoldTimer() {
+    _straightenTimer = Timer(const Duration(milliseconds: 600), () {
+      final success = widget.drawingController.straightenCurrentStroke();
+      if (success) {
+        HapticFeedback.heavyImpact();
+      }
+    });
   }
 
   bool _applyEraserPoint(Offset position, DrawingTool tool) {

@@ -19,6 +19,8 @@ class DrawingController extends ChangeNotifier {
   /// Der temporäre Strich, der gerade entsteht.
   Stroke? _currentStroke;
 
+  bool _isStraightened = false;
+
   /// Stack für Wiederherstellen-Operationen.
   final List<Stroke> _redoStack = [];
 
@@ -56,6 +58,7 @@ class DrawingController extends ChangeNotifier {
     required double baseWidth,
     bool isHighlighter = false,
   }) {
+    _isStraightened = false;
     _currentStroke = Stroke(
       points: [point],
       color: color,
@@ -69,9 +72,17 @@ class DrawingController extends ChangeNotifier {
   /// Fügt dem aktuellen Strich einen weiteren Punkt hinzu.
   void updateStroke(DrawingPoint point) {
     if (_currentStroke == null) return;
-    _currentStroke = _currentStroke!.copyWith(
-      points: List<DrawingPoint>.of(_currentStroke!.points)..add(point),
-    );
+
+    if (_isStraightened) {
+      final first = _currentStroke!.points.first;
+      _currentStroke = _currentStroke!.copyWith(
+        points: [first, point],
+      );
+    } else {
+      _currentStroke = _currentStroke!.copyWith(
+        points: List<DrawingPoint>.of(_currentStroke!.points)..add(point),
+      );
+    }
     notifyListeners();
   }
 
@@ -122,6 +133,57 @@ class DrawingController extends ChangeNotifier {
     _strokesVersion++;
     notifyListeners();
     return true;
+  }
+
+  /// Versucht, den aktuellen Strich zu begradigen.
+  /// Gibt true zurück, wenn der Strich begradigt wurde.
+  bool straightenCurrentStroke() {
+    if (_currentStroke == null || _currentStroke!.points.length < 3) {
+      return false;
+    }
+    if (_isStraightened) return true;
+
+    final points = _currentStroke!.points;
+    final start = points.first.position;
+    final end = points.last.position;
+    final distance = (end - start).distance;
+
+    // Zu kurze Striche nicht begradigen
+    if (distance < 20.0) return false;
+
+    // Maximale Abweichung berechnen
+    double maxDeviation = 0.0;
+    for (final p in points) {
+      final d = _calculatePerpendicularDistance(p.position, start, end);
+      if (d > maxDeviation) maxDeviation = d;
+    }
+
+    const double threshold = 20.0;
+
+    if (maxDeviation < threshold) {
+      _isStraightened = true;
+      _currentStroke = _currentStroke!.copyWith(
+        points: [points.first, points.last],
+      );
+      notifyListeners();
+      return true;
+    }
+
+    return false;
+  }
+
+  double _calculatePerpendicularDistance(
+    Offset point,
+    Offset lineStart,
+    Offset lineEnd,
+  ) {
+    final line = lineEnd - lineStart;
+    if (line.distanceSquared == 0) {
+      return (point - lineStart).distance;
+    }
+    final ap = point - lineStart;
+    final cross = (line.dx * ap.dy) - (line.dy * ap.dx);
+    return cross.abs() / line.distance;
   }
 
   /// Aktualisiert die Parameter des Linien-Vereinfachers.
