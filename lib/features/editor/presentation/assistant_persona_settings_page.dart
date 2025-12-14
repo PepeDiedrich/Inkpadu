@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_persona.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Seite zur Konfiguration der KI-Assistenten-Persona.
 class AssistantPersonaSettingsPage extends StatefulWidget {
@@ -43,7 +44,7 @@ class _AssistantPersonaSettingsPageState
     final settings = EditorSettingsScope.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('KI-Assistent Persona')),
+      appBar: AppBar(title: Text(context.t.editor.aiPersona)),
       body: AnimatedBuilder(
         animation: settings,
         builder: (context, _) {
@@ -54,19 +55,19 @@ class _AssistantPersonaSettingsPageState
             padding: const EdgeInsets.all(20),
             children: [
               Text(
-                'Wähle den Stil deines KI-Assistenten',
+                context.t.editor.choosePersonaStyle,
                 style: textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                'Die Persona bestimmt, wie der Assistent mit dir kommuniziert.',
+                context.t.editor.personaStyleHint,
                 style: textTheme.bodySmall,
               ),
               const SizedBox(height: 24),
               _PersonaOption(
                 type: AssistantPersonaType.critical,
-                title: 'Strenger Trainer',
-                subtitle: 'Direkte, harte Kritik wie ein russischer Olympia-Trainer',
+                title: context.t.editor.strictTrainer,
+                subtitle: context.t.editor.strictTrainerHint,
                 icon: Icons.fitness_center,
                 isSelected: currentType == AssistantPersonaType.critical,
                 onSelected: () => settings.update(
@@ -76,8 +77,8 @@ class _AssistantPersonaSettingsPageState
               const SizedBox(height: 12),
               _PersonaOption(
                 type: AssistantPersonaType.praising,
-                title: 'Ermutigender Mentor',
-                subtitle: 'Positive Verstärkung und motivierendes Feedback',
+                title: context.t.editor.encouragingMentor,
+                subtitle: context.t.editor.encouragingMentorHint,
                 icon: Icons.thumb_up_alt_outlined,
                 isSelected: currentType == AssistantPersonaType.praising,
                 onSelected: () => settings.update(
@@ -87,8 +88,8 @@ class _AssistantPersonaSettingsPageState
               const SizedBox(height: 12),
               _PersonaOption(
                 type: AssistantPersonaType.custom,
-                title: 'Benutzerdefiniert',
-                subtitle: 'Eigenes System-Prompt festlegen',
+                title: context.t.editor.customPersona,
+                subtitle: context.t.editor.customPersonaHint,
                 icon: Icons.edit_note,
                 isSelected: currentType == AssistantPersonaType.custom,
                 onSelected: () => settings.update(
@@ -107,7 +108,7 @@ class _AssistantPersonaSettingsPageState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Dein System-Prompt',
+                        context.t.editor.yourSystemPrompt,
                         style: textTheme.titleSmall,
                       ),
                       const SizedBox(height: 8),
@@ -115,8 +116,7 @@ class _AssistantPersonaSettingsPageState
                         controller: _customPromptController,
                         maxLines: 6,
                         decoration: InputDecoration(
-                          hintText:
-                              'Beschreibe, wie sich der Assistent verhalten soll…',
+                          hintText: context.t.editor.systemPromptPlaceholder,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -129,8 +129,7 @@ class _AssistantPersonaSettingsPageState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Das System-Prompt definiert die Persönlichkeit und '
-                        'das Verhalten des Assistenten bei allen Anfragen.',
+                        context.t.editor.systemPromptHint,
                         style: textTheme.bodySmall,
                       ),
                     ],
@@ -159,7 +158,7 @@ class _AssistantPersonaSettingsPageState
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Aktueller Stil',
+                          context.t.editor.currentStyle,
                           style: textTheme.titleSmall?.copyWith(
                             color: colorScheme.primary,
                           ),
@@ -184,15 +183,11 @@ class _AssistantPersonaSettingsPageState
   String _getPersonaDescription(AssistantPersonaType type) {
     switch (type) {
       case AssistantPersonaType.critical:
-        return 'Der Assistent gibt dir hartes, direktes Feedback. '
-            'Er akzeptiert keine Mittelmäßigkeit und motiviert dich durch '
-            'konstruktive Kritik zu Höchstleistungen.';
+        return context.t.editor.strictTrainerDescription;
       case AssistantPersonaType.praising:
-        return 'Der Assistent lobt deine Fortschritte und gibt dir '
-            'ermutigendes Feedback. Fehler werden als Lernmöglichkeiten '
-            'dargestellt.';
+        return context.t.editor.encouragingMentorDescription;
       case AssistantPersonaType.custom:
-        return 'Der Assistent verhält sich gemäß deinem eigenen System-Prompt.';
+        return context.t.editor.customPersonaDescription;
     }
   }
 }

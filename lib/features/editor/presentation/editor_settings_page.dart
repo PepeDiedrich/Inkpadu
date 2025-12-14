@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Seite zur Konfiguration der Editor-bezogenen Einstellungen.
 class EditorSettingsPage extends StatelessWidget {
@@ -14,7 +15,7 @@ class EditorSettingsPage extends StatelessWidget {
     final settings = EditorSettingsScope.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Editor-Einstellungen')),
+      appBar: AppBar(title: Text(context.t.settings.editorSettings)),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: AnimatedBuilder(
@@ -28,7 +29,7 @@ class EditorSettingsPage extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Assistenz-Panel', style: textTheme.titleMedium),
+                Text(context.t.editor.assistPanel, style: textTheme.titleMedium),
                 const SizedBox(height: 12),
                 SegmentedButton<EditorSidebarSide>(
                   style: ButtonStyle(
@@ -44,16 +45,16 @@ class EditorSettingsPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  segments: const [
+                  segments: [
                     ButtonSegment<EditorSidebarSide>(
                       value: EditorSidebarSide.left,
-                      icon: Icon(Icons.keyboard_double_arrow_left),
-                      label: Text('Links · Rechtshänder'),
+                      icon: const Icon(Icons.keyboard_double_arrow_left),
+                      label: Text(context.t.editor.leftRightHanded),
                     ),
                     ButtonSegment<EditorSidebarSide>(
                       value: EditorSidebarSide.right,
-                      icon: Icon(Icons.keyboard_double_arrow_right),
-                      label: Text('Rechts · Linkshänder'),
+                      icon: const Icon(Icons.keyboard_double_arrow_right),
+                      label: Text(context.t.editor.rightLeftHanded),
                     ),
                   ],
                   selected: <EditorSidebarSide>{current},
@@ -62,19 +63,16 @@ class EditorSettingsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Rechtshänder:innen erreichen die Tools bequemer, wenn das Panel links sitzt. '
-                  'Linkshänder:innen wählen dagegen die rechte Seite.',
+                  context.t.editor.handednessHint,
                   style: textTheme.bodySmall,
                 ),
                 const SizedBox(height: 32),
-                Text('Zeichenfläche', style: textTheme.titleMedium),
+                Text(context.t.editor.drawingArea, style: textTheme.titleMedium),
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Debug-Modus aktivieren'),
-                  subtitle: const Text(
-                    'Zeigt Bounding-Boxen und konvexe Hüllen im Editor sowie im KI-Assistenten an.',
-                  ),
+                  title: Text(context.t.editor.enableDebugMode),
+                  subtitle: Text(context.t.editor.debugModeHint),
                   value: debugModeEnabled,
                   onChanged: (value) =>
                       settings.update(debugModeEnabled: value),
@@ -82,10 +80,8 @@ class EditorSettingsPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Linien-Simplifier verwenden'),
-                  subtitle: const Text(
-                    'Glättet deine Striche automatisch, um ruhige Linien zu erhalten.',
-                  ),
+                  title: Text(context.t.editor.useLineSimplifier),
+                  subtitle: Text(context.t.editor.lineSimplifierHint),
                   value: simplifierEnabled,
                   onChanged: (value) =>
                       settings.update(lineSimplifierEnabled: value),
@@ -100,7 +96,7 @@ class EditorSettingsPage extends StatelessWidget {
                       children: [
                         const SizedBox(height: 16),
                         Text(
-                          'Glättungsintensität (${simplifierStrength.toStringAsFixed(2)})',
+                          context.t.editor.smoothingIntensity(value: simplifierStrength.toStringAsFixed(2)),
                           style: textTheme.bodyMedium,
                         ),
                         Slider.adaptive(
@@ -113,12 +109,12 @@ class EditorSettingsPage extends StatelessWidget {
                               settings.update(lineSimplifierStrength: value),
                         ),
                         Text(
-                          'Niedrige Werte bewahren mehr Details, hohe Werte glätten stärker.',
+                          context.t.editor.smoothingHint,
                           style: textTheme.bodySmall,
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          'Mindest-Toleranz (${simplifierMinTol.toStringAsFixed(2)} px)',
+                          context.t.editor.minTolerance(value: simplifierMinTol.toStringAsFixed(2)),
                           style: textTheme.bodyMedium,
                         ),
                         Slider.adaptive(
@@ -132,7 +128,7 @@ class EditorSettingsPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Setzt die Untergrenze für das Glätten – höhere Werte filtern winzige Zacken.',
+                          context.t.editor.minToleranceHint,
                           style: textTheme.bodySmall,
                         ),
                       ],

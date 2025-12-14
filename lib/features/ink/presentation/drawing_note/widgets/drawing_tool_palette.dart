@@ -72,6 +72,19 @@ class _ToolChipState extends State<_ToolChip> {
     final double targetScale = isSelected ? 1.08 : 1.0;
     final bool highlight = isSelected;
 
+    // For selected tools: show sky blue circle background with dark icon.
+    // For non-selected: show tool color as before.
+    final Color chipBackground = highlight
+        ? AppColors.primaryAccent
+        : displayColor;
+    final Color chipIconColor = highlight
+        ? AppColors.onPrimary
+        : (widget.tool.isHighlighter
+            ? iconColor.withValues(alpha: 0.8)
+            : widget.tool.isEraser
+                ? colorScheme.onSurfaceVariant
+                : iconColor);
+
     return Tooltip(
       message:
           '${widget.tool.label} · ${widget.tool.baseWidth.toStringAsFixed(1)} px',
@@ -88,15 +101,15 @@ class _ToolChipState extends State<_ToolChip> {
             height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: displayColor,
+              color: chipBackground,
               border: Border.all(
                 color: highlight ? AppColors.primaryAccent : borderColor,
-                width: highlight ? 3 : 1,
+                width: highlight ? 2 : 1,
               ),
               boxShadow: highlight
                   ? [
                       BoxShadow(
-                        color: AppColors.primaryAccent.withValues(alpha: 0.25),
+                        color: AppColors.primaryAccent.withValues(alpha: 0.35),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -107,11 +120,7 @@ class _ToolChipState extends State<_ToolChip> {
               child: Icon(
                 widget.tool.icon,
                 size: 18,
-                color: widget.tool.isHighlighter
-                    ? iconColor.withValues(alpha: 0.8)
-                    : widget.tool.isEraser
-                    ? colorScheme.onSurfaceVariant
-                    : iconColor,
+                color: chipIconColor,
               ),
             ),
           ),

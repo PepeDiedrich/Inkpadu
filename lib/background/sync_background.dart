@@ -13,6 +13,7 @@ const String backgroundSyncTask = 'inkpadu_background_sync';
 /// Callback-Funktion für Workmanager, die Hintergrundsynchronisation der Notizen durchführt.
 /// Diese Funktion wird von der Plattform aufgerufen, um ausstehende Synchronisationen zu verarbeiten.
 /// Sie lädt gecachte Benutzerdaten, initialisiert das Repository und führt Synchronisation durch.
+@pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == backgroundSyncTask) {

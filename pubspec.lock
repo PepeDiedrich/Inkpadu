@@ -241,6 +241,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  csv:
+    dependency: transitive
+    description:
+      name: csv
+      sha256: c6aa2679b2a18cb57652920f674488d89712efaf4d3fdf2e537215b35fc19d6c
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.0"
   cupertino_icons:
     dependency: "direct main"
     description:
@@ -363,6 +371,11 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_localizations:
+    dependency: "direct main"
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   flutter_math_fork:
     dependency: "direct main"
     description:
@@ -479,6 +492,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.2"
   io:
     dependency: transitive
     description:
@@ -908,6 +929,38 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  slang:
+    dependency: "direct main"
+    description:
+      name: slang
+      sha256: "263159a93864a13a0f2486326e200cb38214a8e82a3c83a48c20ac24a8eed329"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.11.1"
+  slang_build_runner:
+    dependency: "direct dev"
+    description:
+      name: slang_build_runner
+      sha256: e2433fd4eebed4e701c369afbd851a8e2d39a46bcb4c5e2e720ff11a3640a32c
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.11.0"
+  slang_flutter:
+    dependency: "direct main"
+    description:
+      name: slang_flutter
+      sha256: a6ebc0a855faa62053f44d333ae3b3cde24945357e88506d1d3e7fb0d3fc0c70
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.11.0"
+  slang_gpt:
+    dependency: "direct dev"
+    description:
+      name: slang_gpt
+      sha256: a789b0a9eca582a3ea8fa3bf83e311ee4133abd090ae7c04c75d1adc0a39948c
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.11.1"
   source_gen:
     dependency: transitive
     description:

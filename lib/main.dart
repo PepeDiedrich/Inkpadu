@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
@@ -16,10 +17,15 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_reposit
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/background/sync_background.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize localization with device locale
+  await LocaleSettings.useDeviceLocale();
+  
   // initialize background dispatcher before runApp
   Workmanager().initialize(callbackDispatcher);
   // register periodic task (every 15 minutes is minimum on Android)
@@ -31,7 +37,7 @@ Future<void> main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  runApp(const InkpaduApp());
+  runApp(TranslationProvider(child: const InkpaduApp()));
 }
 
 /// Root widget that wires up shared theme and navigation.
@@ -94,6 +100,9 @@ class _InkpaduAppState extends State<InkpaduApp> {
               theme: AppTheme.light(),
               darkTheme: AppTheme.dark(),
               themeMode: ThemeMode.light,
+              locale: TranslationProvider.of(context).flutterLocale,
+              supportedLocales: AppLocaleUtils.supportedLocales,
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
               // Globaler PageStorage-Bucket, damit Scrollpositionen
               // auch nach Schließen/erneutem Öffnen einer Route erhalten bleiben.
               builder: (context, child) => PageStorage(

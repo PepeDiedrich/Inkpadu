@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/notes/domain/note.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Minimal text editor for viewing and editing a [Note].
 class EditorPage extends StatefulWidget {
@@ -49,9 +50,9 @@ class _EditorPageState extends State<EditorPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(widget.isNew ? 'Neue Notiz' : 'Notiz bearbeiten'),
+      title: Text(widget.isNew ? context.t.editor.newNote : context.t.editor.editNote),
       actions: [
-        TextButton(onPressed: _saveNote, child: const Text('Speichern')),
+        TextButton(onPressed: _saveNote, child: Text(context.t.common.save)),
       ],
     ),
     body: Padding(
@@ -60,9 +61,9 @@ class _EditorPageState extends State<EditorPage> {
         children: [
           TextField(
             controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Titel',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.t.editor.title,
+              border: const OutlineInputBorder(),
             ),
             textInputAction: TextInputAction.next,
             autofocus: widget.isNew,
@@ -71,9 +72,9 @@ class _EditorPageState extends State<EditorPage> {
           Expanded(
             child: TextField(
               controller: _contentController,
-              decoration: const InputDecoration(
-                hintText: 'Schreibe deine Notiz...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: context.t.editor.writeNote,
+                border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
               keyboardType: TextInputType.multiline,

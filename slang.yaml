@@ -1,0 +1,36 @@
+# Slang Configuration for Inkpadu
+# Run: dart run slang to generate translations
+
+base_locale: de
+fallback_strategy: base_locale
+input_directory: lib/i18n
+input_file_pattern: .i18n.json
+output_directory: lib/i18n
+output_file_name: translations.g.dart
+output_format: single_file
+
+# Supported locales
+locales:
+  - de  # German (base)
+  - en  # English
+  - es  # Spanish
+  - fr  # French
+  - it  # Italian
+  - pt  # Portuguese
+  - nl  # Dutch
+  - pl  # Polish
+  - ru  # Russian
+  - zh  # Chinese
+  - ja  # Japanese
+  - ko  # Korean
+  - ar  # Arabic
+  - tr  # Turkish
+
+# GPT Translation Settings
+# Set SLANG_GPT_API_KEY environment variable before running
+gpt:
+  model: gpt-4o-mini
+  description: |
+    Inkpadu is a handwriting note-taking app for students and professionals.
+    The app allows users to draw, write, and organize notes with AI-powered features.
+    Keep translations concise and natural for a mobile app UI.

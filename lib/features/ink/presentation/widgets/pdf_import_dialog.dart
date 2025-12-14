@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_service.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Ergebnis des PDF-Import-Dialogs.
 class PdfImportResult {
@@ -96,7 +97,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
       if (bytes == null || bytes.isEmpty) {
         setState(() {
           _state = _ImportState.error;
-          _errorMessage = 'Die PDF-Datei konnte nicht gelesen werden.';
+          _errorMessage = context.t.pdfDialog.couldNotReadPdf;
         });
         return;
       }
@@ -181,13 +182,13 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
     switch (_state) {
       case _ImportState.idle:
       case _ImportState.picking:
-        return 'PDF auswählen';
+        return context.t.pdfDialog.selectPdf;
       case _ImportState.processing:
-        return 'PDF verarbeiten';
+        return context.t.pdfDialog.processPdf;
       case _ImportState.done:
-        return 'Import abgeschlossen';
+        return context.t.pdfDialog.importComplete;
       case _ImportState.error:
-        return 'Fehler';
+        return context.t.common.error;
     }
   }
 
@@ -201,7 +202,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Bitte wähle eine PDF-Datei aus...',
+              context.t.pdfDialog.selectPdfFile,
               style: theme.textTheme.bodyMedium,
             ),
           ],
@@ -236,7 +237,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
               ),
             const SizedBox(height: 8),
             Text(
-              'Die Textextraktion kann einige Sekunden pro Seite dauern.',
+              context.t.pdfDialog.textExtractionDuration,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -273,13 +274,13 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${results.length} Seite${results.length == 1 ? '' : 'n'} importiert',
+                          context.t.pdfDialog.pagesImported(count: '${results.length}'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
-                          '~${(totalChars / 1000).toStringAsFixed(1)}k Zeichen extrahiert',
+                          context.t.pdfDialog.charactersExtracted(count: (totalChars / 1000).toStringAsFixed(1)),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -292,7 +293,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Der extrahierte Text wird als Kontext für den KI-Assistenten verwendet.',
+              context.t.pdfDialog.extractedTextContext,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -311,7 +312,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
             ),
             const SizedBox(height: 16),
             Text(
-              _errorMessage ?? 'Ein unbekannter Fehler ist aufgetreten.',
+              _errorMessage ?? context.t.errors.unknownError,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.error,
               ),
@@ -325,11 +326,11 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
   String _getProgressText(PdfImportProgress progress) {
     switch (progress.stage) {
       case PdfImportStage.rendering:
-        return 'Rendere Seite ${progress.currentPage} von ${progress.totalPages}...';
+        return context.t.pdfDialog.renderingPage(current: '${progress.currentPage}', total: '${progress.totalPages}');
       case PdfImportStage.extracting:
-        return 'Extrahiere Text von Seite ${progress.currentPage} von ${progress.totalPages}...';
+        return context.t.pdfDialog.extractingPage(current: '${progress.currentPage}', total: '${progress.totalPages}');
       case PdfImportStage.parsingTasks:
-        return 'Erkenne Aufgaben...';
+        return context.t.pdfDialog.recognizingTasks;
     }
   }
 
@@ -340,7 +341,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Abbrechen'),
+            child: Text(context.t.common.cancel),
           ),
         ];
 
@@ -348,7 +349,7 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Abbrechen'),
+            child: Text(context.t.common.cancel),
           ),
         ];
 
@@ -356,12 +357,12 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Abbrechen'),
+            child: Text(context.t.common.cancel),
           ),
           FilledButton.icon(
             onPressed: _confirm,
             icon: const Icon(Icons.check),
-            label: const Text('Übernehmen'),
+            label: Text(context.t.common.apply),
           ),
         ];
 
@@ -369,11 +370,11 @@ class _PdfImportDialogState extends State<PdfImportDialog> {
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Schließen'),
+            child: Text(context.t.common.close),
           ),
           FilledButton(
             onPressed: _pickAndImport,
-            child: const Text('Erneut versuchen'),
+            child: Text(context.t.common.retry),
           ),
         ];
     }

@@ -5,6 +5,7 @@ import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Static onboarding screen that introduces the handwriting experience.
 class OnboardingPage extends StatelessWidget {
@@ -35,26 +36,26 @@ class OnboardingPage extends StatelessWidget {
                     end: Alignment.bottomRight,
                   ),
                 ),
-                child: const Align(
+                child: Align(
                   alignment: Alignment.bottomLeft,
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Willkommen bei Inkpadu',
-                          style: TextStyle(
+                          context.t.onboarding.welcome,
+                          style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
                             color: AppColors.lightText,
                           ),
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
-                          'Skizziere Ideen, schreibe Notizen und organisiere deine Gedanken mit natürlicher Handschrift.',
-                          style: TextStyle(
+                          context.t.onboarding.description,
+                          style: const TextStyle(
                             fontSize: 16,
                             color: AppColors.lightText,
                           ),
@@ -72,14 +73,14 @@ class OnboardingPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Dein digitales Notizbuch',
+                    context.t.onboarding.digitalNotebook,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Eine handschriftliche Erfahrung, optimiert für Kreativität und Fokus – ganz ohne Ablenkung.',
+                    context.t.onboarding.digitalNotebookDescription,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const Spacer(),
@@ -120,7 +121,7 @@ class _ActionRowState extends State<_ActionRow> {
         _openShell(context);
       }
     } catch (e) {
-      setState(() => _error = 'Login ($label) fehlgeschlagen');
+      setState(() => _error = context.t.errors.loginFailed(provider: label));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -152,7 +153,7 @@ class _ActionRowState extends State<_ActionRow> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                label: Text(_loading ? 'Verbinde…' : 'Mit GitHub anmelden'),
+                label: Text(_loading ? context.t.onboarding.connecting : context.t.onboarding.loginWithGitHub),
               ),
             ),
             const SizedBox(width: 12),
@@ -168,7 +169,7 @@ class _ActionRowState extends State<_ActionRow> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                label: Text(_loading ? 'Verbinde…' : 'Mit Google anmelden'),
+                label: Text(_loading ? context.t.onboarding.connecting : context.t.onboarding.loginWithGoogle),
               ),
             ),
             // Note: "Überspringen" button intentionally removed. User must sign in.

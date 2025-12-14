@@ -56,6 +56,85 @@ rules:
       - "List<List<Offset?>> paths;"
       - "List<List<Offset>> strokes;"
 
+  # --- LOKALISIERUNG (i18n) ---
+
+  - name: UseLocalizedStrings
+    description: "Lokalisierung: ALLE sichtbaren Texte MÜSSEN über das slang-Übersetzungssystem (`context.t.xxx`) eingefügt werden."
+    languages: [dart]
+    severity: error
+    recommendation: |
+      NIEMALS hardcoded Strings für UI-Texte verwenden!
+      
+      **So geht's richtig:**
+      1. Füge den neuen String zu `lib/i18n/en.i18n.json` hinzu (Englisch als Basissprache)
+      2. Füge die deutsche Übersetzung zu `lib/i18n/de.i18n.json` hinzu
+      3. Führe `dart run slang` aus, um die Dart-Dateien zu generieren
+      4. Verwende im Code: `context.t.section.keyName`
+      
+      **Beispiel:**
+      ```json
+      // en.i18n.json
+      {
+        "common": {
+          "save": "Save",
+          "cancel": "Cancel"
+        }
+      }
+      ```
+      
+      ```dart
+      // Im Widget
+      Text(context.t.common.save)  // ✅ Richtig
+      Text('Speichern')            // ❌ Falsch!
+      ```
+      
+      **Für Strings mit Parametern:**
+      ```json
+      {
+        "notes": {
+          "deleteConfirm(title)": "Delete \"${title}\"?"
+        }
+      }
+      ```
+      ```dart
+      Text(context.t.notes.deleteConfirm(title: note.title))
+      ```
+    do_not:
+      - "Text('{{German text}}')"
+      - "label: '{{German text}}'"
+      - "title: '{{German text}}'"
+      - "subtitle: '{{German text}}'"
+      - "hintText: '{{German text}}'"
+      - "labelText: '{{German text}}'"
+      - "tooltip: '{{German text}}'"
+
+  - name: LocalizationFileStructure
+    description: "Lokalisierung: Beschreibt die Struktur der Übersetzungsdateien."
+    languages: [json]
+    recommendation: |
+      Die Übersetzungsdateien befinden sich in `lib/i18n/`.
+      
+      **Verfügbare Sektionen:**
+      - `app`: App-Name und Tagline
+      - `common`: Häufig verwendete Texte (Save, Cancel, Delete, etc.)
+      - `auth`: Login/Logout-bezogene Texte
+      - `notes`: Notiz-bezogene Texte
+      - `drawing`: Zeichenwerkzeug-bezogene Texte
+      - `ai`: KI-Feature-bezogene Texte
+      - `pdf`: PDF-Import/Export-bezogene Texte
+      - `settings`: Einstellungsseite-bezogene Texte
+      - `errors`: Fehlermeldungen
+      - `onboarding`: Onboarding-Seite-bezogene Texte
+      - `editor`: Editor-Einstellungen und Persona-bezogene Texte
+      - `pdfDialog`: PDF-Dialog-bezogene Texte
+      
+      **Neue Sektion hinzufügen:**
+      Wenn du eine neue Feature-Sektion brauchst, füge sie zu denn Sprachdateien hinzu:
+      - en.i18n.json (Englisch - Pflicht)
+      - de.i18n.json (Deutsch - Pflicht)
+
+# --- DESIGN-RICHTLINIEN ---
+
 Hintergrund (Dark Mode): Sehr dunkles Blau (#1A2A3A)
 
 Hintergrund (Light Mode): Helles Grau/Off-White (#F5F5F5)
@@ -65,5 +144,6 @@ Textfarbe: Helles Grau auf dunklem Grund (#E0E0E0), dunkles Grau auf hellem Grun
 Primäre Akzentfarbe: Ein warmer Goldton (#FFC107)
 
 Sekundäre Akzentfarbe: Ein sanftes Grün (#2ECC71)
-keep the ui simple and clean.
-good balance between known icon and text.
+
+Keep the UI simple and clean.
+Good balance between known icon and text.

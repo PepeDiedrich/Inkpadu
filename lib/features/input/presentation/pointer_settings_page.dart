@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Seite zum Konfigurieren der erlaubten Eingabequellen.
 class PointerSettingsPage extends StatefulWidget {
@@ -18,34 +19,34 @@ class _PointerSettingsPageState extends State<PointerSettingsPage> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Eingabegeräte')),
+      appBar: AppBar(title: Text(context.t.settings.inputDevices)),
       body: ListView(
         key: const PageStorageKey('pointer_settings_list'),
         padding: const EdgeInsets.all(20),
         children: [
-          Text('Eingabegeräte', style: textTheme.titleMedium),
+          Text(context.t.settings.inputDevices, style: textTheme.titleMedium),
           const SizedBox(height: 12),
           _ToggleTile(
-            label: 'Stift',
+            label: context.t.settings.pen,
             value: settings.allowStylus,
             onChanged: (value) =>
                 setState(() => settings.update(stylus: value)),
           ),
           _ToggleTile(
-            label: 'Touch',
+            label: context.t.settings.touch,
             value: settings.allowTouch,
             onChanged: (value) => setState(() => settings.update(touch: value)),
           ),
           _ToggleTile(
-            label: 'Maus',
+            label: context.t.settings.mouse,
             value: settings.allowMouse,
             onChanged: (value) => setState(() => settings.update(mouse: value)),
           ),
           const Divider(height: 32),
-          Text('Automatisierung', style: textTheme.titleMedium),
+          Text(context.t.settings.automation, style: textTheme.titleMedium),
           const SizedBox(height: 12),
           _ToggleTile(
-            label: 'Automatisch auf Stift sperren',
+            label: context.t.settings.autoLockOnStylus,
             value: settings.autoLockOnStylus,
             onChanged: (value) =>
                 setState(() => settings.update(autoLock: value)),
@@ -56,7 +57,7 @@ class _PointerSettingsPageState extends State<PointerSettingsPage> {
               alignment: Alignment.centerLeft,
               child: TextButton(
                 onPressed: () => setState(() => settings.resetStylusLock()),
-                child: const Text('Stift-Sperre aufheben'),
+                child: Text(context.t.settings.unlockPen),
               ),
             ),
           ],

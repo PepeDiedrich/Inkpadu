@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Ergebnis des Metadaten-Dialogs.
 class NoteMetadataResult {
@@ -71,7 +72,7 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final titleText = widget.isEditing ? 'Notiz anpassen' : 'Notiz anlegen';
+    final titleText = widget.isEditing ? context.t.notes.adjustTitlePaper : context.t.notes.newNote;
     final segments = NotePaperStyle.values
         .map(
           (style) => ButtonSegment<NotePaperStyle>(
@@ -89,14 +90,14 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'Abbrechen',
+          tooltip: context.t.common.cancel,
           icon: const Icon(Icons.close),
         ),
         title: Text(titleText),
         actions: [
           TextButton(
             onPressed: _submit,
-            child: Text(widget.isEditing ? 'Speichern' : 'Weiter'),
+            child: Text(widget.isEditing ? context.t.common.save : context.t.common.next),
           ),
           const SizedBox(width: 8),
         ],
@@ -116,18 +117,16 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
                     autofocus: true,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
-                    decoration: const InputDecoration(
-                      labelText: 'Titel',
-                      hintText: 'Titel (optional)',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.t.editor.title,
+                      hintText: '${context.t.editor.title} (${context.t.common.no})',
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    'Papierstil',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    'Paper style',
+                    style: theme.textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<NotePaperStyle>(
@@ -155,14 +154,14 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
             Expanded(
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Abbrechen'),
+                child: Text(context.t.common.cancel),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton(
                 onPressed: _submit,
-                child: Text(widget.isEditing ? 'Speichern' : 'Weiter'),
+                child: Text(widget.isEditing ? context.t.common.save : context.t.common.next),
               ),
             ),
           ],

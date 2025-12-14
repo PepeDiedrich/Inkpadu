@@ -78,7 +78,6 @@ void main() {
           updatedAt: testTime,
           pages: pages,
           paperStyle: NotePaperStyle.plain,
-          lastOpenedPageIndex: 0,
         );
         expect(note.currentPage, pages[0]);
       });

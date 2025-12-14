@@ -113,8 +113,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
       final bool updated = widget.controller.refreshFromSource();
       debugPrint('[AssistantPanel] Controller refresh result: $updated');
       if (updated && mounted) {
-        final String? fullPdfText = _collectAllPdfText(widget.controller.note.pages);
-        debugPrint('[AssistantPanel] Total PDF text: ${fullPdfText?.length ?? 0} chars');
         setState(() {
           // UI neu aufbauen um den aktualisierten PDF-Text anzuzeigen
         });
@@ -217,11 +215,11 @@ class _AssistantPanelState extends State<AssistantPanel> {
         historySummary: historySummary,
       );
 
-      // Sammle PDF-Text von ALLEN Seiten, nicht nur der aktuellen
-      final String? fullPdfText = _collectAllPdfText(pages);
+      // Nutze nur den Text der aktuellen Seite als Kontext
+      final String? pagePdfText = currentPage.importedPdfText;
 
       final int pdfContextTokens =
-          _promptManager.estimatePdfContextTokens(fullPdfText);
+          _promptManager.estimatePdfContextTokens(pagePdfText);
 
       final AzureAssistantPreparedRequest preparedRequest =
           _assistantService.prepareRequest(
@@ -229,7 +227,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
           systemPrompt: systemPrompt,
           userContent: userContent,
           maxCompletionTokens: _maxCompletionTokens,
-          pdfContext: fullPdfText,
+          pdfContext: pagePdfText,
         ),
       );
 
@@ -429,11 +427,14 @@ class _AssistantPanelState extends State<AssistantPanel> {
         ? widget.controller.currentAssistantHistory
         : const <AssistantMessage>[];
 
-    // PDF-Text von ALLEN Seiten sammeln (nicht nur der aktuellen)
-    final String? importedPdfText = widget.controller.isInitialized &&
-            widget.controller.pages.isNotEmpty
-        ? _collectAllPdfText(widget.controller.pages)
-        : null;
+    // PDF-Text nur im Debug-Modus anzeigen und nur von der aktuellen Seite
+    String? importedPdfText;
+    if (debugModeEnabled && widget.controller.isInitialized) {
+      final int pageIndex = widget.controller.currentPageIndex;
+      if (pageIndex >= 0 && pageIndex < widget.controller.pages.length) {
+        importedPdfText = widget.controller.pages[pageIndex].importedPdfText;
+      }
+    }
 
     final List<Widget> listViewChildren = <Widget>[
       AssistantConversationSection(
@@ -764,31 +765,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
           : Icons.keyboard_double_arrow_left;
     }
     return Icons.open_with;
-  }
-
-  /// Sammelt den PDF-Text von allen Seiten und fügt ihn zusammen.
-  /// 
-  /// Jede Seite wird mit "--- Seite X ---" markiert, damit der Assistent
-  /// weiß, welcher Text zu welcher Seite gehört.
-  String? _collectAllPdfText(List<NotePage> pages) {
-    final List<String> pdfTexts = <String>[];
-    
-    for (int i = 0; i < pages.length; i++) {
-      final String? pageText = pages[i].importedPdfText;
-      if (pageText != null && pageText.trim().isNotEmpty) {
-        if (pages.length > 1) {
-          pdfTexts.add('--- Seite ${i + 1} ---\n$pageText');
-        } else {
-          pdfTexts.add(pageText);
-        }
-      }
-    }
-    
-    if (pdfTexts.isEmpty) {
-      return null;
-    }
-    
-    return pdfTexts.join('\n\n');
   }
 }
 

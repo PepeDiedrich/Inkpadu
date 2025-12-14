@@ -4,6 +4,7 @@ import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_
 import 'package:ai_handwriting_app/features/editor/presentation/editor_settings_page.dart';
 import 'package:ai_handwriting_app/features/editor/presentation/assistant_persona_settings_page.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Placeholder settings screen showcasing configurable sections.
 class SettingsPage extends StatelessWidget {
@@ -13,79 +14,79 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Theme.of(context).colorScheme.surface,
-    appBar: AppBar(title: const Text('Einstellungen')),
+    appBar: AppBar(title: Text(context.t.settings.title)),
     body: ListView(
       key: const PageStorageKey('settings_list'),
       padding: const EdgeInsets.all(20),
       children: [
-        const _SettingsSection(
-          title: 'Allgemein',
+        _SettingsSection(
+          title: context.t.settings.general,
           tiles: [
             _SettingsTile(
               icon: Icons.palette_outlined,
-              title: 'Theme',
-              subtitle: 'Hell · Dunkel · System',
+              title: context.t.settings.theme,
+              subtitle: context.t.settings.themeSubtitle,
             ),
             _SettingsTile(
               icon: Icons.translate,
-              title: 'Sprache',
-              subtitle: 'Deutsch (beta)',
+              title: context.t.settings.language,
+              subtitle: context.t.settings.languageSubtitle,
             ),
           ],
         ),
         const SizedBox(height: 24),
         _SettingsSection(
-          title: 'Eingabe',
+          title: context.t.settings.input,
           tiles: [
             _SettingsTile(
               icon: Icons.tune,
-              title: 'Eingabegerät',
-              subtitle: 'Stift · Touch · Maus',
+              title: context.t.settings.inputDevices,
+              subtitle: context.t.settings.inputDeviceSubtitle,
               onTap: () => _openPointerSettings(context),
             ),
             _SettingsTile(
               icon: Icons.view_sidebar_outlined,
-              title: 'Notiz-Editor',
-              subtitle: 'Seitenpanel links · rechts',
+              title: context.t.settings.noteEditor,
+              subtitle: context.t.settings.noteEditorSubtitle,
               onTap: () => _openEditorSettings(context),
             ),
-            const _SettingsTile(
+            _SettingsTile(
               icon: Icons.brush_outlined,
-              title: 'Stiftstärken',
-              subtitle: 'Dünn · Medium · Fett',
+              title: context.t.settings.strokeWidths,
+              subtitle: context.t.settings.strokeWidthsSubtitle,
             ),
-            const _SettingsTile(
+            _SettingsTile(
               icon: Icons.gesture_outlined,
-              title: 'Handflächen-Erkennung',
-              subtitle: 'Verhindert ungewollte Eingaben',
+              title: context.t.settings.palmRejection,
+              subtitle: context.t.settings.palmRejectionSubtitle,
             ),
           ],
         ),
         const SizedBox(height: 24),
         _SettingsSection(
-          title: 'KI-Assistent',
+          title: context.t.ai.assistant,
           tiles: [
             _SettingsTile(
               icon: Icons.psychology_outlined,
-              title: 'Persona',
-              subtitle: 'Stil des Assistenten wählen',
+              title: context.t.ai.persona,
+              subtitle: context.t.ai.personaSubtitle,
               onTap: () => _openPersonaSettings(context),
             ),
           ],
         ),
         const SizedBox(height: 24),
-        const _SettingsSection(
-          title: 'Cloud & Synchronisation',
+        _SettingsSection(
+          title: context.t.settings.cloud,
           tiles: [
             _SettingsTile(
               icon: Icons.cloud_outlined,
-              title: 'Speicherziel',
-              subtitle: 'Inkpadu Cloud (kostenlos)',
+              title: context.t.settings.storageTarget,
+              subtitle: context.t.settings.storageSubtitle,
             ),
             _SettingsTile(
               icon: Icons.security_outlined,
-              title: 'Verschlüsselung',
-              subtitle: 'Ende-zu-Ende aktiv',
+              title: context.t.settings.encryption,
+              subtitle: context.t.settings.encryptionSubtitle,
             ),
           ],
         ),
@@ -121,7 +122,7 @@ class _LogoutSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Konto',
+          context.t.settings.account,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
@@ -134,7 +135,7 @@ class _LogoutSection extends StatelessWidget {
               await auth.logout();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Abgemeldet')), );
+                  SnackBar(content: Text(context.t.common.loggedOut)), );
               }
             },
             child: Padding(
@@ -145,7 +146,7 @@ class _LogoutSection extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
-                      'Abmelden',
+                      context.t.auth.logout,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: Theme.of(context).colorScheme.error,

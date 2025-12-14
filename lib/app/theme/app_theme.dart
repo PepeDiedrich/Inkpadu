@@ -10,10 +10,10 @@ class AppTheme {
         .copyWith(
           primary: AppColors.primaryAccent,
           secondary: AppColors.secondaryAccent,
-          surface: AppColors.lightBackground,
+          surface: AppColors.surface,
           onSurface: AppColors.darkText,
-          onPrimary: AppColors.darkText,
-          onSecondary: AppColors.darkText,
+          onPrimary: AppColors.onPrimary,
+          onSecondary: AppColors.onPrimary,
         );
 
     final base = ThemeData(
@@ -39,13 +39,13 @@ class AppTheme {
         backgroundColor: AppColors.primaryAccent,
       ),
       cardTheme: base.cardTheme.copyWith(
-        color: Colors.white,
+        color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
         backgroundColor: AppColors.primaryAccent,
-        foregroundColor: AppColors.darkText,
+        foregroundColor: AppColors.onPrimary,
       ),
       navigationBarTheme: base.navigationBarTheme.copyWith(
         indicatorColor: AppColors.primaryAccent.withValues(alpha: 0.2),
@@ -66,8 +66,8 @@ class AppTheme {
           secondary: AppColors.secondaryAccent,
           surface: AppColors.darkBackground,
           onSurface: AppColors.lightText,
-          onPrimary: AppColors.darkText,
-          onSecondary: AppColors.darkText,
+          onPrimary: AppColors.onPrimary,
+          onSecondary: AppColors.onPrimary,
         );
 
     final base = ThemeData(
@@ -99,7 +99,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
         backgroundColor: AppColors.primaryAccent,
-        foregroundColor: AppColors.darkText,
+        foregroundColor: AppColors.onPrimary,
       ),
       navigationBarTheme: base.navigationBarTheme.copyWith(
         indicatorColor: AppColors.primaryAccent.withValues(alpha: 0.3),

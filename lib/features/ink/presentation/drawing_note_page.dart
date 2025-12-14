@@ -15,6 +15,7 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 
 /// Page for editing/drawing a single handwritten note.
@@ -120,9 +121,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
     // Show loading indicator
     scaffold.showSnackBar(
-      const SnackBar(
-        content: Text('PDF wird erstellt...'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(context.t.pdf.exporting),
+        duration: const Duration(seconds: 1),
       ),
     );
 
@@ -133,7 +134,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       if (!mounted) return;
       scaffold.showSnackBar(
         SnackBar(
-          content: Text('PDF-Export fehlgeschlagen: $e'),
+          content: Text(context.t.pdf.exportFailed(error: e.toString())),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );

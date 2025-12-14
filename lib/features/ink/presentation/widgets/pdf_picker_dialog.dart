@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdfx/pdfx.dart';
 
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
+
 /// Ergebnis des PDF-Auswahl-Dialogs.
 class PdfPickerResult {
   /// Erstellt ein neues Auswahl-Ergebnis.
@@ -76,7 +78,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
       if (bytes == null || bytes.isEmpty) {
         setState(() {
           _state = _PickerState.error;
-          _errorMessage = 'Die PDF-Datei konnte nicht gelesen werden.';
+          _errorMessage = context.t.pdfDialog.couldNotReadPdf;
         });
         return;
       }
@@ -153,13 +155,13 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
   String _getTitle() {
     switch (_state) {
       case _PickerState.picking:
-        return 'PDF auswählen';
+        return context.t.pdfDialog.selectPdf;
       case _PickerState.analyzing:
-        return 'PDF analysieren';
+        return context.t.pdfDialog.analyzePdf;
       case _PickerState.ready:
-        return 'Bereit';
+        return context.t.pdfDialog.ready;
       case _PickerState.error:
-        return 'Fehler';
+        return context.t.common.error;
     }
   }
 
@@ -172,7 +174,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Bitte wähle eine PDF-Datei aus...',
+              context.t.pdfDialog.selectPdfFile,
               style: theme.textTheme.bodyMedium,
             ),
           ],
@@ -196,7 +198,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
               const SizedBox(height: 8),
             ],
             Text(
-              'PDF wird analysiert...',
+              context.t.pdfDialog.analyzingPdf,
               style: theme.textTheme.bodyMedium,
             ),
           ],
@@ -213,12 +215,12 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
             ),
             const SizedBox(height: 16),
             Text(
-              '${_pageCount ?? 0} Seite${_pageCount == 1 ? '' : 'n'} gefunden',
+              context.t.pdfDialog.pagesFound(count: '${_pageCount ?? 0}'),
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Textextraktion erfolgt im Hintergrund.',
+              context.t.pdfDialog.textExtractionBackground,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -237,7 +239,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
             ),
             const SizedBox(height: 16),
             Text(
-              _errorMessage ?? 'Ein unbekannter Fehler ist aufgetreten.',
+              _errorMessage ?? context.t.errors.unknownError,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.error,
               ),
@@ -256,7 +258,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Abbrechen'),
+            child: Text(context.t.common.cancel),
           ),
         ];
 
@@ -264,7 +266,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Schließen'),
+            child: Text(context.t.common.close),
           ),
           FilledButton(
             onPressed: () {
@@ -274,7 +276,7 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
               });
               _pickPdf();
             },
-            child: const Text('Erneut versuchen'),
+            child: Text(context.t.common.retry),
           ),
         ];
     }

@@ -10,6 +10,7 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_servic
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/pdf_picker_dialog.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.
 class HomePage extends StatefulWidget {
@@ -60,17 +61,17 @@ class _HomePageState extends State<HomePage> {
               ),
               ListTile(
                 leading: const Icon(Icons.draw_outlined),
-                title: const Text('Notiz öffnen'),
+                title: Text(context.t.notes.openNote),
                 onTap: () => Navigator.of(context).pop(_NoteAction.open),
               ),
               ListTile(
                 leading: const Icon(Icons.edit_note),
-                title: const Text('Titel & Papier anpassen'),
+                title: Text(context.t.notes.adjustTitlePaper),
                 onTap: () => Navigator.of(context).pop(_NoteAction.metadata),
               ),
               ListTile(
                 leading: const Icon(Icons.picture_as_pdf_outlined),
-                title: const Text('Als PDF exportieren'),
+                title: Text(context.t.pdf.export),
                 onTap: () => Navigator.of(context).pop(_NoteAction.exportPdf),
               ),
               ListTile(
@@ -79,7 +80,7 @@ class _HomePageState extends State<HomePage> {
                   color: theme.colorScheme.error,
                 ),
                 title: Text(
-                  'Notiz löschen',
+                  context.t.notes.deleteNote,
                   style: textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.error,
                     fontWeight: FontWeight.w600,
@@ -119,9 +120,9 @@ class _HomePageState extends State<HomePage> {
 
     // Zeige Ladeanzeige
     scaffold.showSnackBar(
-      const SnackBar(
-        content: Text('PDF wird erstellt...'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(context.t.pdf.exporting),
+        duration: const Duration(seconds: 1),
       ),
     );
 
@@ -132,7 +133,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       scaffold.showSnackBar(
         SnackBar(
-          content: Text('PDF-Export fehlgeschlagen: $e'),
+          content: Text(context.t.pdf.exportFailed(error: e.toString())),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
@@ -185,7 +186,7 @@ class _HomePageState extends State<HomePage> {
                     Icon(Icons.add_circle_outline, color: colorScheme.primary),
                     const SizedBox(width: 12),
                     Text(
-                      'Neue Notiz erstellen',
+                      context.t.notes.createNew,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -195,15 +196,15 @@ class _HomePageState extends State<HomePage> {
               ),
               ListTile(
                 leading: const Icon(Icons.note_add_outlined),
-                title: const Text('Leere Notiz'),
-                subtitle: const Text('Starte mit einer leeren Seite'),
+                title: Text(context.t.notes.emptyNote),
+                subtitle: Text(context.t.notes.emptyNoteSubtitle),
                 onTap: () => Navigator.of(context).pop('empty'),
               ),
               if (PdfImportService.isAvailable)
                 ListTile(
                   leading: const Icon(Icons.picture_as_pdf),
-                  title: const Text('PDF importieren'),
-                  subtitle: const Text('Text wird automatisch extrahiert'),
+                  title: Text(context.t.pdf.import),
+                  subtitle: Text(context.t.pdf.importSubtitle),
                   onTap: () => Navigator.of(context).pop('pdf'),
                 ),
               const SizedBox(height: 12),
@@ -299,16 +300,16 @@ class _HomePageState extends State<HomePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Notiz löschen'),
-        content: Text('Möchten Sie "$title" wirklich löschen?'),
+        title: Text(context.t.notes.deleteNote),
+        content: Text(context.t.notes.deleteNoteConfirm(title: title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(context.t.common.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Löschen'),
+            child: Text(context.t.common.delete),
           ),
         ],
       ),
@@ -327,14 +328,14 @@ class _HomePageState extends State<HomePage> {
   final notes = InkNotesScope.of(context).notes;
   final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Notizen')),
+      appBar: AppBar(title: Text(context.t.notes.title)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateOptions(),
         icon: const Icon(Icons.add),
-        label: const Text('Neue Notiz'),
+        label: Text(context.t.notes.newNote),
       ),
       body: notes.isEmpty
-          ? const Center(child: Text('Noch keine handschriftlichen Notizen'))
+          ? Center(child: Text(context.t.notes.noNotes))
       : ListView.builder(
         key: const PageStorageKey('home_list'),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -361,11 +362,9 @@ class _HomePageState extends State<HomePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          tooltip: 'Notiz löschen',
+                          tooltip: context.t.notes.deleteNoteTooltip,
                           icon: const Icon(Icons.delete_outline),
-                          style: IconButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
-                          ),
+                          color: theme.colorScheme.error,
                           onPressed: () => _deleteNote(n.id, n.title),
                         ),
                         const Icon(Icons.chevron_right),
@@ -381,7 +380,7 @@ class _HomePageState extends State<HomePage> {
   String _fmt(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'Gerade eben';
+    if (diff.inMinutes < 1) return context.t.common.justNow;
     if (diff.inHours < 1) return '${diff.inMinutes} min';
     if (diff.inHours < 24) return '${diff.inHours} h';
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
