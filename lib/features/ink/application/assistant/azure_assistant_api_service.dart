@@ -7,13 +7,13 @@ import 'package:appwrite/models.dart';
 import 'package:http/http.dart' as http;
 
 /// Verwaltet Authentifizierung, Request-Aufbau und Streaming gegen Azure OpenAI.
-/// 
+///
 /// Diese Klasse kümmert sich um die Kommunikation mit der Azure OpenAI API,
 /// einschließlich Token-Verwaltung, Request-Vorbereitung, Streaming und
 /// Antwort-Verarbeitung.
 class AzureAssistantApiService {
   /// Erstellt eine neue Instanz des Azure Assistant API Service.
-  /// 
+  ///
   /// Die Parameter ermöglichen die Konfiguration der Azure OpenAI Verbindung.
   AzureAssistantApiService({
     required Functions functions,
@@ -21,11 +21,11 @@ class AzureAssistantApiService {
     String azureResourceName = 'peped-mgjk16o0-eastus2',
     String azureDeploymentName = 'gpt-5-nano',
     String azureApiVersion = '2025-01-01-preview',
-  })  : _functions = functions,
-        _functionId = functionId,
-        _azureResourceName = azureResourceName,
-        _azureDeploymentName = azureDeploymentName,
-        _azureApiVersion = azureApiVersion;
+  }) : _functions = functions,
+       _functionId = functionId,
+       _azureResourceName = azureResourceName,
+       _azureDeploymentName = azureDeploymentName,
+       _azureApiVersion = azureApiVersion;
 
   final Functions _functions;
   final String _functionId;
@@ -34,6 +34,13 @@ class AzureAssistantApiService {
   final String _azureApiVersion;
 
   static const JsonEncoder _prettyEncoder = JsonEncoder.withIndent('  ');
+
+  static String? _cachedAccessToken;
+  static DateTime? _cachedTokenExpiry;
+  // Sicherheits-Puffer: Token 30 Sekunden früher als abgelaufen betrachten
+  static const Duration _tokenSafetyBuffer = Duration(seconds: 30);
+  // Fallback-Gültigkeit, falls keine Expiration vom Server kommt (5 Minuten)
+  static const Duration _defaultTokenValidity = Duration(minutes: 5);
 
   /// Baut die API-Payload auf und erzeugt eine Vorschau zur Anzeige im UI.
   AzureAssistantPreparedRequest prepareRequest(AzureAssistantRequest request) {
@@ -46,12 +53,18 @@ class AzureAssistantApiService {
     );
   }
 
-  /// Startet einen Streaming-Aufruf bei Azure und liefert das Endergebnis.
-  Future<AzureAssistantResult> streamCompletion({
-    required AzureAssistantPreparedRequest preparedRequest,
-    required void Function(String aggregatedText) onStreamUpdate,
-    void Function()? onStreamStarted,
-  }) async {
+  /// Ruft ein valides Access-Token ab (aus Cache oder neu vom Server).
+  ///
+  /// Diese Methode kann präventiv aufgerufen werden, um die Wartezeit beim
+  /// eigentlichen Request zu verkürzen.
+  Future<String> getAccessToken() async {
+    final DateTime now = DateTime.now();
+    if (_cachedAccessToken != null &&
+        _cachedTokenExpiry != null &&
+        now.isBefore(_cachedTokenExpiry!.subtract(_tokenSafetyBuffer))) {
+      return _cachedAccessToken!;
+    }
+
     final Execution execution = await _createExecution();
     final String responseBody = await _resolveExecutionResponse(execution);
     final Map<String, dynamic> tokenResponse =
@@ -64,6 +77,29 @@ class AzureAssistantApiService {
     }
 
     final String token = tokenResponse['accessToken'] as String;
+    // Prüfen, ob eine Ablaufzeit ("expiresIn" in Sekunden oder "expiresAt" Timestamp) mitkommt
+    // Falls nicht, Standardwert nutzen.
+    final dynamic expiresIn = tokenResponse['expiresIn'];
+    Duration validity = _defaultTokenValidity;
+    if (expiresIn is int) {
+      validity = Duration(seconds: expiresIn);
+    }
+
+    _cachedAccessToken = token;
+    _cachedTokenExpiry = now.add(validity);
+
+    return token;
+  }
+
+  /// Startet einen Streaming-Aufruf bei Azure und liefert das Endergebnis.
+  Future<AzureAssistantResult> streamCompletion({
+    required AzureAssistantPreparedRequest preparedRequest,
+    required void Function(String aggregatedText) onStreamUpdate,
+    void Function()? onStreamStarted,
+    String? preloadedToken,
+  }) async {
+    final String token = preloadedToken ?? await getAccessToken();
+
     final Uri url = Uri.parse(
       'https://$_azureResourceName.openai.azure.com/openai/deployments/$_azureDeploymentName/chat/completions?api-version=$_azureApiVersion',
     );
@@ -83,11 +119,20 @@ class AzureAssistantApiService {
         })
         ..body = json.encode(payload);
 
-      final http.StreamedResponse streamedResponse = await client.send(httpRequest);
+      final http.StreamedResponse streamedResponse = await client.send(
+        httpRequest,
+      );
 
       if (streamedResponse.statusCode != 200) {
         final String errorBody = await streamedResponse.stream.bytesToString();
-        throw Exception('Azure-Fehler: ${streamedResponse.statusCode} $errorBody');
+        // Falls Token abgelaufen/ungültig (401), könnten wir hier den Cache invalidieren und retry machen.
+        // Vereinfacht werfen wir den Fehler.
+        if (streamedResponse.statusCode == 401) {
+          _cachedAccessToken = null;
+        }
+        throw Exception(
+          'Azure-Fehler: ${streamedResponse.statusCode} $errorBody',
+        );
       }
 
       onStreamStarted?.call();
@@ -116,8 +161,10 @@ class AzureAssistantApiService {
           continue;
         }
 
-        final String? delta =
-            _extractDeltaContent(chunk, preserveWhitespace: true);
+        final String? delta = _extractDeltaContent(
+          chunk,
+          preserveWhitespace: true,
+        );
         if (delta != null && delta.isNotEmpty) {
           accumulatedContent += delta;
           onStreamUpdate(accumulatedContent);
@@ -132,11 +179,11 @@ class AzureAssistantApiService {
       client.close();
     }
 
-  final String resolvedAnswer = accumulatedContent.trim().isNotEmpty
-    ? accumulatedContent.trim()
-    : finishReason == 'length'
-      ? '⚠️ Antwort wurde nach ${preparedRequest.request.maxCompletionTokens} Tokens abgeschnitten.'
-            : 'Das Modell hat keine Antwort gesendet.';
+    final String resolvedAnswer = accumulatedContent.trim().isNotEmpty
+        ? accumulatedContent.trim()
+        : finishReason == 'length'
+        ? '⚠️ Antwort wurde nach ${preparedRequest.request.maxCompletionTokens} Tokens abgeschnitten.'
+        : 'Das Modell hat keine Antwort gesendet.';
 
     return AzureAssistantResult(
       answer: resolvedAnswer,
@@ -145,10 +192,8 @@ class AzureAssistantApiService {
     );
   }
 
-  Future<Execution> _createExecution() => _functions.createExecution(
-    functionId: _functionId,
-    xasync: false,
-  );
+  Future<Execution> _createExecution() =>
+      _functions.createExecution(functionId: _functionId, xasync: false);
 
   Future<String> _resolveExecutionResponse(Execution execution) async {
     if (execution.responseBody.trim().isNotEmpty) {
@@ -200,10 +245,10 @@ class AzureAssistantApiService {
   }
 
   bool _hasTerminalResponse(Execution execution) =>
-    execution.responseBody.trim().isNotEmpty ||
-    execution.errors.trim().isNotEmpty ||
-    execution.status == appwrite_enums.ExecutionStatus.completed ||
-    execution.status == appwrite_enums.ExecutionStatus.failed;
+      execution.responseBody.trim().isNotEmpty ||
+      execution.errors.trim().isNotEmpty ||
+      execution.status == appwrite_enums.ExecutionStatus.completed ||
+      execution.status == appwrite_enums.ExecutionStatus.failed;
 
   Map<String, dynamic> _buildAzureRequest(AzureAssistantRequest request) {
     final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[
@@ -303,10 +348,7 @@ class AzureAssistantApiService {
     return null;
   }
 
-  String? _normalizeContent(
-    dynamic content, {
-    bool trimWhitespace = true,
-  }) {
+  String? _normalizeContent(dynamic content, {bool trimWhitespace = true}) {
     if (content is String) {
       if (trimWhitespace) {
         final String trimmed = content.trim();
@@ -356,10 +398,7 @@ class AzureAssistantApiService {
     return null;
   }
 
-  String? _resolvedText(
-    dynamic value, {
-    bool trimWhitespace = true,
-  }) {
+  String? _resolvedText(dynamic value, {bool trimWhitespace = true}) {
     if (value is String) {
       if (trimWhitespace) {
         final String trimmed = value.trim();
@@ -397,7 +436,7 @@ class AzureAssistantApiService {
 /// Eingabestruktur für einen Chat-Vorgang beim Azure-Deployment.
 class AzureAssistantRequest {
   /// Erstellt eine neue Request-Struktur für Azure OpenAI.
-  /// 
+  ///
   /// [systemPrompt] ist die System-Anweisung für das Modell.
   /// [userContent] enthält die Nachrichteninhalte des Benutzers (möglicherweise mit Bildern).
   /// [maxCompletionTokens] begrenzt die Länge der Antwort.
@@ -427,7 +466,7 @@ class AzureAssistantRequest {
 /// Enthält die serialisierte Payload inklusive Vorschau für Debug-Zwecke.
 class AzureAssistantPreparedRequest {
   /// Erstellt eine vorbereitet Request-Struktur mit Payload und Vorschau.
-  /// 
+  ///
   /// Diese Struktur wird verwendet, um die Payload vor dem Absenden an Azure
   /// zu debuggen und anzuzeigen.
   const AzureAssistantPreparedRequest({
@@ -449,7 +488,7 @@ class AzureAssistantPreparedRequest {
 /// Ergebnis eines Streaming-Aufrufs inklusive Abschlussgrund.
 class AzureAssistantResult {
   /// Erstellt eine neue Result-Struktur für die Antwort von Azure OpenAI.
-  /// 
+  ///
   /// [answer] enthält die Antwort des Modells.
   /// [finishReason] gibt den Grund für das Abschließen an (z.B. 'length' bei Tokenüberlauf).
   /// [payloadPreview] enthält die Debug-Vorschau der Payload.

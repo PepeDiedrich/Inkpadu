@@ -167,6 +167,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final String? currentSignature =
         AssistantClusterUtils.computeClusterSignature(availableClusters);
 
+    // Starte Token-Abruf sofort und parallel zur Bildverarbeitung
+    final Future<String> tokenFuture = _assistantService.getAccessToken();
+
     final String questionLabel = _questionLabelFor(type);
     final String prompt = _promptManager.promptTemplateFor(type);
 
@@ -246,9 +249,13 @@ class _AssistantPanelState extends State<AssistantPanel> {
         });
       }
 
+      // Warten auf Token, falls noch nicht fertig
+      final String token = await tokenFuture;
+
       final AzureAssistantResult result = await _assistantService
           .streamCompletion(
             preparedRequest: preparedRequest,
+            preloadedToken: token,
             onStreamUpdate: (String text) {
               _scheduleStreamingUpdate(text);
               if (mounted && _statusMessage != null) {
