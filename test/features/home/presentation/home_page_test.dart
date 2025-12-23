@@ -14,6 +14,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await ensureTestDatabaseFactory();
+    LocaleSettings.setLocale(AppLocale.de);
   });
 
   setUp(() async {

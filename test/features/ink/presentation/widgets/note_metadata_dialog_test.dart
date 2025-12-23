@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUpAll(() {
+    LocaleSettings.setLocale(AppLocale.de);
+  });
+
   group('NoteMetadataResult', () {
     test('stores title and paper style', () {
       const result = NoteMetadataResult(
