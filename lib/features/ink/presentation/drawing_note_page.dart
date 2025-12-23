@@ -115,14 +115,18 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
 
   Future<void> _exportNoteToPdf(DrawingNoteController controller) async {
     final scaffold = ScaffoldMessenger.of(context);
+    final exportingText = context.t.pdf.exporting;
+    final errorColor = Theme.of(context).colorScheme.error;
 
     // Persist current strokes before export
     controller.persistDrawing();
 
+    if (!mounted) return;
+
     // Show loading indicator
     scaffold.showSnackBar(
       SnackBar(
-        content: Text(context.t.pdf.exporting),
+        content: Text(exportingText),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -135,7 +139,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       scaffold.showSnackBar(
         SnackBar(
           content: Text(context.t.pdf.exportFailed(error: e.toString())),
-          backgroundColor: Theme.of(context).colorScheme.error,
+          backgroundColor: errorColor,
         ),
       );
     }
@@ -215,9 +219,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     }
   }
 
-  void _handleStrokeClustersChanged(
-    List<StrokeBoundingBoxCluster> clusters,
-  ) {
+  void _handleStrokeClustersChanged(List<StrokeBoundingBoxCluster> clusters) {
     if (!mounted) {
       return;
     }
@@ -309,8 +311,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                 final notesScope = InkNotesScope.of(context);
                 final String noteId = controller.note.id;
                 final int pageIndex = controller.currentPageIndex;
-                final double? initOffset =
-                    notesScope.getScrollOffset(noteId, pageIndex);
+                final double? initOffset = notesScope.getScrollOffset(
+                  noteId,
+                  pageIndex,
+                );
 
                 final double rawHandleOffset = math.max(
                   handlePreviewWidth - _dragHandleWidth,
@@ -320,8 +324,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                     ? baseWidth
                     : rawHandleOffset;
                 final double orientationFactor = panelOnRight ? 1 : -1;
-                final double contentInset =
-                    isCollapsed ? 0 : baseWidth * previewFraction;
+                final double contentInset = isCollapsed
+                    ? 0
+                    : baseWidth * previewFraction;
 
                 return Stack(
                   children: [
@@ -358,7 +363,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                             final currentId = c.note.id;
                             final currentPage = c.currentPageIndex;
                             notesScope.setScrollOffset(
-                                currentId, currentPage, offset);
+                              currentId,
+                              currentPage,
+                              offset,
+                            );
                           },
                           onStrokeClustersChanged: _handleStrokeClustersChanged,
                           onPageChanged: (index) =>

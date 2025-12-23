@@ -69,23 +69,24 @@ class OnboardingPage extends StatelessWidget {
             const SizedBox(height: 32),
             Expanded(
               flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.t.onboarding.digitalNotebook,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.t.onboarding.digitalNotebook,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    context.t.onboarding.digitalNotebookDescription,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const Spacer(),
-                  _ActionRow(),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      context.t.onboarding.digitalNotebookDescription,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                    _ActionRow(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -94,7 +95,6 @@ class OnboardingPage extends StatelessWidget {
     ),
   );
 }
-
 
 class _ActionRow extends StatefulWidget {
   @override
@@ -144,32 +144,44 @@ class _ActionRowState extends State<_ActionRow> {
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.code),
-                onPressed: _loading ? null : () => _handleLogin(
-                  auth: auth,
-                  provider: OAuthProvider.github,
-                  scopes: const ['user:email'],
-                  label: 'GitHub',
-                ),
+                onPressed: _loading
+                    ? null
+                    : () => _handleLogin(
+                        auth: auth,
+                        provider: OAuthProvider.github,
+                        scopes: const ['user:email'],
+                        label: 'GitHub',
+                      ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                label: Text(_loading ? context.t.onboarding.connecting : context.t.onboarding.loginWithGitHub),
+                label: Text(
+                  _loading
+                      ? context.t.onboarding.connecting
+                      : context.t.onboarding.loginWithGitHub,
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.g_mobiledata),
-                onPressed: _loading ? null : () => _handleLogin(
-                  auth: auth,
-                  provider: OAuthProvider.google,
-                  scopes: const ['email', 'profile'],
-                  label: 'Google',
-                ),
+                onPressed: _loading
+                    ? null
+                    : () => _handleLogin(
+                        auth: auth,
+                        provider: OAuthProvider.google,
+                        scopes: const ['email', 'profile'],
+                        label: 'Google',
+                      ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                label: Text(_loading ? context.t.onboarding.connecting : context.t.onboarding.loginWithGoogle),
+                label: Text(
+                  _loading
+                      ? context.t.onboarding.connecting
+                      : context.t.onboarding.loginWithGoogle,
+                ),
               ),
             ),
             // Note: "Überspringen" button intentionally removed. User must sign in.
@@ -179,6 +191,7 @@ class _ActionRowState extends State<_ActionRow> {
     );
   }
 }
+
 void _openShell(BuildContext context) {
   Navigator.of(context).pushReplacementNamed(AppRoutes.shell);
 }

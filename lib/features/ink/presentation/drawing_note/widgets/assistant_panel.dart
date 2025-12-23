@@ -1,6 +1,6 @@
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-  show StrokeBoundingBoxCluster;
+    show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_snapshot_service.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
@@ -83,26 +83,25 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   static const int _maxCompletionTokens = 10768;
 
+  InkNotesController? _inkNotesController;
+
   @override
   void initState() {
     super.initState();
     _functions = Functions(AppwriteConfig.client);
-    _assistantService = AzureAssistantApiService(
-      functions: _functions,
-    );
+    _assistantService = AzureAssistantApiService(functions: _functions);
     _promptManager = const AssistantPromptManager();
-    
-    // Listener für InkNotesController hinzufügen, um auf PDF-Updates zu reagieren
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupInkNotesListener();
-    });
   }
 
-  void _setupInkNotesListener() {
-    final inkNotesController = InkNotesScope.maybeOf(context);
-    if (inkNotesController != null) {
-      inkNotesController.addListener(_onInkNotesChanged);
-      debugPrint('[AssistantPanel] InkNotes listener registered');
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newController = InkNotesScope.maybeOf(context);
+    if (_inkNotesController != newController) {
+      _inkNotesController?.removeListener(_onInkNotesChanged);
+      _inkNotesController = newController;
+      _inkNotesController?.addListener(_onInkNotesChanged);
+      debugPrint('[AssistantPanel] InkNotes listener updated');
     }
   }
 
@@ -123,9 +122,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
   @override
   void dispose() {
     // Listener entfernen
-    final inkNotesController = InkNotesScope.maybeOf(context);
-    inkNotesController?.removeListener(_onInkNotesChanged);
-    
+    _inkNotesController?.removeListener(_onInkNotesChanged);
+
     _streamingAnswer.dispose();
     _contentScrollController.dispose();
     super.dispose();
@@ -155,10 +153,11 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     final NotePage currentPage = pages[pageIndex];
     final List<AssistantMessage> history = currentPage.assistantHistory;
-    final List<AssistantMessage> recentHistory =
-        _promptManager.selectRecentHistory(history);
-    final String? historySummary =
-        _promptManager.summarizeHistory(recentHistory);
+    final List<AssistantMessage> recentHistory = _promptManager
+        .selectRecentHistory(history);
+    final String? historySummary = _promptManager.summarizeHistory(
+      recentHistory,
+    );
 
     final List<StrokeBoundingBoxCluster> availableClusters = widget
         .strokeClusters
@@ -172,7 +171,9 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final String prompt = _promptManager.promptTemplateFor(type);
 
     // Get the system prompt from the persona settings
-    final String systemPrompt = EditorSettingsScope.of(context).assistantPersona.systemPrompt;
+    final String systemPrompt = EditorSettingsScope.of(
+      context,
+    ).assistantPersona.systemPrompt;
 
     _streamingAnswer.value = '';
     _pendingStreamingText = null;
@@ -196,17 +197,18 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     try {
       if (availableClusters.isNotEmpty) {
-        combinedSnapshot = await _snapshotService
-            .captureCombinedSnapshot(availableClusters);
+        combinedSnapshot = await _snapshotService.captureCombinedSnapshot(
+          availableClusters,
+        );
       }
 
-      final List<Map<String, dynamic>> userContent =
-          _promptManager.buildUserContent(
-        prompt: prompt,
-        combinedSnapshot: combinedSnapshot,
-        totalClusters: totalClusterCount,
-        historySummary: historySummary,
-      );
+      final List<Map<String, dynamic>> userContent = _promptManager
+          .buildUserContent(
+            prompt: prompt,
+            combinedSnapshot: combinedSnapshot,
+            totalClusters: totalClusterCount,
+            historySummary: historySummary,
+          );
 
       final int tokenEstimate = _promptManager.estimateTokenUsage(
         systemPrompt: systemPrompt,
@@ -218,18 +220,19 @@ class _AssistantPanelState extends State<AssistantPanel> {
       // Nutze nur den Text der aktuellen Seite als Kontext
       final String? pagePdfText = currentPage.importedPdfText;
 
-      final int pdfContextTokens =
-          _promptManager.estimatePdfContextTokens(pagePdfText);
-
-      final AzureAssistantPreparedRequest preparedRequest =
-          _assistantService.prepareRequest(
-        AzureAssistantRequest(
-          systemPrompt: systemPrompt,
-          userContent: userContent,
-          maxCompletionTokens: _maxCompletionTokens,
-          pdfContext: pagePdfText,
-        ),
+      final int pdfContextTokens = _promptManager.estimatePdfContextTokens(
+        pagePdfText,
       );
+
+      final AzureAssistantPreparedRequest preparedRequest = _assistantService
+          .prepareRequest(
+            AzureAssistantRequest(
+              systemPrompt: systemPrompt,
+              userContent: userContent,
+              maxCompletionTokens: _maxCompletionTokens,
+              pdfContext: pagePdfText,
+            ),
+          );
 
       if (mounted) {
         setState(() {
@@ -243,25 +246,25 @@ class _AssistantPanelState extends State<AssistantPanel> {
         });
       }
 
-      final AzureAssistantResult result =
-          await _assistantService.streamCompletion(
-        preparedRequest: preparedRequest,
-        onStreamUpdate: (String text) {
-          _scheduleStreamingUpdate(text);
-          if (mounted && _statusMessage != null) {
-            setState(() {
-              _statusMessage = null;
-            });
-          }
-        },
-        onStreamStarted: () {
-          if (mounted) {
-            setState(() {
-              _statusMessage = '${_buttonLabelFor(type)} wird generiert…';
-            });
-          }
-        },
-      );
+      final AzureAssistantResult result = await _assistantService
+          .streamCompletion(
+            preparedRequest: preparedRequest,
+            onStreamUpdate: (String text) {
+              _scheduleStreamingUpdate(text);
+              if (mounted && _statusMessage != null) {
+                setState(() {
+                  _statusMessage = null;
+                });
+              }
+            },
+            onStreamStarted: () {
+              if (mounted) {
+                setState(() {
+                  _statusMessage = '${_buttonLabelFor(type)} wird generiert…';
+                });
+              }
+            },
+          );
 
       _pendingStreamingText = null;
       _streamUpdateScheduled = false;
@@ -372,7 +375,6 @@ class _AssistantPanelState extends State<AssistantPanel> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -462,9 +464,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
                 });
               },
               icon: Icon(
-                _showDebugPanel
-                    ? Icons.bug_report
-                    : Icons.bug_report_outlined,
+                _showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined,
               ),
               label: Text(
                 _showDebugPanel ? 'Debug ausblenden' : 'Debug anzeigen',
@@ -609,15 +609,16 @@ class _AssistantPanelState extends State<AssistantPanel> {
     final List<AssistantRequestType> types = AssistantRequestType.values
         .where((t) => t != AssistantRequestType.pdfExtract)
         .toList();
-    final AssistantRequestType? activeType =
-        _isStreaming ? _activeRequestType : null;
-    
-    // Prüfe ob PDF-Verarbeitung für diese Notiz läuft
-    final String? noteId = widget.controller.isInitialized 
-        ? widget.controller.noteId 
+    final AssistantRequestType? activeType = _isStreaming
+        ? _activeRequestType
         : null;
-    final bool isPdfProcessing = noteId != null && 
-        InkNotesScope.of(context).isPdfProcessing(noteId);
+
+    // Prüfe ob PDF-Verarbeitung für diese Notiz läuft
+    final String? noteId = widget.controller.isInitialized
+        ? widget.controller.noteId
+        : null;
+    final bool isPdfProcessing =
+        noteId != null && InkNotesScope.of(context).isPdfProcessing(noteId);
     final bool isBusy = _isLoading || isPdfProcessing;
 
     return Padding(
@@ -626,8 +627,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // PDF-Verarbeitungs-Hinweis
-          if (isPdfProcessing)
-            _buildPdfProcessingBanner(colorScheme, noteId),
+          if (isPdfProcessing) _buildPdfProcessingBanner(colorScheme, noteId),
           ClipRRect(
             borderRadius: const BorderRadius.all(segmentRadius),
             child: DecoratedBox(
@@ -676,17 +676,18 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
   Widget _buildPdfProcessingBanner(ColorScheme colorScheme, String noteId) =>
       StreamBuilder<PdfProcessingUpdate>(
-        stream: InkNotesScope.of(context)
-            .pdfProcessingUpdates
-            .where((update) => update.noteId == noteId),
+        stream: InkNotesScope.of(
+          context,
+        ).pdfProcessingUpdates.where((update) => update.noteId == noteId),
         builder: (context, snapshot) => Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.3),
+            ),
           ),
           child: Row(
             children: [
@@ -705,8 +706,8 @@ class _AssistantPanelState extends State<AssistantPanel> {
                       ? _getPdfProcessingText(snapshot.data!)
                       : 'PDF wird verarbeitet...',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSecondaryContainer,
-                      ),
+                    color: colorScheme.onSecondaryContainer,
+                  ),
                 ),
               ),
               Icon(
@@ -796,10 +797,12 @@ class _AssistantActionSegment extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
     final Color activeBackground = AppColors.primaryAccent;
-    final Brightness accentBrightness =
-        ThemeData.estimateBrightnessForColor(activeBackground);
-    final Color activeForeground =
-        accentBrightness == Brightness.dark ? Colors.white : Colors.black87;
+    final Brightness accentBrightness = ThemeData.estimateBrightnessForColor(
+      activeBackground,
+    );
+    final Color activeForeground = accentBrightness == Brightness.dark
+        ? Colors.white
+        : Colors.black87;
     final Color baseForeground = colorScheme.onSurface;
     final Color labelColor = isActive ? activeForeground : baseForeground;
 
@@ -809,11 +812,7 @@ class _AssistantActionSegment extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: labelColor,
-        ),
+        Icon(icon, size: 20, color: labelColor),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
@@ -856,8 +855,7 @@ class _AssistantActionSegment extends StatelessWidget {
             border: showTrailingDivider
                 ? Border(
                     right: BorderSide(
-                      color: colorScheme.outlineVariant
-                          .withValues(alpha: 0.4),
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                     ),
                   )
                 : null,
