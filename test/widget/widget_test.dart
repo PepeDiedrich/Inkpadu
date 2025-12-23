@@ -8,10 +8,11 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ai_handwriting_app/main.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 void main() {
   testWidgets('zeigt Onboarding-Bildschirm an', (WidgetTester tester) async {
-    await tester.pumpWidget(const InkpaduApp());
+    await tester.pumpWidget(TranslationProvider(child: const InkpaduApp()));
 
   expect(find.text('Willkommen bei Inkpadu'), findsOneWidget);
   expect(find.text('Mit GitHub anmelden'), findsOneWidget);

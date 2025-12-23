@@ -1,5 +1,6 @@
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,15 +19,17 @@ void main() {
   group('showNoteMetadataDialog', () {
     testWidgets('shows dialog with initial values', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () => showNoteMetadataDialog(
-                context,
-                initialTitle: 'Initial Title',
-                initialPaperStyle: NotePaperStyle.lined,
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: 'Initial Title',
+                  initialPaperStyle: NotePaperStyle.lined,
+                ),
+                child: const Text('Open'),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),
@@ -43,16 +46,18 @@ void main() {
 
     testWidgets('shows editing title when isEditing is true', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () => showNoteMetadataDialog(
-                context,
-                initialTitle: 'Existing',
-                initialPaperStyle: NotePaperStyle.plain,
-                isEditing: true,
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: 'Existing',
+                  initialPaperStyle: NotePaperStyle.plain,
+                  isEditing: true,
+                ),
+                child: const Text('Open'),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),
@@ -67,15 +72,17 @@ void main() {
 
     testWidgets('can close dialog with cancel button', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () => showNoteMetadataDialog(
-                context,
-                initialTitle: '',
-                initialPaperStyle: NotePaperStyle.plain,
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),
@@ -96,15 +103,17 @@ void main() {
 
     testWidgets('can close dialog with close icon', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () => showNoteMetadataDialog(
-                context,
-                initialTitle: '',
-                initialPaperStyle: NotePaperStyle.plain,
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),
@@ -122,15 +131,17 @@ void main() {
 
     testWidgets('shows all paper style options', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () => showNoteMetadataDialog(
-                context,
-                initialTitle: '',
-                initialPaperStyle: NotePaperStyle.plain,
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),
@@ -148,15 +159,17 @@ void main() {
 
     testWidgets('can enter title text', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () => showNoteMetadataDialog(
-                context,
-                initialTitle: '',
-                initialPaperStyle: NotePaperStyle.plain,
+        TranslationProvider(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
               ),
-              child: const Text('Open'),
             ),
           ),
         ),

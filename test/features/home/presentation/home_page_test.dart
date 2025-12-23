@@ -6,6 +6,7 @@ import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 import '../../../helpers/sqflite_test_util.dart';
 
@@ -34,7 +35,9 @@ void main() {
         settings: pointer,
         child: EditorSettingsScope(
           settings: editorSettings,
-          child: MaterialApp(home: child),
+          child: TranslationProvider(
+            child: MaterialApp(home: child),
+          ),
         ),
       ),
     );
