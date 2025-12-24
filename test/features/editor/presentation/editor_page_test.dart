@@ -1,5 +1,6 @@
 import 'package:ai_handwriting_app/features/editor/presentation/editor_page.dart';
 import 'package:ai_handwriting_app/features/notes/domain/note.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,8 +14,10 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: EditorPage(initialNote: note),
+      TranslationProvider(
+        child: MaterialApp(
+          home: EditorPage(initialNote: note),
+        ),
       ),
     );
 

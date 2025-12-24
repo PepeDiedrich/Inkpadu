@@ -6,6 +6,8 @@ import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../../helpers/sqflite_test_util.dart';
 
@@ -13,6 +15,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await ensureTestDatabaseFactory();
+    LocaleSettings.setLocale(AppLocale.de);
   });
 
   setUp(() async {
@@ -34,7 +37,14 @@ void main() {
         settings: pointer,
         child: EditorSettingsScope(
           settings: editorSettings,
-          child: MaterialApp(home: child),
+          child: TranslationProvider(
+            child: MaterialApp(
+              locale: LocaleSettings.currentLocale.flutterLocale,
+              supportedLocales: AppLocaleUtils.supportedLocales,
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              home: child,
+            ),
+          ),
         ),
       ),
     );
@@ -60,7 +70,15 @@ void main() {
 
     // Neue Notiz via FAB
     await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // BottomSheet "Neue Notiz erstellen" sollte erscheinen
+    expect(find.text('Neue Notiz erstellen'), findsOneWidget);
+
+    // Auf "Leere Notiz" tippen
+    await tester.tap(find.text('Leere Notiz'));
+    await tester.pumpAndSettle();
+
     // Dialog sollte erscheinen
     expect(find.byType(Dialog), findsOneWidget);
 
