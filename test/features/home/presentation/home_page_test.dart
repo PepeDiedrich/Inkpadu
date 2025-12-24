@@ -70,7 +70,15 @@ void main() {
 
     // Neue Notiz via FAB
     await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // BottomSheet "Neue Notiz erstellen" sollte erscheinen
+    expect(find.text('Neue Notiz erstellen'), findsOneWidget);
+
+    // Auf "Leere Notiz" tippen
+    await tester.tap(find.text('Leere Notiz'));
+    await tester.pumpAndSettle();
+
     // Dialog sollte erscheinen
     expect(find.byType(Dialog), findsOneWidget);
 

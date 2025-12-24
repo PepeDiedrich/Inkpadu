@@ -47,7 +47,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog should be shown
-      expect(find.text('Notiz anlegen'), findsOneWidget);
+      expect(find.text('Neue Notiz'), findsOneWidget);
       // Initial title should be in text field
       expect(find.text('Initial Title'), findsOneWidget);
     });
@@ -77,7 +77,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Notiz anpassen'), findsOneWidget);
+      expect(find.text('Titel & Papier anpassen'), findsOneWidget);
       expect(find.text('Speichern'), findsNWidgets(2)); // AppBar and bottom
     });
 
@@ -105,14 +105,14 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Notiz anlegen'), findsOneWidget);
+      expect(find.text('Neue Notiz'), findsOneWidget);
 
       // Tap cancel button
       await tester.tap(find.text('Abbrechen').first);
       await tester.pumpAndSettle();
 
       // Dialog should be closed
-      expect(find.text('Notiz anlegen'), findsNothing);
+      expect(find.text('Neue Notiz'), findsNothing);
     });
 
     testWidgets('can close dialog with close icon', (tester) async {
@@ -143,7 +143,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
-      expect(find.text('Notiz anlegen'), findsNothing);
+      expect(find.text('Neue Notiz'), findsNothing);
     });
 
     testWidgets('shows all paper style options', (tester) async {
