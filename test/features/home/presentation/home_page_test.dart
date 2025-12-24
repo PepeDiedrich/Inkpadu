@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ai_handwriting_app/features/home/presentation/home_page.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
@@ -27,8 +28,8 @@ void main() {
   });
 
   Widget wrapWithScopes(Widget child, {InkNotesController? controller}) {
-    final notes = controller ??
-        InkNotesController(enableConnectivityMonitoring: false);
+    final notes =
+        controller ?? InkNotesController(enableConnectivityMonitoring: false);
     final pointer = PointerSettings();
     final editorSettings = EditorSettings();
     return InkNotesScope(
@@ -57,8 +58,7 @@ void main() {
     addTearDown(view.resetPhysicalSize);
     addTearDown(view.resetDevicePixelRatio);
 
-    final controller =
-        InkNotesController(enableConnectivityMonitoring: false);
+    final controller = InkNotesController(enableConnectivityMonitoring: false);
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
@@ -86,8 +86,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Weiter'));
     await tester.pumpAndSettle();
 
-    // Wir sind jetzt auf der Zeichen-Seite, Titel der Auto-Notiz sollte oben stehen
-    expect(find.textContaining('Notiz '), findsWidgets);
+    // Wir sind jetzt auf der Zeichen-Seite, DrawingNotePage sollte da sein
+    expect(find.byType(DrawingNotePage), findsOneWidget);
 
     // Zurück zur Liste
     // Zurück zur Liste über Navigator.pop (stabiler in Tests als pageBack bei MaterialApp ohne NavigatorBar)
@@ -102,8 +102,8 @@ void main() {
   });
 
   testWidgets('Mehrere Notizen erscheinen (>=2) in Übersicht', (tester) async {
-  final controller = InkNotesController(enableConnectivityMonitoring: false);
-  addTearDown(controller.dispose);
+    final controller = InkNotesController(enableConnectivityMonitoring: false);
+    addTearDown(controller.dispose);
     // Zwei vorhandene Notizen anlegen (verschiedene IDs & Timestamps)
     // Erzeuge zwei Notizen ohne künstliche Delays (IDs durch Microseconds bereits unterschiedlich)
     controller.upsert(InkNote.empty());
@@ -119,8 +119,8 @@ void main() {
   });
 
   testWidgets('Löschen-Button löscht Notiz nach Bestätigung', (tester) async {
-  final controller = InkNotesController(enableConnectivityMonitoring: false);
-  addTearDown(controller.dispose);
+    final controller = InkNotesController(enableConnectivityMonitoring: false);
+    addTearDown(controller.dispose);
     final note = InkNote.empty(title: 'Test Notiz');
     controller.upsert(note);
 
@@ -139,7 +139,10 @@ void main() {
 
     // Bestätigungsdialog sollte erscheinen
     expect(find.text('Notiz löschen'), findsOneWidget);
-    expect(find.text('Möchten Sie "Test Notiz" wirklich löschen?'), findsOneWidget);
+    expect(
+      find.text('Möchten Sie "Test Notiz" wirklich löschen?'),
+      findsOneWidget,
+    );
 
     // Bestätigen
     await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
@@ -152,8 +155,8 @@ void main() {
   });
 
   testWidgets('Löschen-Button behält Notiz nach Abbruch', (tester) async {
-  final controller = InkNotesController(enableConnectivityMonitoring: false);
-  addTearDown(controller.dispose);
+    final controller = InkNotesController(enableConnectivityMonitoring: false);
+    addTearDown(controller.dispose);
     final note = InkNote.empty(title: 'Behalte mich');
     controller.upsert(note);
 
