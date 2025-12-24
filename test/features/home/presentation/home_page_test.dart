@@ -7,6 +7,7 @@ import 'package:ai_handwriting_app/features/input/application/pointer_settings_s
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../../helpers/sqflite_test_util.dart';
 
@@ -37,7 +38,12 @@ void main() {
         child: EditorSettingsScope(
           settings: editorSettings,
           child: TranslationProvider(
-            child: MaterialApp(home: child),
+            child: MaterialApp(
+              locale: LocaleSettings.currentLocale.flutterLocale,
+              supportedLocales: AppLocaleUtils.supportedLocales,
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              home: child,
+            ),
           ),
         ),
       ),

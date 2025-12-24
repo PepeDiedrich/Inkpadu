@@ -2,6 +2,7 @@ import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -25,6 +26,9 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () => showNoteMetadataDialog(
@@ -52,6 +56,9 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () => showNoteMetadataDialog(
@@ -78,6 +85,9 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () => showNoteMetadataDialog(
@@ -109,6 +119,9 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () => showNoteMetadataDialog(
@@ -137,6 +150,9 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () => showNoteMetadataDialog(
@@ -165,6 +181,9 @@ void main() {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () => showNoteMetadataDialog(
