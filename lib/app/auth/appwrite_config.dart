@@ -6,10 +6,31 @@ import 'package:appwrite/appwrite.dart';
 class AppwriteConfig {
   AppwriteConfig._();
 
+  /// Globale Endpoint-URL für Appwrite.
+  static const String endpoint = 'https://appwrite.nebulium.info/v1';
+
+  /// Globale Projekt-ID für Appwrite.
+  static const String projectId = '68de8b41001d59b1c2d0';
+
+  /// Callback-Scheme für OAuth-Redirects (http, damit ein lokaler Redirect-Server genutzt werden kann).
+  static const String callbackScheme = 'http';
+
+  /// Callback-Host; Appwrite akzeptiert `localhost` und `appwrite.nebulium.info`.
+  static const String callbackHost = 'localhost';
+
+  /// Fester Port für den lokalen Redirect.
+  static const int callbackPort = 8350;
+
+  /// Callback-Pfad für Desktop-Redirects.
+  static const String callbackPath = '/auth-desktop';
+
+  /// Vollständige Callback-URL für OAuth-Redirects auf Desktop.
+  static const String callbackUrl = '$callbackScheme://$callbackHost:$callbackPort$callbackPath';
+
   static final Client _client = Client()
     // TODO: Passe Endpoint & Projekt-ID an.
-    ..setEndpoint('https://appwrite.nebulium.info/v1')
-    ..setProject('68de8b41001d59b1c2d0');
+    ..setEndpoint(endpoint)
+    ..setProject(projectId);
 
   /// Gibt den global konfigurierten [Client] zurück.
   static Client get client => _client;

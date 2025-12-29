@@ -33,9 +33,17 @@ Diese App integriert GitHub und Google OAuth2 Login über Appwrite.
 	- Google aktivieren, Client ID & Secret (Google Cloud Console > Credentials > OAuth Client) hinterlegen.
 3. Die von Appwrite angezeigten Redirect URLs jeweils in den Provider-Konfigurationen eintragen.
 4. Android: In `android/app/src/main/AndroidManifest.xml` sicherstellen, dass `<data android:scheme="appwrite-callback-<PROJECT_ID>" />` zur Projekt-ID passt.
-	*iOS / Web:* Appwrite generiert passende Callback URLs automatisch; stelle sicher, dass sie bei den Providern registriert sind.
+	*iOS / macOS / Desktop:* Verwende die Callback-URL `http://localhost:8350/auth-desktop` (Host `localhost` ist von Appwrite erlaubt). Web wird nicht unterstützt.
 5. `lib/app/auth/appwrite_config.dart` mit Endpoint & Projekt-ID anpassen.
 6. (Optional) Scopes anpassen: In der Onboarding Page beim Aufruf von `loginWithProvider`.
+
+### Desktop-Login (Linux/Windows/macOS)
+* OAuth startet über den Default-Browser via `flutter_web_auth_2` und kommt über `http://localhost:8350/auth-desktop` zurück.
+* Stelle sicher, dass dieses Redirect in der Appwrite Console für GitHub und Google hinterlegt ist (Host `localhost` ist erlaubt; Port 8350 muss mit der App übereinstimmen).
+
+### Hintergrundsynchronisation
+* Mobile (Android/iOS): Workmanager-Task `inkpadu_periodic_sync` läuft alle 15 Minuten.
+* Desktop (Linux/Windows/macOS): Fallback-Foreground-Sync läuft im aktiven App-Fenster alle 5 Minuten.
 
 ### Nutzung
 * Onboarding Seite: Buttons "Mit GitHub anmelden" und "Mit Google anmelden" starten jeweils den OAuth Flow.

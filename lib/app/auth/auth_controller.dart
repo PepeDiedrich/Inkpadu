@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
 import 'package:appwrite/enums.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
@@ -42,6 +44,8 @@ class AuthController extends ChangeNotifier {
   static const _kCachedUserIdKey = 'inkpadu_cached_user_id';
   static const _kCachedEmailKey = 'inkpadu_cached_email';
   static const _kHasLoggedInKey = 'inkpadu_has_logged_in';
+
+  bool get _isDesktop => !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
 
   /// Gibt den aktuellen Authentifizierungsstatus zurück.
   AuthStatus get status => _status;
@@ -94,9 +98,41 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
     try {
       final account = AppwriteConfig.account;
-      await account.createOAuth2Session(provider: provider, scopes: scopes);
-      // Nach Redirect und erfolgreichem Session-Aufbau versuchen wir den User zu laden.
-      _user = await account.get();
+      if (_isDesktop) {
+        final uri = _buildDesktopOAuthUrl(provider: provider, scopes: scopes);
+        final callbackFuture = _listenForDesktopCallback();
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final callback = await callbackFuture;
+          debugPrint('[Auth] OAuth callback: ${callback.toString()}');
+        final userId = callback.queryParameters['userId'];
+        final secret = callback.queryParameters['secret'];
+        if (userId == null || secret == null) {
+          throw StateError('Missing OAuth token in callback');
+        }
+          debugPrint('[Auth] Creating session for userId=$userId');
+          try {
+            await account.createSession(userId: userId, secret: secret);
+          } catch (e, st) {
+            debugPrint('[Auth] createSession failed: $e');
+            debugPrint('[Auth] stack: $st');
+            rethrow;
+          }
+        // Nach Redirect und erfolgreichem Session-Aufbau versuchen wir den User zu laden.
+          debugPrint('[Auth] Fetching user after session creation');
+        _user = await account.get();
+      } else {
+        // Explicitly providing success/failure URLs to avoid "missing redirect url" errors
+        // The scheme must match the one defined in AndroidManifest.xml
+        final redirectUrl = 'appwrite-callback-${AppwriteConfig.projectId}://callback';
+        await account.createOAuth2Session(
+          provider: provider,
+          scopes: scopes,
+          success: redirectUrl,
+          failure: redirectUrl,
+        );
+        // Nach Redirect und erfolgreichem Session-Aufbau versuchen wir den User zu laden.
+        _user = await account.get();
+      }
       _status = AuthStatus.authenticated;
       await _saveCachedUserFromUser();
       // mark that we successfully logged in at least once
@@ -155,4 +191,58 @@ class AuthController extends ChangeNotifier {
 
   /// Gibt zurück, ob der Nutzer sich jemals erfolgreich angemeldet hat.
   bool get hasLoggedIn => _hasLoggedIn;
+
+  Future<Uri> _listenForDesktopCallback() async {
+    final server = await HttpServer.bind(AppwriteConfig.callbackHost, AppwriteConfig.callbackPort);
+    final completer = Completer<Uri>();
+    server.listen((HttpRequest request) async {
+      final uri = request.uri;
+      final isCallbackPath = uri.path == AppwriteConfig.callbackPath || uri.path == '${AppwriteConfig.callbackPath}/';
+      final hasTokens = uri.queryParameters.containsKey('userId') && uri.queryParameters.containsKey('secret');
+      debugPrint('[Auth] Incoming redirect path=${uri.path} query=${uri.query} tokens=$hasTokens');
+
+      if (isCallbackPath && hasTokens && !completer.isCompleted) {
+        completer.complete(uri);
+        request.response.statusCode = 200;
+        request.response.headers.contentType = ContentType.html;
+        request.response.write('<html><body><h2>Login abgeschlossen. Du kannst dieses Fenster schließen.</h2></body></html>');
+        await request.response.close();
+        await server.close(force: true);
+        return;
+      }
+
+      if (isCallbackPath && !hasTokens) {
+        debugPrint('[Auth] Callback without tokens received');
+      }
+
+      // Ignore noise like /favicon.ico; respond with 204.
+      request.response.statusCode = 204;
+      await request.response.close();
+    });
+    // Timeout fallback to avoid hanging indefinitely
+    return completer.future.timeout(const Duration(minutes: 3), onTimeout: () {
+      server.close(force: true);
+      throw TimeoutException('Login callback timed out');
+    });
+  }
+
+  Uri _buildDesktopOAuthUrl({required OAuthProvider provider, List<String>? scopes}) {
+    final endpoint = Uri.parse(AppwriteConfig.endpoint);
+    final buffer = StringBuffer()
+      ..write(endpoint.replace(path: '${endpoint.path}/account/tokens/oauth2/${provider.value}'));
+    final baseParams = <String, String>{
+      'project': AppwriteConfig.projectId,
+      'success': AppwriteConfig.callbackUrl,
+      'failure': AppwriteConfig.callbackUrl,
+    };
+    final params = <String>[];
+    baseParams.forEach((key, value) => params.add('${Uri.encodeComponent(key)}=${Uri.encodeComponent(value)}'));
+    if (scopes != null && scopes.isNotEmpty) {
+      for (final scope in scopes) {
+        params.add('scopes%5B%5D=${Uri.encodeComponent(scope)}');
+      }
+    }
+    buffer.write('?${params.join('&')}');
+    return Uri.parse(buffer.toString());
+  }
 }
