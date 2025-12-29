@@ -11,6 +11,7 @@ import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 /// Verwaltet den Zustand einer geöffneten Zeichennotiz, inklusive Werkzeuge,
 /// Persistenz und Delegation an den `DrawingController`.
@@ -26,7 +27,32 @@ class DrawingNoteController extends ChangeNotifier {
        drawingController = drawingController ?? DrawingController(),
        _toolPreferencesRepository =
            toolPreferencesRepository ?? DrawingToolPreferencesRepository(),
-       _defaultTools = defaultTools ?? DrawingToolDefaults.palette;
+       _defaultTools = defaultTools ??
+           const [
+             DrawingTool(
+               id: 'pen-black',
+               label: 'Fineliner',
+               icon: Icons.edit,
+               color: Colors.black,
+               baseWidth: 3.5,
+             ),
+             DrawingTool(
+               id: 'pen-red',
+               label: 'Rotstift',
+               icon: Icons.edit,
+               color: Colors.red,
+               baseWidth: 3.5,
+             ),
+             DrawingTool(
+               id: 'eraser',
+               label: 'Radierer',
+               icon: Icons.auto_fix_off,
+               color: Colors.white,
+               baseWidth: 18,
+               isEraser: true,
+               usePressure: false,
+             ),
+           ];
 
   /// ID der verwalteten Notiz.
   final String noteId;
@@ -47,6 +73,7 @@ class DrawingNoteController extends ChangeNotifier {
   late int _currentPageIndex;
   List<DrawingTool> _tools = const [];
   late String _selectedToolId;
+  Offset? _toolbarPosition;
   bool _initialized = false;
   bool _toolsLoaded = false;
   List<bool> _pageContentHistory = <bool>[];
@@ -82,6 +109,9 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// ID des aktuell ausgewählten Werkzeugs.
   String get selectedToolId => _selectedToolId;
+
+  /// Die gespeicherte Position der Toolbar.
+  Offset? get toolbarPosition => _toolbarPosition;
 
   /// Liefert das aktuell verwendete Werkzeug.
   DrawingTool get currentTool => resolveTool(_selectedToolId);
@@ -164,13 +194,15 @@ class DrawingNoteController extends ChangeNotifier {
     _currentPageIndex = _normalizePageIndex(_note.lastOpenedPageIndex);
     drawingController.initialize(_note.pages[_currentPageIndex].strokes);
     _rebuildPageContentHistory(_note.pages);
+    
+    // Initialisiere mit den Standard-Werkzeugen, falls keine geladen werden
     _tools = List<DrawingTool>.of(_defaultTools);
     _selectedToolId = _tools.first.id;
     _initialized = true;
     notifyListeners();
 
     final List<DrawingTool> persisted = await _toolPreferencesRepository.load(
-      _defaultTools,
+      _tools,
     );
     if (persisted.isNotEmpty) {
       _tools = persisted;
@@ -184,6 +216,9 @@ class DrawingNoteController extends ChangeNotifier {
     } else if (!_tools.any((tool) => tool.id == _selectedToolId)) {
       _selectedToolId = _tools.first.id;
     }
+
+    _toolbarPosition = await _toolPreferencesRepository.loadToolbarPosition();
+
     _toolsLoaded = true;
     notifyListeners();
   }
@@ -204,6 +239,53 @@ class DrawingNoteController extends ChangeNotifier {
         currentTools: _tools,
       ),
     );
+  }
+
+  /// Fügt ein neues Standard-Werkzeug hinzu und gibt es zurück.
+  DrawingTool addTool() {
+    final newTool = DrawingTool(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      label: 'Fineliner',
+      icon: Icons.edit,
+      color: Colors.black,
+      baseWidth: 3.5,
+    );
+    _tools = [..._tools, newTool];
+    selectTool(newTool.id);
+    saveTools();
+    return newTool;
+  }
+
+  /// Entfernt das Werkzeug mit der angegebenen [toolId].
+  void removeTool(String toolId) {
+    if (_tools.length <= 1) return; // Mindestens ein Werkzeug behalten
+
+    final toolToRemove = _tools.firstWhere(
+      (t) => t.id == toolId,
+      orElse: () => _tools.first,
+    );
+    if (toolToRemove.isEraser) return; // Radierer darf nicht gelöscht werden
+
+    _tools = _tools.where((t) => t.id != toolId).toList();
+    
+    if (_selectedToolId == toolId) {
+      _selectedToolId = _tools.first.id;
+      unawaited(
+        _toolPreferencesRepository.saveSelectedToolId(
+          _selectedToolId,
+          currentTools: _tools,
+        ),
+      );
+    }
+    
+    notifyListeners();
+    saveTools();
+  }
+
+  /// Speichert die Toolbar-Position.
+  Future<void> saveToolbarPosition(Offset position) async {
+    _toolbarPosition = position;
+    await _toolPreferencesRepository.saveToolbarPosition(position);
   }
 
   /// Aktualisiert ein Werkzeug und speichert die Konfiguration.

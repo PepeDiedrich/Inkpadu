@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
@@ -27,23 +28,28 @@ class DrawingToolPreferencesRepository {
 
   static const String _storageKey = 'drawing_tools_v1';
   static const String _selectedToolKey = 'drawing_selected_tool_v1';
+  static const String _toolbarPositionXKey = 'drawing_toolbar_pos_x_v1';
+  static const String _toolbarPositionYKey = 'drawing_toolbar_pos_y_v1';
 
-  /// Lädt gespeicherte Werkzeuge und merged sie mit den [defaults].
+  /// Lädt gespeicherte Werkzeuge.
   Future<List<DrawingTool>> load(List<DrawingTool> defaults) async {
     try {
       final SharedPreferences prefs = await _prefs;
       final List<DrawingTool>? local = _readToolsFromPrefs(prefs);
 
-      List<DrawingTool> result = local == null
-          ? defaults
-          : _mergeWithDefaults(defaults, local);
+      List<DrawingTool> result;
+      if (local != null && local.isNotEmpty) {
+        result = local;
+      } else {
+        result = defaults;
+      }
 
       final DrawingToolPreferencesRemoteModel? remote =
           await _loadRemotePreferences();
       if (remote != null) {
         final List<DrawingTool> remoteTools = _decodeTools(remote.toolsJson);
         if (remoteTools.isNotEmpty) {
-          result = _mergeWithDefaults(defaults, remoteTools);
+          result = remoteTools;
           await _persistLocalState(
             prefs,
             tools: result,
@@ -60,6 +66,32 @@ class DrawingToolPreferencesRepository {
         'Fehler beim Laden der Werkzeug-Voreinstellungen: $error\n$stackTrace',
       );
       return defaults;
+    }
+  }
+
+  /// Lädt die gespeicherte Toolbar-Position.
+  Future<Offset?> loadToolbarPosition() async {
+    try {
+      final SharedPreferences prefs = await _prefs;
+      final double? dx = prefs.getDouble(_toolbarPositionXKey);
+      final double? dy = prefs.getDouble(_toolbarPositionYKey);
+      if (dx != null && dy != null) {
+        return Offset(dx, dy);
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /// Speichert die Toolbar-Position.
+  Future<void> saveToolbarPosition(Offset position) async {
+    try {
+      final SharedPreferences prefs = await _prefs;
+      await prefs.setDouble(_toolbarPositionXKey, position.dx);
+      await prefs.setDouble(_toolbarPositionYKey, position.dy);
+    } catch (error) {
+      debugPrint('Fehler beim Speichern der Toolbar-Position: $error');
     }
   }
 
@@ -261,32 +293,4 @@ class DrawingToolPreferencesRepository {
     final user = auth.user;
     return user?.$id;
   }
-
-  List<DrawingTool> _mergeWithDefaults(
-    List<DrawingTool> defaults,
-    List<DrawingTool> stored,
-  ) => defaults
-      .map((tool) {
-        DrawingTool? match;
-        for (final DrawingTool candidate in stored) {
-          if (candidate.id == tool.id) {
-            match = candidate;
-            break;
-          }
-        }
-        if (match == null) {
-          return tool;
-        }
-        return DrawingTool(
-          id: tool.id,
-          label: match.label,
-          icon: match.icon,
-          color: match.color,
-          baseWidth: match.baseWidth,
-          isHighlighter: tool.isHighlighter,
-          isEraser: tool.isEraser,
-          usePressure: match.usePressure,
-        );
-      })
-      .toList(growable: false);
 }
