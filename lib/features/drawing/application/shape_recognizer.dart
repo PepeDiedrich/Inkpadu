@@ -3,18 +3,26 @@ import 'dart:math' as math;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:flutter/material.dart';
 
+/// Die verschiedenen Arten von geometrischen Formen, die erkannt werden können.
 enum ShapeType {
+  /// Eine gerade Linie.
   line,
   // potentially other shapes later: circle, rectangle, etc.
 }
 
+/// Repräsentiert das Ergebnis einer Formerkennung.
 class ShapeMatch {
+  /// Der Typ der erkannten Form.
   final ShapeType type;
+
+  /// Die korrigierten Punkte, die die ideale Form beschreiben.
   final List<DrawingPoint> correctedPoints;
 
+  /// Erstellt eine neue [ShapeMatch]-Instanz.
   ShapeMatch({required this.type, required this.correctedPoints});
 }
 
+/// Eine Hilfsklasse zur Erkennung von geometrischen Formen aus einer Liste von Punkten.
 class ShapeRecognizer {
   /// Versucht, aus den gegebenen Punkten eine geometrische Form zu erkennen.
   ///
