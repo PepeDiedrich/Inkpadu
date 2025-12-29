@@ -15,6 +15,7 @@ import 'package:ai_handwriting_app/features/input/application/pointer_settings_s
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Zeichenfläche, die Eingaben an den [DrawingController] weiterleitet und
 /// dynamisch in der Höhe wächst.
@@ -103,6 +104,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
   static const double _twoFingerTapMaxMovement = 22;
   static const Duration _hullDebounceDuration = Duration(milliseconds: 500);
+  static const Duration _holdToSnapDuration = Duration(milliseconds: 600);
+  static const double _holdMoveThreshold = 5.0;
 
   DateTime? _twoFingerTapStart;
   final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
@@ -116,6 +119,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   final Map<int, Offset> _threeFingerTapInitialPositions =
       <int, Offset>{};
   Timer? _hullDebounceTimer;
+  Timer? _holdToSnapTimer;
+  Offset? _lastHoldPosition;
   List<List<Offset>> _convexHulls = const [];
   List<RotatedBoundingBox> _boundingBoxes = const <RotatedBoundingBox>[];
   List<StrokeBoundingBoxCluster> _strokeClusters =
@@ -166,6 +171,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   @override
   void dispose() {
     _hullDebounceTimer?.cancel();
+    _holdToSnapTimer?.cancel();
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
     super.dispose();
@@ -523,6 +529,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     final kind = details.kind;
     bool touchAllowsDrawing = true;
 
+    // Start Hold Timer logic
+    _startHoldTimer(details.localPosition);
+
     if (kind == PointerDeviceKind.touch) {
       _activeTouchPositions[details.pointer] = details.localPosition;
       final int touchCount = _activeTouchPositions.length;
@@ -594,6 +603,19 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _activeDrawingPointerId = details.pointer;
     // Lock parent horizontal scrolling while drawing
     widget.onRequestParentScrollLock?.call(true);
+  }
+
+  void _startHoldTimer(Offset position) {
+    _holdToSnapTimer?.cancel();
+    _lastHoldPosition = position;
+    _holdToSnapTimer = Timer(_holdToSnapDuration, _onHoldTimerComplete);
+  }
+
+  void _onHoldTimerComplete() {
+    final snapped = widget.drawingController.trySnapToShape(tolerance: 12.0);
+    if (snapped) {
+      HapticFeedback.mediumImpact();
+    }
   }
 
   void _update(PointerMoveEvent details) {
@@ -670,6 +692,15 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       return;
     }
 
+    // Check movement for hold timer
+    if (_lastHoldPosition != null) {
+      final double dist = (details.localPosition - _lastHoldPosition!).distance;
+      if (dist > _holdMoveThreshold) {
+        // moved too much, reset timer
+        _startHoldTimer(details.localPosition);
+      }
+    }
+
     final tool = widget.resolveTool(_activeToolDuringStrokeId);
 
     if (tool.isEraser) {
@@ -697,6 +728,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   }
 
   void _end(PointerUpEvent details) {
+    _holdToSnapTimer?.cancel();
     if (details.kind == PointerDeviceKind.touch) {
       _activeTouchPositions[details.pointer] = details.localPosition;
 
@@ -787,6 +819,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   }
 
   void _cancel(PointerCancelEvent details) {
+    _holdToSnapTimer?.cancel();
     if (details.kind == PointerDeviceKind.touch) {
       _activeTouchPositions.remove(details.pointer);
       _resetTwoFingerScrollState();

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:ai_handwriting_app/features/drawing/application/shape_recognizer.dart';
 import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart'
     as async_simpl;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
@@ -18,6 +19,10 @@ class DrawingController extends ChangeNotifier {
 
   /// Der temporäre Strich, der gerade entsteht.
   Stroke? _currentStroke;
+
+  /// Indicates if the current stroke is locked to a specific shape (e.g. line).
+  bool _isLockedToShape = false;
+  ShapeType? _lockedShapeType;
 
   /// Stack für Wiederherstellen-Operationen.
   final List<Stroke> _redoStack = [];
@@ -62,6 +67,8 @@ class DrawingController extends ChangeNotifier {
       baseWidth: baseWidth,
       isHighlighter: isHighlighter,
     );
+    _isLockedToShape = false;
+    _lockedShapeType = null;
     _redoStack.clear();
     notifyListeners();
   }
@@ -69,10 +76,47 @@ class DrawingController extends ChangeNotifier {
   /// Fügt dem aktuellen Strich einen weiteren Punkt hinzu.
   void updateStroke(DrawingPoint point) {
     if (_currentStroke == null) return;
+
+    if (_isLockedToShape && _lockedShapeType == ShapeType.line) {
+      // If locked to a line, we just update the end point (last point).
+      // We assume the stroke already has at least 2 points (start, end).
+      final points = List<DrawingPoint>.of(_currentStroke!.points);
+      if (points.isNotEmpty) {
+        points.last = point;
+        _currentStroke = _currentStroke!.copyWith(points: points);
+        notifyListeners();
+      }
+      return;
+    }
+
     _currentStroke = _currentStroke!.copyWith(
       points: List<DrawingPoint>.of(_currentStroke!.points)..add(point),
     );
     notifyListeners();
+  }
+
+  /// Attempts to recognize a shape from the current stroke and snap to it.
+  bool trySnapToShape({double tolerance = 10.0}) {
+    if (_currentStroke == null || _isLockedToShape) {
+      return false;
+    }
+
+    final match = ShapeRecognizer.recognizeShape(
+      _currentStroke!.points,
+      tolerance,
+    );
+
+    if (match != null) {
+      _currentStroke = _currentStroke!.copyWith(
+        points: match.correctedPoints,
+      );
+      _isLockedToShape = true;
+      _lockedShapeType = match.type;
+      notifyListeners();
+      return true;
+    }
+
+    return false;
   }
 
   /// Entfernt Striche, deren Punkte innerhalb des gegebenen Radius liegen.
@@ -152,6 +196,9 @@ class DrawingController extends ChangeNotifier {
 
     final stroke = _currentStroke!;
     _currentStroke = null;
+    final wasLocked = _isLockedToShape;
+    _isLockedToShape = false;
+    _lockedShapeType = null;
 
     if (stroke.points.length < 2) {
       notifyListeners();
@@ -160,7 +207,8 @@ class DrawingController extends ChangeNotifier {
 
     Stroke strokeToStore = stroke;
 
-    if (simplify) {
+    // Only simplify if it wasn't already a locked shape (which is already "perfect")
+    if (simplify && !wasLocked) {
       final Stroke simplified = await async_simpl.simplifyStrokeAsync(
         stroke,
         tolerance: _simplificationToleranceFor(stroke),
@@ -228,6 +276,8 @@ class DrawingController extends ChangeNotifier {
   void cancelCurrentStroke() {
     if (_currentStroke == null) return;
     _currentStroke = null;
+    _isLockedToShape = false;
+    _lockedShapeType = null;
     notifyListeners();
   }
 
