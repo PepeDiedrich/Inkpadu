@@ -1,6 +1,7 @@
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:flutter/material.dart';
 
 enum ShapeType {
   line,
