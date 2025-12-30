@@ -103,22 +103,33 @@ class AuthController extends ChangeNotifier {
         final callbackFuture = _listenForDesktopCallback();
         await launchUrl(uri, mode: LaunchMode.externalApplication);
         final callback = await callbackFuture;
-          debugPrint('[Auth] OAuth callback: ${callback.toString()}');
+        if (kDebugMode) {
+          final sanitizedCallback = callback
+              .toString()
+              .replaceFirst(RegExp(r'secret=[^&]+'), 'secret=***');
+          debugPrint('[Auth] OAuth callback: $sanitizedCallback');
+        }
         final userId = callback.queryParameters['userId'];
         final secret = callback.queryParameters['secret'];
         if (userId == null || secret == null) {
           throw StateError('Missing OAuth token in callback');
         }
+        if (kDebugMode) {
           debugPrint('[Auth] Creating session for userId=$userId');
-          try {
-            await account.createSession(userId: userId, secret: secret);
-          } catch (e, st) {
+        }
+        try {
+          await account.createSession(userId: userId, secret: secret);
+        } catch (e, st) {
+          if (kDebugMode) {
             debugPrint('[Auth] createSession failed: $e');
             debugPrint('[Auth] stack: $st');
-            rethrow;
           }
+          rethrow;
+        }
         // Nach Redirect und erfolgreichem Session-Aufbau versuchen wir den User zu laden.
+        if (kDebugMode) {
           debugPrint('[Auth] Fetching user after session creation');
+        }
         _user = await account.get();
       } else {
         // Explicitly providing success/failure URLs to avoid "missing redirect url" errors
@@ -197,22 +208,32 @@ class AuthController extends ChangeNotifier {
     final completer = Completer<Uri>();
     server.listen((HttpRequest request) async {
       final uri = request.uri;
-      final isCallbackPath = uri.path == AppwriteConfig.callbackPath || uri.path == '${AppwriteConfig.callbackPath}/';
-      final hasTokens = uri.queryParameters.containsKey('userId') && uri.queryParameters.containsKey('secret');
-      debugPrint('[Auth] Incoming redirect path=${uri.path} query=${uri.query} tokens=$hasTokens');
+      final isCallbackPath = uri.path == AppwriteConfig.callbackPath ||
+          uri.path == '${AppwriteConfig.callbackPath}/';
+      final hasTokens = uri.queryParameters.containsKey('userId') &&
+          uri.queryParameters.containsKey('secret');
+      if (kDebugMode) {
+        final sanitizedQuery =
+            uri.query.replaceFirst(RegExp(r'secret=[^&]+'), 'secret=***');
+        debugPrint(
+            '[Auth] Incoming redirect path=${uri.path} query=$sanitizedQuery tokens=$hasTokens');
+      }
 
       if (isCallbackPath && hasTokens && !completer.isCompleted) {
         completer.complete(uri);
         request.response.statusCode = 200;
         request.response.headers.contentType = ContentType.html;
-        request.response.write('<html><body><h2>Login abgeschlossen. Du kannst dieses Fenster schließen.</h2></body></html>');
+        request.response.write(
+            '<html><body><h2>Login abgeschlossen. Du kannst dieses Fenster schließen.</h2></body></html>');
         await request.response.close();
         await server.close(force: true);
         return;
       }
 
       if (isCallbackPath && !hasTokens) {
-        debugPrint('[Auth] Callback without tokens received');
+        if (kDebugMode) {
+          debugPrint('[Auth] Callback without tokens received');
+        }
       }
 
       // Ignore noise like /favicon.ico; respond with 204.
