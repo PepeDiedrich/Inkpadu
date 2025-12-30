@@ -74,6 +74,8 @@ class InkNotesController extends ChangeNotifier {
   bool _applyingRemoteUpdate = false;
   ConnectivityService? _connectivityService;
   StreamSubscription<bool>? _connectivitySubscription;
+  Timer? _foregroundSyncTimer;
+  Duration _foregroundSyncInterval = const Duration(minutes: 5);
 
   // Flüchtige Scroll-Offsets pro Notiz und Seite (nur zur Laufzeit im Speicher)
   final Map<String, Map<int, double>> _scrollOffsets = <String, Map<int, double>>{};
@@ -409,6 +411,16 @@ class InkNotesController extends ChangeNotifier {
     unawaited(_synchronizeWithRemote(userId));
   }
 
+  /// Aktiviert einen periodischen Foreground-Sync für Plattformen ohne Workmanager.
+  void startForegroundSync({Duration? interval}) {
+    _foregroundSyncInterval = interval ?? const Duration(minutes: 5);
+    _foregroundSyncTimer?.cancel();
+    _foregroundSyncTimer = Timer.periodic(_foregroundSyncInterval, (_) {
+      unawaited(_runForegroundSync());
+    });
+    unawaited(_runForegroundSync());
+  }
+
   Future<void> _synchronizeWithRemote(String userId) async {
     // Initialize repository and try a full sync
     await _repository.init();
@@ -457,6 +469,22 @@ class InkNotesController extends ChangeNotifier {
       }
     } finally {
       _applyingRemoteUpdate = false;
+    }
+  }
+
+  Future<void> _runForegroundSync() async {
+    final userId = _activeUserId;
+    if (userId == null) return;
+    try {
+      await _repository.syncAll(userId: userId);
+      await _repository.processQueueOnce(userId: userId);
+      _notes
+        ..clear()
+        ..addAll(await _repository.getLocalNotes())
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _safelyNotifyListeners();
+    } catch (_) {
+      // swallow errors to keep foreground sync best-effort on desktop
     }
   }
 
@@ -517,6 +545,8 @@ class InkNotesController extends ChangeNotifier {
     unawaited(_connectivitySubscription?.cancel());
     unawaited(_connectivityService?.stopMonitoring());
     unawaited(_pdfProgressController.close());
+    _foregroundSyncTimer?.cancel();
+    _foregroundSyncTimer = null;
     // Cancel any pending debounce timers to avoid firing network requests
     // after the controller has been disposed.
     for (final timer in _debounceTimers.values) {

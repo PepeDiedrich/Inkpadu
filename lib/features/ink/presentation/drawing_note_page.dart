@@ -11,6 +11,7 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/animated_sidebar.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/draggable_wobbly_window.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/floating_tool_window.dart';
@@ -50,6 +51,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   SidebarResizeTrend _resizeTrend = SidebarResizeTrend.none;
   List<StrokeBoundingBoxCluster> _latestStrokeClusters =
       const <StrokeBoundingBoxCluster>[];
+  Axis _toolbarOrientation = Axis.horizontal;
 
   @override
   void didChangeDependencies() {
@@ -444,19 +446,27 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   },
                 ),
                 // Floating Tool Window
-                Positioned(
-                  bottom: 24,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: FloatingToolWindow(
-                      tools: controller.tools,
-                      selectedToolId: controller.selectedToolId,
-                      onToolSelected: controller.selectTool,
-                      onToolLongPress: _openToolConfigurator,
-                      onExportPdf: () => _exportNoteToPdf(controller),
-                      onBackPressed: () => Navigator.of(context).pop(),
-                    ),
+                DraggableWobblyWindow(
+                  initialOffset: controller.toolbarPosition,
+                  onDragEnd: controller.saveToolbarPosition,
+                  onOrientationChanged: (orientation) {
+                    if (_toolbarOrientation != orientation) {
+                      setState(() => _toolbarOrientation = orientation);
+                    }
+                  },
+                  child: FloatingToolWindow(
+                    tools: controller.tools,
+                    selectedToolId: controller.selectedToolId,
+                    onToolSelected: controller.selectTool,
+                    onToolEdit: _openToolConfigurator,
+                    onToolDelete: controller.removeTool,
+                    onAddTool: () {
+                      final newTool = controller.addTool();
+                      _openToolConfigurator(newTool);
+                    },
+                    onExportPdf: () => _exportNoteToPdf(controller),
+                    onBackPressed: () => Navigator.of(context).pop(),
+                    orientation: _toolbarOrientation,
                   ),
                 ),
               ],
