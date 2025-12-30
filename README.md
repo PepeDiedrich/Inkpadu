@@ -58,6 +58,23 @@ Scopes können pro Provider im Aufruf von `_handleLogin` (Onboarding) angepasst 
 ### Fehlerbehandlung
 Bei Fehlschlag erscheint eine kurze Fehlermeldung unter den Buttons (z.B. `Login (Google) fehlgeschlagen`). Logs können über `flutter run -v` weiter analysiert werden.
 
+## Tests
+
+### Integration Tests
+Integration Tests prüfen den gesamten App-Ablauf auf einem echten Gerät oder Simulator.
+
+**Voraussetzung:** Ein Simulator oder Gerät muss verbunden sein.
+
+**Ausführen:**
+```bash
+flutter test integration_test/app_test.dart
+```
+
+Der aktuelle Test `app_test.dart` simuliert:
+1. Start der App (Onboarding wird via Mock übersprungen).
+2. Erstellen einer neuen leeren Notiz.
+3. Verifizieren, dass der Editor geöffnet wird.
+
 ## Ink-Datenformat & Synchronisation
 
 * Handschriftliche Seiten werden jetzt platzsparend serialisiert, bevor sie lokal oder in Appwrite gespeichert werden.

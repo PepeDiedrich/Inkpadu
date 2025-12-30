@@ -68,7 +68,7 @@ class FloatingToolWindow extends StatelessWidget {
           height: isVertical ? 8 : 0,
         );
 
-    Widget content = Card(
+    final Widget content = Card(
       elevation: 8,
       shadowColor: Colors.black26,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
@@ -83,7 +83,6 @@ class FloatingToolWindow extends StatelessWidget {
           child: Flex(
             direction: orientation,
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Back Button
               IconButton(
