@@ -1,16 +1,18 @@
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-  show RotatedBoundingBox;
+    show RotatedBoundingBox;
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
+/// Shared Paint object to avoid allocation in the loop.
+final Paint _sharedPaint = Paint()
+  ..strokeCap = StrokeCap.round
+  ..style = PaintingStyle.stroke;
+
 /// Gemeinsame Low-Level Routine zum Zeichnen eines einzelnen [Stroke].
 void _paintStroke(Canvas canvas, Stroke stroke) {
-  final paint = Paint()
-    ..color = stroke.isHighlighter
-        ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
-        : stroke.color
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke;
+  _sharedPaint.color = stroke.isHighlighter
+      ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
+      : stroke.color;
 
   if (stroke.points.isEmpty) return;
 
@@ -18,8 +20,8 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
     final p1 = stroke.points[i];
     final p2 = stroke.points[i + 1];
     final width = stroke.baseWidth * (p1.pressure + p2.pressure) / 2;
-    paint.strokeWidth = width;
-    canvas.drawLine(p1.position, p2.position, paint);
+    _sharedPaint.strokeWidth = width;
+    canvas.drawLine(p1.position, p2.position, _sharedPaint);
   }
 }
 
@@ -27,7 +29,7 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
 class FinishedStrokesPainter extends CustomPainter {
   /// Erstellt einen Painter für bereits abgeschlossene Striche.
   FinishedStrokesPainter({required List<Stroke> strokes, required this.version})
-    : strokes = List<Stroke>.unmodifiable(strokes);
+      : strokes = List<Stroke>.unmodifiable(strokes);
 
   /// Alle abgeschlossenen Striche auf der Seite.
   final List<Stroke> strokes;
