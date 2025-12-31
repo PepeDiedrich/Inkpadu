@@ -448,6 +448,12 @@ class _AssistantBubble extends StatelessWidget {
                         color: foregroundColor,
                         fontStyle: italic ? FontStyle.italic : null,
                       ),
+                      onMathTap: (String math) {
+                        debugPrint('Math tapped: $math');
+                      },
+                      onTermTap: (String term) {
+                        debugPrint('Term tapped: $term');
+                      },
                     )
                   : SelectableText(
                       content,
