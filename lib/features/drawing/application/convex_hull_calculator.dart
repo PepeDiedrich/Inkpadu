@@ -30,13 +30,13 @@ class ConvexHullCalculator {
     double minimumArea = _minimumPolygonArea,
     double connectionMargin = 32,
   }) async {
-    // Serialisiere Strokes für Isolate-Übertragung
-    final strokesJson = strokes
-        .map((stroke) => stroke.toJson())
-        .toList(growable: false);
+    // Wandle Iterable in Liste um, da Iterables nicht direkt gesendet werden können
+    // (es sei denn, sie sind Listen)
+    final strokesList =
+        strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
 
     final params = _ContoursParams(
-      strokesJson: strokesJson,
+      strokes: strokesList,
       cellSize: cellSize,
       padding: padding,
       simplifyToleranceFactor: simplifyToleranceFactor,
@@ -1286,7 +1286,7 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
 /// übertragen zu werden. Alle Felder müssen serialisierbar sein.
 class _ContoursParams {
   const _ContoursParams({
-    required this.strokesJson,
+    required this.strokes,
     required this.cellSize,
     required this.padding,
     required this.simplifyToleranceFactor,
@@ -1294,8 +1294,8 @@ class _ContoursParams {
     required this.connectionMargin,
   });
 
-  /// Serialisierte Stroke-Daten als JSON-kompatible Liste.
-  final List<Map<String, dynamic>> strokesJson;
+  /// Direkt übertragene Stroke-Daten.
+  final List<Stroke> strokes;
   final double cellSize;
   final double padding;
   final double simplifyToleranceFactor;
@@ -1305,21 +1305,15 @@ class _ContoursParams {
 
 /// Top-level Funktion für Isolate-Berechnung.
 ///
-/// Diese Funktion dient als Einstiegspunkt für das Isolate und deserialisiert
-/// die übergebenen Parameter, bevor die eigentliche Berechnung durchgeführt wird.
+/// Diese Funktion dient als Einstiegspunkt für das Isolate.
 /// Die Funktion muss auf oberster Ebene definiert sein, da sie von einem
 /// separaten Isolate aufgerufen wird.
 List<List<Map<String, double>>> _computeContoursIsolate(
   _ContoursParams params,
 ) {
-  // Deserialisiere Strokes
-  final strokes = params.strokesJson
-      .map((json) => Stroke.fromJson(json))
-      .toList(growable: false);
-
   // Führe Berechnung durch
   final contours = ConvexHullCalculator.contoursForStrokesSync(
-    strokes,
+    params.strokes,
     cellSize: params.cellSize,
     padding: params.padding,
     simplifyToleranceFactor: params.simplifyToleranceFactor,
