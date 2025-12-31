@@ -28,7 +28,7 @@ class ConvexHullCalculator {
     double padding = _defaultPadding,
     double simplifyToleranceFactor = _rdpToleranceFactor,
     double minimumArea = _minimumPolygonArea,
-    double connectionMargin = _defaultConnectionMargin,
+    double connectionMargin = 32,
   }) async {
     // Serialisiere Strokes für Isolate-Übertragung
     final strokesJson = strokes
@@ -49,16 +49,20 @@ class ConvexHullCalculator {
 
     // Deserialisiere Offsets
     return serializedContours
-        .map((contour) => contour
-            .map((offsetMap) {
-              final dx = offsetMap[_offsetDxKey];
-              final dy = offsetMap[_offsetDyKey];
-              if (dx == null || dy == null) {
-                throw StateError('Ungültige Offset-Daten vom Isolate erhalten');
-              }
-              return Offset(dx, dy);
-            })
-            .toList(growable: false))
+        .map(
+          (contour) => contour
+              .map((offsetMap) {
+                final dx = offsetMap[_offsetDxKey];
+                final dy = offsetMap[_offsetDyKey];
+                if (dx == null || dy == null) {
+                  throw StateError(
+                    'Ungültige Offset-Daten vom Isolate erhalten',
+                  );
+                }
+                return Offset(dx, dy);
+              })
+              .toList(growable: false),
+        )
         .toList(growable: false);
   }
 
@@ -76,7 +80,10 @@ class ConvexHullCalculator {
       return const [];
     }
 
-    final double effectivePadding = math.max(padding, bounds.maxStrokeWidth);
+    final double effectivePadding = math.max(
+      math.max(padding, bounds.maxStrokeWidth),
+      connectionMargin,
+    );
     final double originX = bounds.minX - effectivePadding;
     final double originY = bounds.minY - effectivePadding;
     final Offset origin = Offset(originX, originY);
@@ -248,6 +255,57 @@ class ConvexHullCalculator {
             ),
           );
         }
+      }
+    }
+
+    // Versuche, überlappende Cluster zu verschmelzen
+    bool merged = true;
+    while (merged) {
+      merged = false;
+      for (var i = 0; i < clusters.length; i++) {
+        for (var j = i + 1; j < clusters.length; j++) {
+          final boxA = clusters[i].boundingBox;
+          final boxB = clusters[j].boundingBox;
+
+          if (boxA.overlaps(boxB)) {
+            // Kombiniere die beiden Cluster
+            final combinedStrokes = <Stroke>[
+              ...clusters[i].strokes,
+              ...clusters[j].strokes,
+            ];
+
+            // Aggregierte Punkte für die neue Bounding-Box
+            final allPoints = <Offset>[];
+            for (final stroke in combinedStrokes) {
+              allPoints.addAll(stroke.points.map((p) => p.position));
+            }
+
+            RotatedBoundingBox? newBox = minimalBoundingBoxForPolygon(
+              allPoints,
+            );
+            // Wenn wir eine Box haben, ggf. wieder mit Radius erweitern
+            if (newBox != null) {
+              double maxRadius = 0;
+              for (final s in combinedStrokes) {
+                maxRadius = math.max(maxRadius, _maxStrokeRadius(s));
+              }
+              if (maxRadius > 0) {
+                newBox = newBox.expand(maxRadius);
+              }
+
+              // Alten Cluster i austauschen, j löschen
+              clusters[i] = StrokeBoundingBoxCluster(
+                boundingBox: newBox,
+                strokes: combinedStrokes,
+              );
+              clusters.removeAt(j);
+
+              merged = true;
+              break; // Springe aus innerer Schleife, starte neu
+            }
+          }
+        }
+        if (merged) break; // Springe aus äußerer Schleife
       }
     }
 
@@ -988,6 +1046,63 @@ class RotatedBoundingBox {
       height: newHeight,
     );
   }
+
+  /// Prüft mittels SAT (Separating Axis Theorem), ob sich diese und [other] überschneiden.
+  bool overlaps(RotatedBoundingBox other) {
+    // Wenn eine der Boxen keine Fläche hat (Linie oder Punkt),
+    // machen wir einen einfachen Check oder betrachten es als nicht überlappend für diesen Zweck.
+    // Für korrekte "Square merging" wäre es gut, echte Überlappung zu prüfen.
+    if (area <= 0 || other.area <= 0) {
+      // Fallback: Prüfen ob ein Eckpunkt im anderen Polygon liegt oder umgekehrt.
+      // Einfacher SAT funktioniert auch für Liniensegmente, aber wir nutzen hier den vollen SAT für Polygone.
+    }
+
+    // Normalen (Achsen) beider Rechtecke sammeln
+    final axes = [..._getAxes(), ...other._getAxes()];
+
+    for (final axis in axes) {
+      final p1 = _project(axis);
+      final p2 = other._project(axis);
+
+      if (!p1.overlaps(p2)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  List<Offset> _getAxes() {
+    final axes = <Offset>[];
+    // Nur zwei Achsen nötig für Rechteck (Kanten 0-1 und 1-2)
+    // 0-1
+    final edge1 = corners[1] - corners[0];
+    axes.add(Offset(-edge1.dy, edge1.dx)); // Normale
+    // 1-2
+    final edge2 = corners[2] - corners[1];
+    axes.add(Offset(-edge2.dy, edge2.dx)); // Normale
+    return axes;
+  }
+
+  _Projection _project(Offset axis) {
+    double min = double.infinity;
+    double max = -double.infinity;
+
+    for (final p in corners) {
+      final val = p.dx * axis.dx + p.dy * axis.dy;
+      if (val < min) min = val;
+      if (val > max) max = val;
+    }
+    return _Projection(min, max);
+  }
+}
+
+class _Projection {
+  const _Projection(this.min, this.max);
+  final double min;
+  final double max;
+
+  bool overlaps(_Projection other) => !(max < other.min || other.max < min);
 }
 
 /// Gruppiert Striche mit einer zugehörigen Bounding-Box.
@@ -1144,7 +1259,7 @@ const double _minimumStrokeRadius = 0.75;
 const double _minimumSamplingStep = 1.0;
 const double _rdpToleranceFactor = 0.3;
 const double _minimumPolygonArea = 32;
-const double _defaultConnectionMargin = 16;
+const double _defaultConnectionMargin = 32;
 const double _minimumNodeRadiusFactor = 0.6;
 
 // Konstanten für Offset-Serialisierung
@@ -1166,7 +1281,7 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
 ];
 
 /// Parameter-Objekt für die Isolate-Kommunikation.
-/// 
+///
 /// Dieses Objekt wird serialisiert, um über Isolate-Grenzen hinweg
 /// übertragen zu werden. Alle Felder müssen serialisierbar sein.
 class _ContoursParams {
@@ -1189,12 +1304,14 @@ class _ContoursParams {
 }
 
 /// Top-level Funktion für Isolate-Berechnung.
-/// 
+///
 /// Diese Funktion dient als Einstiegspunkt für das Isolate und deserialisiert
 /// die übergebenen Parameter, bevor die eigentliche Berechnung durchgeführt wird.
 /// Die Funktion muss auf oberster Ebene definiert sein, da sie von einem
 /// separaten Isolate aufgerufen wird.
-List<List<Map<String, double>>> _computeContoursIsolate(_ContoursParams params) {
+List<List<Map<String, double>>> _computeContoursIsolate(
+  _ContoursParams params,
+) {
   // Deserialisiere Strokes
   final strokes = params.strokesJson
       .map((json) => Stroke.fromJson(json))
@@ -1212,8 +1329,10 @@ List<List<Map<String, double>>> _computeContoursIsolate(_ContoursParams params) 
 
   // Serialisiere Offsets als Maps für Isolate-Übertragung
   return contours
-      .map((contour) => contour
-          .map((offset) => {_offsetDxKey: offset.dx, _offsetDyKey: offset.dy})
-          .toList(growable: false))
+      .map(
+        (contour) => contour
+            .map((offset) => {_offsetDxKey: offset.dx, _offsetDyKey: offset.dy})
+            .toList(growable: false),
+      )
       .toList(growable: false);
 }
