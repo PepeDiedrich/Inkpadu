@@ -47,6 +47,7 @@
   "notes": {
     "title": "Notizen",
     "newNote": "Neue Notiz",
+    "createSubNote": "Unternotiz erstellen",
     "untitled": "Ohne Titel",
     "unnamed": "Unbenannte Notiz",
     "noContent": "Noch keine Inhalte",

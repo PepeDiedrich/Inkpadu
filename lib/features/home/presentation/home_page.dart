@@ -21,7 +21,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _NoteAction { open, metadata, exportPdf, delete }
+enum _NoteAction { open, metadata, exportPdf, delete, createSubNote }
 
 class _HomePageState extends State<HomePage> {
   Future<void> _showNoteActions(InkNote note) async {
@@ -63,6 +63,11 @@ class _HomePageState extends State<HomePage> {
                 leading: const Icon(Icons.draw_outlined),
                 title: Text(context.t.notes.openNote),
                 onTap: () => Navigator.of(context).pop(_NoteAction.open),
+              ),
+              ListTile(
+                leading: const Icon(Icons.subdirectory_arrow_right),
+                title: Text(context.t.notes.createSubNote),
+                onTap: () => Navigator.of(context).pop(_NoteAction.createSubNote),
               ),
               ListTile(
                 leading: const Icon(Icons.edit_note),
@@ -112,7 +117,27 @@ class _HomePageState extends State<HomePage> {
       case _NoteAction.delete:
         await _deleteNote(note.id, note.title);
         break;
+      case _NoteAction.createSubNote:
+        await _createSubNote(note);
+        break;
     }
+  }
+
+  Future<void> _createSubNote(InkNote parent) async {
+    final controller = InkNotesScope.of(context);
+    final result = await showNoteMetadataDialog(
+      context,
+      initialTitle: InkNote.generateTitle(),
+      initialPaperStyle: NotePaperStyle.plain,
+    );
+    if (!mounted || result == null) return;
+
+    final note = controller.createEmpty(
+      title: result.title,
+      paperStyle: result.paperStyle,
+      parentId: parent.id,
+    );
+    _open(note.id);
   }
 
   Future<void> _exportNoteToPdf(InkNote note) async {
@@ -325,8 +350,20 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-  final notes = InkNotesScope.of(context).notes;
-  final theme = Theme.of(context);
+    final notes = InkNotesScope.of(context).notes;
+    
+    if (notes.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text(context.t.notes.title)),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _showCreateOptions(),
+          icon: const Icon(Icons.add),
+          label: Text(context.t.notes.newNote),
+        ),
+        body: Center(child: Text(context.t.notes.noNotes)),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text(context.t.notes.title)),
       floatingActionButton: FloatingActionButton.extended(
@@ -334,46 +371,84 @@ class _HomePageState extends State<HomePage> {
         icon: const Icon(Icons.add),
         label: Text(context.t.notes.newNote),
       ),
-      body: notes.isEmpty
-          ? Center(child: Text(context.t.notes.noNotes))
-      : ListView.builder(
-        key: const PageStorageKey('home_list'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                final n = notes[index];
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 4,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    title: Text(n.title),
-                    subtitle: Text(
-                      '${n.currentPage.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
-                    ),
-                    onTap: () => _open(n.id),
-                    onLongPress: () => _showNoteActions(n),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: context.t.notes.deleteNoteTooltip,
-                          icon: const Icon(Icons.delete_outline),
-                          color: theme.colorScheme.error,
-                          onPressed: () => _deleteNote(n.id, n.title),
-                        ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
-                  ),
-                );
-              },
+      body: _buildNoteTree(notes),
+    );
+  }
+
+  Widget _buildNoteTree(List<InkNote> allNotes) {
+    // Group notes by parentId
+    final Map<String?, List<InkNote>> notesByParent = {};
+    for (final note in allNotes) {
+      final parentId = note.parentId;
+      if (!notesByParent.containsKey(parentId)) {
+        notesByParent[parentId] = [];
+      }
+      notesByParent[parentId]!.add(note);
+    }
+
+    // Helper to build list for a parent
+    List<Widget> buildLevel(String? parentId) {
+      final notes = notesByParent[parentId] ?? [];
+      // Sort by updated at (descending)
+      notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      return notes.map((note) {
+        final children = buildLevel(note.id);
+        if (children.isEmpty) {
+          return _buildNoteCard(note);
+        } else {
+          return ExpandableNoteCard(
+            key: ValueKey(note.id),
+            note: note,
+            onTap: () => _open(note.id),
+            onLongPress: () => _showNoteActions(note),
+            onDelete: () => _deleteNote(note.id, note.title),
+            dateFormatter: _fmt,
+            deleteTooltip: context.t.notes.deleteNoteTooltip,
+            children: children,
+          );
+        }
+      }).toList();
+    }
+
+    return ListView(
+      key: const PageStorageKey('home_list'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      children: buildLevel(null),
+    );
+  }
+
+  Widget _buildNoteCard(InkNote n) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(
+        vertical: 8,
+        horizontal: 4,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        title: Text(n.title),
+        subtitle: Text(
+          '${n.currentPage.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
+        ),
+        onTap: () => _open(n.id),
+        onLongPress: () => _showNoteActions(n),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: context.t.notes.deleteNoteTooltip,
+              icon: const Icon(Icons.delete_outline),
+              color: theme.colorScheme.error,
+              onPressed: () => _deleteNote(n.id, n.title),
             ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
     );
   }
 
@@ -384,5 +459,91 @@ class _HomePageState extends State<HomePage> {
     if (diff.inHours < 1) return '${diff.inMinutes} min';
     if (diff.inHours < 24) return '${diff.inHours} h';
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+  }
+}
+
+/// Widget für eine Notiz-Karte, die expandiert werden kann, um Unternotizen anzuzeigen.
+class ExpandableNoteCard extends StatefulWidget {
+  /// Die anzuzeigende Notiz.
+  final InkNote note;
+  /// Die Liste der Unternotizen-Widgets.
+  final List<Widget> children;
+  /// Callback beim Tippen auf die Notiz.
+  final VoidCallback onTap;
+  /// Callback beim langen Drücken auf die Notiz.
+  final VoidCallback onLongPress;
+  /// Callback zum Löschen der Notiz.
+  final VoidCallback onDelete;
+  /// Funktion zur Formatierung des Datums.
+  final String Function(DateTime) dateFormatter;
+  /// Tooltip für den Löschen-Button.
+  final String deleteTooltip;
+
+  /// Erstellt eine [ExpandableNoteCard].
+  const ExpandableNoteCard({
+    super.key,
+    required this.note,
+    required this.children,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onDelete,
+    required this.dateFormatter,
+    required this.deleteTooltip,
+  });
+
+  @override
+  State<ExpandableNoteCard> createState() => _ExpandableNoteCardState();
+}
+
+class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Card(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ListTile(
+            title: Text(widget.note.title),
+            subtitle: Text(
+              '${widget.note.currentPage.strokes.length} Striche · ${widget.dateFormatter(widget.note.updatedAt)} · ${widget.note.paperStyle.label}',
+            ),
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: widget.deleteTooltip,
+                  icon: const Icon(Icons.delete_outline),
+                  color: theme.colorScheme.error,
+                  onPressed: widget.onDelete,
+                ),
+                IconButton(
+                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                  onPressed: () {
+                    setState(() {
+                      _expanded = !_expanded;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: Column(children: widget.children),
+          ),
+      ],
+    );
   }
 }

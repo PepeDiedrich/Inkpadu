@@ -5,6 +5,9 @@ import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dar
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
+import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
 
 /// Stellt den Gesprächsverlauf des Assistenten inklusive Statusmeldungen dar.
@@ -20,6 +23,7 @@ class AssistantConversationSection extends StatelessWidget {
     this.isStreaming = false,
     this.streamingAnswerListenable,
     this.importedPdfText,
+    this.currentNoteId,
   });
 
   /// Optionale Statusmeldung oberhalb der Historie.
@@ -38,6 +42,8 @@ class AssistantConversationSection extends StatelessWidget {
   final ValueListenable<String>? streamingAnswerListenable;
   /// Importierter PDF-Text für diese Seite (wird als Kontext angezeigt).
   final String? importedPdfText;
+  /// ID der aktuellen Notiz (für Sub-Notes).
+  final String? currentNoteId;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +79,7 @@ class AssistantConversationSection extends StatelessWidget {
           _AssistantMessageGroup(
             message: messages[index],
             debugModeEnabled: debugModeEnabled,
+            currentNoteId: currentNoteId,
           ),
         );
       }
@@ -88,6 +95,7 @@ class AssistantConversationSection extends StatelessWidget {
           debugModeEnabled: debugModeEnabled,
           isPending: isStreaming,
           streamingAnswerListenable: streamingAnswerListenable,
+          currentNoteId: currentNoteId,
         ),
       );
     }
@@ -281,12 +289,14 @@ class _AssistantMessageGroup extends StatelessWidget {
     required this.debugModeEnabled,
     this.isPending = false,
     this.streamingAnswerListenable,
+    this.currentNoteId,
   });
 
   final AssistantMessage message;
   final bool debugModeEnabled;
   final bool isPending;
   final ValueListenable<String>? streamingAnswerListenable;
+  final String? currentNoteId;
 
   @override
   Widget build(BuildContext context) {
@@ -370,6 +380,7 @@ class _AssistantMessageGroup extends StatelessWidget {
                       content: effectiveAnswer,
                       renderMath: !isPending,
                       showSpinner: isPending,
+                      currentNoteId: currentNoteId,
                     );
                   },
                 )
@@ -381,6 +392,7 @@ class _AssistantMessageGroup extends StatelessWidget {
                   content: displayAnswer,
                   renderMath: !isPending,
                   showSpinner: isPending,
+                  currentNoteId: currentNoteId,
                 ),
         ),
         const SizedBox(height: 8),
@@ -405,6 +417,7 @@ class _AssistantBubble extends StatelessWidget {
     this.italic = false,
     this.renderMath = false,
     this.showSpinner = false,
+    this.currentNoteId,
   });
 
   final Color backgroundColor;
@@ -415,6 +428,7 @@ class _AssistantBubble extends StatelessWidget {
   final bool italic;
   final bool renderMath;
   final bool showSpinner;
+  final String? currentNoteId;
 
   @override
   Widget build(BuildContext context) {
@@ -449,10 +463,52 @@ class _AssistantBubble extends StatelessWidget {
                         fontStyle: italic ? FontStyle.italic : null,
                       ),
                       onMathTap: (String math) {
-                        debugPrint('Math tapped: $math');
+                        final String cleanedTitle = math.trim();
+                        if (cleanedTitle.isEmpty) return;
+
+                        final InkNotesController notesController =
+                            InkNotesScope.of(context);
+                        final InkNote note = notesController.notes.firstWhere(
+                          (InkNote n) =>
+                              n.parentId == currentNoteId &&
+                              n.title == cleanedTitle,
+                          orElse: () => notesController.createEmpty(
+                            title: cleanedTitle,
+                            parentId: currentNoteId,
+                          ),
+                        );
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) => DrawingNotePage(
+                              noteId: note.id,
+                              isSubNote: true,
+                            ),
+                          ),
+                        );
                       },
                       onTermTap: (String term) {
-                        debugPrint('Term tapped: $term');
+                        final String cleanedTitle = term.trim();
+                        if (cleanedTitle.isEmpty) return;
+
+                        final InkNotesController notesController =
+                            InkNotesScope.of(context);
+                        final InkNote note = notesController.notes.firstWhere(
+                          (InkNote n) =>
+                              n.parentId == currentNoteId &&
+                              n.title == cleanedTitle,
+                          orElse: () => notesController.createEmpty(
+                            title: cleanedTitle,
+                            parentId: currentNoteId,
+                          ),
+                        );
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) => DrawingNotePage(
+                              noteId: note.id,
+                              isSubNote: true,
+                            ),
+                          ),
+                        );
                       },
                     )
                   : SelectableText(

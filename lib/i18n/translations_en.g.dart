@@ -137,6 +137,7 @@ class _TranslationsNotesEn extends TranslationsNotesDe {
 	// Translations
 	@override String get title => 'Notes';
 	@override String get newNote => 'New note';
+	@override String get createSubNote => 'Create sub-note';
 	@override String get untitled => 'Untitled';
 	@override String get unnamed => 'Unnamed note';
 	@override String get noContent => 'No content yet';
@@ -436,6 +437,7 @@ extension on TranslationsEn {
 			'nav.settings' => 'Settings',
 			'notes.title' => 'Notes',
 			'notes.newNote' => 'New note',
+			'notes.createSubNote' => 'Create sub-note',
 			'notes.untitled' => 'Untitled',
 			'notes.unnamed' => 'Unnamed note',
 			'notes.noContent' => 'No content yet',

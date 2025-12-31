@@ -22,10 +22,17 @@ import 'package:flutter/material.dart';
 /// Page for editing/drawing a single handwritten note.
 class DrawingNotePage extends StatefulWidget {
   /// Creates a page for the note with the given [noteId].
-  const DrawingNotePage({super.key, required this.noteId});
+  const DrawingNotePage({
+    super.key,
+    required this.noteId,
+    this.isSubNote = false,
+  });
 
   /// ID of the note to edit.
   final String noteId;
+
+  /// Whether this page is opened as a sub-note (enables zoom-out to exit).
+  final bool isSubNote;
 
   @override
   State<DrawingNotePage> createState() => _DrawingNotePageState();
@@ -370,6 +377,12 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                               onFocusPage: _focusPage,
                               canCreateNewPage:
                                   controller.currentPageHasContent,
+                              isSubNote: widget.isSubNote,
+                              onZoomOutExit: () {
+                                if (widget.isSubNote) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
                             ),
                           ),
                         ),

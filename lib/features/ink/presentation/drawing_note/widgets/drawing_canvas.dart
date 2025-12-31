@@ -39,6 +39,8 @@ class DrawingCanvas extends StatefulWidget {
     this.onRequestParentScrollLock,
     this.onStrokeClustersChanged,
     this.importedPdfText,
+    this.isSubNote = false,
+    this.onZoomOutExit,
   });
 
   /// Controller, der die Striche verwaltet.
@@ -90,6 +92,12 @@ class DrawingCanvas extends StatefulWidget {
 
   /// Optionaler Text aus einem importierten PDF.
   final String? importedPdfText;
+
+  /// Whether this canvas is part of a sub-note.
+  final bool isSubNote;
+
+  /// Callback when zoom-out gesture is detected to exit sub-note.
+  final VoidCallback? onZoomOutExit;
 
   @override
   State<DrawingCanvas> createState() => _DrawingCanvasState();
@@ -549,6 +557,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       } else if (touchCount == 2) {
         _cancelThreeFingerTapCandidate();
         _beginTwoFingerTapCandidate();
+        // Initialize zoom-out detection
+        if (widget.isSubNote) {
+          _initialPinchDistance = _computePinchDistance();
+        }
         _abortDrawing();
         touchAllowsDrawing = false;
       } else {
@@ -618,6 +630,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
   }
 
+  double? _initialPinchDistance;
+
+  double _computePinchDistance() {
+    if (_activeTouchPositions.length != 2) return 0.0;
+    final List<Offset> points = _activeTouchPositions.values.toList();
+    return (points[0] - points[1]).distance;
+  }
+
   void _update(PointerMoveEvent details) {
     final kind = details.kind;
 
@@ -644,6 +664,19 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         return;
       }
       if (touchCount == 2) {
+        // Check for zoom-out gesture
+        if (widget.isSubNote && _initialPinchDistance != null) {
+          final double currentDistance = _computePinchDistance();
+          if (currentDistance > 0 && _initialPinchDistance! > 0) {
+            final double scale = currentDistance / _initialPinchDistance!;
+            if (scale < 0.7) { // Threshold for zoom-out
+              widget.onZoomOutExit?.call();
+              _initialPinchDistance = null; // Prevent multiple calls
+              return;
+            }
+          }
+        }
+
         if (_threeFingerTapStart != null) {
           final bool movedTooFar = !_isThreeFingerTapMovementWithinThreshold();
           final bool timedOut = !_isThreeFingerTapWithinTimeWindow();

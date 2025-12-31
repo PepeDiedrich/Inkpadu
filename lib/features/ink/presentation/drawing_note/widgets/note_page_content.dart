@@ -38,6 +38,8 @@ class NotePageContent extends StatelessWidget {
     required this.onPageChanged,
     required this.onFocusPage,
     required this.canCreateNewPage,
+    this.isSubNote = false,
+    this.onZoomOutExit,
   });
 
   /// The note ID for storage keys.
@@ -100,6 +102,12 @@ class NotePageContent extends StatelessWidget {
   /// Whether a new page can be created.
   final bool canCreateNewPage;
 
+  /// Whether this page is opened as a sub-note.
+  final bool isSubNote;
+
+  /// Callback when zoom-out gesture is detected to exit sub-note.
+  final VoidCallback? onZoomOutExit;
+
   @override
   Widget build(BuildContext context) {
     final int placeholderIndex = canCreateNewPage ? pages.length : -1;
@@ -148,6 +156,10 @@ class NotePageContent extends StatelessWidget {
                     initScrollOffset: initScrollOffset,
                     onScrollOffsetChanged: onScrollOffsetChanged,
                     onStrokeClustersChanged: onStrokeClustersChanged,
+
+                    // importedPdfText: pdfText, // Don't show text on canvas background
+                    isSubNote: isSubNote,
+                    onZoomOutExit: onZoomOutExit,
                   ),
                 ),
               ],
@@ -164,10 +176,7 @@ class NotePageContent extends StatelessWidget {
                 if (pdfText != null && pdfText.isNotEmpty)
                   ImportedTaskHeader(taskText: pdfText),
                 Expanded(
-                  child: StaticNotePage(
-                    page: page,
-                    paperStyle: paperStyle,
-                  ),
+                  child: StaticNotePage(page: page, paperStyle: paperStyle),
                 ),
               ],
             ),

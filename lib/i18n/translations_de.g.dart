@@ -217,6 +217,9 @@ class TranslationsNotesDe {
 	/// de: 'Neue Notiz'
 	String get newNote => 'Neue Notiz';
 
+	/// de: 'Unternotiz erstellen'
+	String get createSubNote => 'Unternotiz erstellen';
+
 	/// de: 'Ohne Titel'
 	String get untitled => 'Ohne Titel';
 
@@ -853,6 +856,7 @@ extension on Translations {
 			'nav.settings' => 'Einstellungen',
 			'notes.title' => 'Notizen',
 			'notes.newNote' => 'Neue Notiz',
+			'notes.createSubNote' => 'Unternotiz erstellen',
 			'notes.untitled' => 'Ohne Titel',
 			'notes.unnamed' => 'Unbenannte Notiz',
 			'notes.noContent' => 'Noch keine Inhalte',

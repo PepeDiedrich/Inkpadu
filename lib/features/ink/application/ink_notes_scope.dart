@@ -46,9 +46,10 @@ class InkNotesController extends ChangeNotifier {
           await _repository.syncAll(userId: _activeUserId!);
           await _repository.processQueueOnce(userId: _activeUserId!);
           // reload local notes after sync
+          final local = await _repository.getLocalNotes();
           _notes
             ..clear()
-            ..addAll(await _repository.getLocalNotes())
+            ..addAll(local.where((n) => !_pendingDeletionIds.contains(n.id)))
             ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
           _safelyNotifyListeners();
         }
@@ -83,6 +84,10 @@ class InkNotesController extends ChangeNotifier {
   // PDF-Hintergrundverarbeitung: Speichert IDs von Notizen, die gerade verarbeitet werden
   final Set<String> _pdfProcessingNoteIds = <String>{};
 
+  // Speichert IDs von Notizen, die zum Löschen markiert sind (Debounce),
+  // damit sie bei einem Reload nicht wieder auftauchen.
+  final Set<String> _pendingDeletionIds = <String>{};
+
   /// Unveränderliche Sicht auf alle Notizen.
   List<InkNote> get notes => List.unmodifiable(_notes);
 
@@ -111,11 +116,13 @@ class InkNotesController extends ChangeNotifier {
   /// Legt eine neue leere Notiz an und gibt sie zurück.
   InkNote createEmpty({
     String? title,
+    String? parentId,
     NotePaperStyle paperStyle = NotePaperStyle.plain,
   }) {
     final String? cleanedTitle = title?.trim();
     final note = InkNote.empty(
       title: (cleanedTitle?.isEmpty ?? true) ? null : cleanedTitle,
+      parentId: parentId,
       paperStyle: paperStyle,
     );
     _notes.insert(0, note);
@@ -426,9 +433,10 @@ class InkNotesController extends ChangeNotifier {
     await _repository.init();
 
     // Load local notes
+    final localBefore = await _repository.getLocalNotes();
     _notes
       ..clear()
-      ..addAll(await _repository.getLocalNotes())
+      ..addAll(localBefore.where((n) => !_pendingDeletionIds.contains(n.id)))
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _safelyNotifyListeners();
 
@@ -436,9 +444,10 @@ class InkNotesController extends ChangeNotifier {
     await _repository.syncAll(userId: userId);
 
     // After sync, reload local notes
+    final localAfter = await _repository.getLocalNotes();
     _notes
       ..clear()
-      ..addAll(await _repository.getLocalNotes())
+      ..addAll(localAfter.where((n) => !_pendingDeletionIds.contains(n.id)))
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _safelyNotifyListeners();
 
@@ -478,9 +487,10 @@ class InkNotesController extends ChangeNotifier {
     try {
       await _repository.syncAll(userId: userId);
       await _repository.processQueueOnce(userId: userId);
+      final local = await _repository.getLocalNotes();
       _notes
         ..clear()
-        ..addAll(await _repository.getLocalNotes())
+        ..addAll(local.where((n) => !_pendingDeletionIds.contains(n.id)))
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       _safelyNotifyListeners();
     } catch (_) {
@@ -528,12 +538,16 @@ class InkNotesController extends ChangeNotifier {
 
   void _deleteIfPossible(String noteId) {
     final userId = _activeUserId;
-    if (userId == null) return;
+    
+    // Mark as pending deletion so it doesn't reappear on reload
+    _pendingDeletionIds.add(noteId);
+
     // Debounce deletes as well. If a note is rapidly recreated/updated,
     // cancelling a pending delete avoids accidental data loss.
     _debounceTimers[noteId]?.cancel();
     _debounceTimers[noteId] = Timer(debounceDuration, () {
       _debounceTimers.remove(noteId);
+      _pendingDeletionIds.remove(noteId);
       unawaited(_repository.deleteNote(noteId, userId: userId));
     });
   }
@@ -554,6 +568,7 @@ class InkNotesController extends ChangeNotifier {
     }
     _debounceTimers.clear();
     _pendingPageChanges.clear();
+    _pendingDeletionIds.clear();
     _pdfProcessingNoteIds.clear();
     unawaited(_repository.localStorage.close());
     super.dispose();
@@ -562,9 +577,10 @@ class InkNotesController extends ChangeNotifier {
   Future<void> _loadLocalNotes() async {
     try {
       await _repository.init();
+      final local = await _repository.getLocalNotes();
       _notes
         ..clear()
-        ..addAll(await _repository.getLocalNotes())
+        ..addAll(local.where((n) => !_pendingDeletionIds.contains(n.id)))
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       _safelyNotifyListeners();
     } catch (_) {

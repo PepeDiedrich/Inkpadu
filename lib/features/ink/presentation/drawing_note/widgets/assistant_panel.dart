@@ -455,6 +455,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
         isStreaming: _isStreaming,
         streamingAnswerListenable: _streamingAnswer,
         importedPdfText: importedPdfText,
+        currentNoteId: widget.controller.note.id,
       ),
     ];
 

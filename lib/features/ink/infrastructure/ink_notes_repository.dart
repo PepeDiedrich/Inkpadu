@@ -8,6 +8,7 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_se
 class InkNotesRepository {
   /// Lokaler Speicher für Notizen.
   final InkNotesLocalStorage localStorage;
+
   /// Optionaler Service für die Synchronisation mit dem Backend.
   final InkNotesSync? syncService;
 
@@ -36,30 +37,36 @@ class InkNotesRepository {
     );
 
     // Try to sync immediately if possible
-    await _trySyncNote(
-      note,
-      userId,
-      changedPageIndices: changedPageIndices,
-    );
+    await _trySyncNote(note, userId, changedPageIndices: changedPageIndices);
   }
 
   /// Löscht eine Notiz und synchronisiert die Löschung.
-  Future<void> deleteNote(String id, {required String userId}) async {
+  Future<void> deleteNote(String id, {String? userId}) async {
     await localStorage.deleteNote(id);
     // Try remote delete
-    try {
-      if (syncService != null) {
+    if (userId != null && syncService != null) {
+      try {
         await syncService!.deleteNote(id, userId);
         await localStorage.markSynced(id);
+      } catch (_) {
+        // Keep queue for retry
       }
-    } catch (_) {
-      // Keep queue for retry
     }
   }
 
   /// Synchronisiert alle Notizen mit dem Remote-Service.
   Future<void> syncAll({required String userId}) async {
     if (syncService == null) return;
+
+    // Identify notes pending deletion to avoid resurrection from remote fetch
+    // We fetch a larger number to be safe, assuming no user has >1000 pending operations regularly.
+    final queueItems = await localStorage.fetchQueueItems(limit: 1000);
+    final pendingDeletes = queueItems
+        .where((row) => row['operation'] == 'DELETE')
+        .map((row) => row['note_id'] as String?)
+        .whereType<String>()
+        .toSet();
+
     // Upload pending local notes
     final pending = await localStorage.getPendingNotes();
     for (final note in pending) {
@@ -76,6 +83,11 @@ class InkNotesRepository {
       final merged = <String, InkNote>{};
 
       for (final r in remoteNotes) {
+        // If we have a pending delete for this note, ignore the remote version
+        // so we don't "resurrect" it locally.
+        if (pendingDeletes.contains(r.id)) {
+          continue;
+        }
         merged[r.id] = r;
       }
       for (final l in localNotes) {
@@ -89,7 +101,11 @@ class InkNotesRepository {
 
       // Persist merged set locally
       for (final n in merged.values) {
-        await localStorage.saveNote(n, status: LocalSyncStatus.synced, userId: userId);
+        await localStorage.saveNote(
+          n,
+          status: LocalSyncStatus.synced,
+          userId: userId,
+        );
       }
     } catch (e) {
       // Ignore fetch errors; keep local pending items for later retry
@@ -100,7 +116,10 @@ class InkNotesRepository {
   /// Process queue items once (ordered by creation). This method is re-entrant
   /// and will attempt operations via the syncService. On success removes the
   /// queue item; on failure increases retry_count.
-  Future<void> processQueueOnce({required String userId, int maxItems = 50}) async {
+  Future<void> processQueueOnce({
+    required String userId,
+    int maxItems = 50,
+  }) async {
     if (syncService == null) return;
     final items = await localStorage.fetchQueueItems(limit: maxItems);
     for (final row in items) {
@@ -123,7 +142,10 @@ class InkNotesRepository {
               userId,
               changedPageIndices: changedPages,
             );
-            await localStorage.markSynced(noteId, remoteUpdatedAt: note.updatedAt.toUtc());
+            await localStorage.markSynced(
+              noteId,
+              remoteUpdatedAt: note.updatedAt.toUtc(),
+            );
           }
         } else if (operation == 'DELETE') {
           await syncService!.deleteNote(noteId, userId);
@@ -134,7 +156,11 @@ class InkNotesRepository {
         await localStorage.deleteQueueItemById(id);
       } catch (err) {
         // increase retry count and store last error
-        await localStorage.updateQueueItem(id, retryCount: retryCount + 1, lastError: err.toString());
+        await localStorage.updateQueueItem(
+          id,
+          retryCount: retryCount + 1,
+          lastError: err.toString(),
+        );
       }
     }
   }
@@ -151,7 +177,10 @@ class InkNotesRepository {
         userId,
         changedPageIndices: changedPageIndices,
       );
-      await localStorage.markSynced(note.id, remoteUpdatedAt: note.updatedAt.toUtc());
+      await localStorage.markSynced(
+        note.id,
+        remoteUpdatedAt: note.updatedAt.toUtc(),
+      );
     } catch (e) {
       // leave as pending for retry
     }
