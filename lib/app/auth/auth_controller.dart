@@ -7,6 +7,7 @@ import 'package:appwrite/enums.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 
@@ -27,17 +28,27 @@ enum AuthStatus {
 
 /// Verantwortlich für das Abrufen & Aktualisieren des Authentifizierungszustands.
 class AuthController extends ChangeNotifier {
+  /// Sichere Speicherung für sensible Daten (User ID, Email).
+  final FlutterSecureStorage _secureStorage;
+
   /// Erstellt einen [AuthController].
-  AuthController();
+  ///
+  /// Erlaubt das Injizieren von [secureStorage] für Tests.
+  AuthController({FlutterSecureStorage? secureStorage})
+      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   /// Der aktuelle Authentifizierungsstatus.
   AuthStatus _status = AuthStatus.unknown;
+
   /// Das aktuelle User-Objekt aus Appwrite, falls authentifiziert.
   models.User? _user;
+
   /// Die gecachte User-ID für Offline-Modus.
   String? _cachedUserId;
+
   /// Die gecachte E-Mail für Offline-Modus.
   String? _cachedEmail;
+
   /// Gibt an, ob der Nutzer sich jemals erfolgreich angemeldet hat.
   bool _hasLoggedIn = false;
 
@@ -45,10 +56,12 @@ class AuthController extends ChangeNotifier {
   static const _kCachedEmailKey = 'inkpadu_cached_email';
   static const _kHasLoggedInKey = 'inkpadu_has_logged_in';
 
-  bool get _isDesktop => !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+  bool get _isDesktop =>
+      !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
 
   /// Gibt den aktuellen Authentifizierungsstatus zurück.
   AuthStatus get status => _status;
+
   /// Gibt den aktuellen Benutzer zurück, falls authentifiziert.
   models.User? get user => _user;
 
@@ -60,12 +73,32 @@ class AuthController extends ChangeNotifier {
 
   /// Gibt zurück, ob der Nutzer aktuell eingeloggt ist.
   bool get isLoggedIn =>
-      _status == AuthStatus.authenticated && (_user != null || _cachedUserId != null);
+      _status == AuthStatus.authenticated &&
+      (_user != null || _cachedUserId != null);
 
   /// Lädt den aktuellen Auth-Status inklusive gecachter Offline-Daten.
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _hasLoggedIn = prefs.getBool(_kHasLoggedInKey) ?? false;
+
+    // MIGRATION CHECK: Check if we have legacy insecure data
+    // If we find data in SharedPreferences but NOT in SecureStorage, migrate it.
+    final legacyId = prefs.getString(_kCachedUserIdKey);
+    final legacyEmail = prefs.getString(_kCachedEmailKey);
+
+    // Note: We check `containsKey` on secure storage to be safe, but simply reading is enough.
+    // If we have legacy data, we want to ensure it's moved to secure storage.
+    if (legacyId != null) {
+      // Migrate to secure storage
+      await _secureStorage.write(key: _kCachedUserIdKey, value: legacyId);
+      if (legacyEmail != null) {
+        await _secureStorage.write(key: _kCachedEmailKey, value: legacyEmail);
+      }
+      // Remove from insecure storage
+      await prefs.remove(_kCachedUserIdKey);
+      await prefs.remove(_kCachedEmailKey);
+    }
+
     try {
       _status = AuthStatus.loading;
       notifyListeners();
@@ -76,8 +109,10 @@ class AuthController extends ChangeNotifier {
     } on AppwriteException {
       // No network or Appwrite error: try load cached credentials
       _user = null;
-      final cachedId = prefs.getString(_kCachedUserIdKey);
-      final cachedEmail = prefs.getString(_kCachedEmailKey);
+      // READ FROM SECURE STORAGE
+      final cachedId = await _secureStorage.read(key: _kCachedUserIdKey);
+      final cachedEmail = await _secureStorage.read(key: _kCachedEmailKey);
+
       if (cachedId != null) {
         _cachedUserId = cachedId;
         _cachedEmail = cachedEmail;
@@ -92,7 +127,10 @@ class AuthController extends ChangeNotifier {
 
   /// Startet den OAuth2 Flow (z.B. GitHub). Weitere Provider über Parameter.
   /// Startet den OAuth2-Flow für den angegebenen [provider] und optionale [scopes].
-  Future<void> loginWithProvider({required OAuthProvider provider, List<String>? scopes}) async {
+  Future<void> loginWithProvider({
+    required OAuthProvider provider,
+    List<String>? scopes,
+  }) async {
     if (_status == AuthStatus.loading) return;
     _status = AuthStatus.loading;
     notifyListeners();
@@ -104,9 +142,10 @@ class AuthController extends ChangeNotifier {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
         final callback = await callbackFuture;
         if (kDebugMode) {
-          final sanitizedCallback = callback
-              .toString()
-              .replaceFirst(RegExp(r'secret=[^&]+'), 'secret=***');
+          final sanitizedCallback = callback.toString().replaceFirst(
+            RegExp(r'secret=[^&]+'),
+            'secret=***',
+          );
           debugPrint('[Auth] OAuth callback: $sanitizedCallback');
         }
         final userId = callback.queryParameters['userId'];
@@ -134,7 +173,8 @@ class AuthController extends ChangeNotifier {
       } else {
         // Explicitly providing success/failure URLs to avoid "missing redirect url" errors
         // The scheme must match the one defined in AndroidManifest.xml
-        final redirectUrl = 'appwrite-callback-${AppwriteConfig.projectId}://callback';
+        final redirectUrl =
+            'appwrite-callback-${AppwriteConfig.projectId}://callback';
         await account.createOAuth2Session(
           provider: provider,
           scopes: scopes,
@@ -165,12 +205,12 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
     try {
       await AppwriteConfig.account.deleteSession(sessionId: 'current');
+    } catch (_) {
+      // Ignore network errors during logout, but proceed to clear local data
+    } finally {
       _user = null;
       _status = AuthStatus.unauthenticated;
       await _clearCachedUser();
-    } catch (_) {
-      _status = AuthStatus.unauthenticated; // Fallback
-    } finally {
       notifyListeners();
     }
   }
@@ -178,13 +218,17 @@ class AuthController extends ChangeNotifier {
   Future<void> _saveCachedUserFromUser() async {
     if (_user == null) return;
     final prefs = await SharedPreferences.getInstance();
-    _cachedUserId = _user!.
-        $id; // ignore: invalid_use_of_visible_for_testing_member
+    _cachedUserId =
+        _user!
+            .$id; // ignore: invalid_use_of_visible_for_testing_member
     _cachedEmail = _user!.email;
-    await prefs.setString(_kCachedUserIdKey, _cachedUserId!);
+
+    // WRITE TO SECURE STORAGE
+    await _secureStorage.write(key: _kCachedUserIdKey, value: _cachedUserId!);
     if (_cachedEmail != null) {
-      await prefs.setString(_kCachedEmailKey, _cachedEmail!);
+      await _secureStorage.write(key: _kCachedEmailKey, value: _cachedEmail!);
     }
+
     // ensure the "has logged in" flag is set as well
     _hasLoggedIn = true;
     await prefs.setBool(_kHasLoggedInKey, true);
@@ -194,8 +238,15 @@ class AuthController extends ChangeNotifier {
     _cachedUserId = null;
     _cachedEmail = null;
     final prefs = await SharedPreferences.getInstance();
+
+    // DELETE FROM SECURE STORAGE
+    await _secureStorage.delete(key: _kCachedUserIdKey);
+    await _secureStorage.delete(key: _kCachedEmailKey);
+
+    // Also clear legacy keys from SharedPreferences just in case
     await prefs.remove(_kCachedUserIdKey);
     await prefs.remove(_kCachedEmailKey);
+
     _hasLoggedIn = false;
     await prefs.setBool(_kHasLoggedInKey, false);
   }
@@ -204,19 +255,27 @@ class AuthController extends ChangeNotifier {
   bool get hasLoggedIn => _hasLoggedIn;
 
   Future<Uri> _listenForDesktopCallback() async {
-    final server = await HttpServer.bind(AppwriteConfig.callbackHost, AppwriteConfig.callbackPort);
+    final server = await HttpServer.bind(
+      AppwriteConfig.callbackHost,
+      AppwriteConfig.callbackPort,
+    );
     final completer = Completer<Uri>();
     server.listen((HttpRequest request) async {
       final uri = request.uri;
-      final isCallbackPath = uri.path == AppwriteConfig.callbackPath ||
+      final isCallbackPath =
+          uri.path == AppwriteConfig.callbackPath ||
           uri.path == '${AppwriteConfig.callbackPath}/';
-      final hasTokens = uri.queryParameters.containsKey('userId') &&
+      final hasTokens =
+          uri.queryParameters.containsKey('userId') &&
           uri.queryParameters.containsKey('secret');
       if (kDebugMode) {
-        final sanitizedQuery =
-            uri.query.replaceFirst(RegExp(r'secret=[^&]+'), 'secret=***');
+        final sanitizedQuery = uri.query.replaceFirst(
+          RegExp(r'secret=[^&]+'),
+          'secret=***',
+        );
         debugPrint(
-            '[Auth] Incoming redirect path=${uri.path} query=$sanitizedQuery tokens=$hasTokens');
+          '[Auth] Incoming redirect path=${uri.path} query=$sanitizedQuery tokens=$hasTokens',
+        );
       }
 
       if (isCallbackPath && hasTokens && !completer.isCompleted) {
@@ -224,7 +283,8 @@ class AuthController extends ChangeNotifier {
         request.response.statusCode = 200;
         request.response.headers.contentType = ContentType.html;
         request.response.write(
-            '<html><body><h2>Login abgeschlossen. Du kannst dieses Fenster schließen.</h2></body></html>');
+          '<html><body><h2>Login abgeschlossen. Du kannst dieses Fenster schließen.</h2></body></html>',
+        );
         await request.response.close();
         await server.close(force: true);
         return;
@@ -241,23 +301,38 @@ class AuthController extends ChangeNotifier {
       await request.response.close();
     });
     // Timeout fallback to avoid hanging indefinitely
-    return completer.future.timeout(const Duration(minutes: 3), onTimeout: () {
-      server.close(force: true);
-      throw TimeoutException('Login callback timed out');
-    });
+    return completer.future.timeout(
+      const Duration(minutes: 3),
+      onTimeout: () {
+        server.close(force: true);
+        throw TimeoutException('Login callback timed out');
+      },
+    );
   }
 
-  Uri _buildDesktopOAuthUrl({required OAuthProvider provider, List<String>? scopes}) {
+  Uri _buildDesktopOAuthUrl({
+    required OAuthProvider provider,
+    List<String>? scopes,
+  }) {
     final endpoint = Uri.parse(AppwriteConfig.endpoint);
     final buffer = StringBuffer()
-      ..write(endpoint.replace(path: '${endpoint.path}/account/tokens/oauth2/${provider.value}'));
+      ..write(
+        endpoint.replace(
+          path:
+              '${endpoint.path}/account/tokens/oauth2/${provider.value}',
+        ),
+      );
     final baseParams = <String, String>{
       'project': AppwriteConfig.projectId,
       'success': AppwriteConfig.callbackUrl,
       'failure': AppwriteConfig.callbackUrl,
     };
     final params = <String>[];
-    baseParams.forEach((key, value) => params.add('${Uri.encodeComponent(key)}=${Uri.encodeComponent(value)}'));
+    baseParams.forEach(
+      (key, value) => params.add(
+        '${Uri.encodeComponent(key)}=${Uri.encodeComponent(value)}',
+      ),
+    );
     if (scopes != null && scopes.isNotEmpty) {
       for (final scope in scopes) {
         params.add('scopes%5B%5D=${Uri.encodeComponent(scope)}');
