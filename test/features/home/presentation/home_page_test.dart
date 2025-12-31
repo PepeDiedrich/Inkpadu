@@ -148,6 +148,9 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
     await tester.pumpAndSettle();
 
+    // Warte auf den Debounce-Timer (3 Sekunden), damit er feuert und nicht als "pending" übrig bleibt
+    await tester.pump(const Duration(seconds: 3));
+
     // Notiz sollte gelöscht sein
     expect(controller.notes.length, 0);
     expect(find.text('Test Notiz'), findsNothing);
