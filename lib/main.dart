@@ -94,6 +94,8 @@ class _InkpaduAppState extends State<InkpaduApp> {
   @override
   void dispose() {
     _authController.removeListener(_onAuthChanged);
+    _notesController.dispose();
+    _authController.dispose();
     super.dispose();
   }
 
