@@ -212,6 +212,50 @@ void main() {
     });
   });
 
+  group('ConvexHullCalculator.calculateOverlays (async)', () {
+    test('returns hulls and clusters', () async {
+      final strokeA = _strokeWithPoints(const [
+        Offset(0, 0),
+        Offset(0, 20),
+        Offset(20, 20),
+        Offset(20, 0),
+        Offset(0, 0),
+      ], width: 6);
+
+      final result = await ConvexHullCalculator.calculateOverlays([strokeA]);
+
+      expect(result.hulls, isNotEmpty);
+      expect(result.clusters, hasLength(1));
+
+      final cluster = result.clusters.first;
+      expect(cluster.strokes, hasLength(1));
+      expect(cluster.strokes.first.id, strokeA.id);
+
+      final rect = _boundingBox(cluster.boundingBox.corners);
+      expect(rect.left, lessThan(0));
+      expect(rect.right, greaterThan(20));
+    });
+
+    test('handles overlapping clusters correctly in background', () async {
+       // Two overlapping strokes (boxes overlap)
+      final strokeA = _strokeWithPoints(const [
+        Offset(0, 0), Offset(20, 20),
+        Offset(0, 20), Offset(20, 0),
+      ], width: 2);
+
+      final strokeB = _strokeWithPoints(const [
+        Offset(15, 15), Offset(35, 35),
+        Offset(15, 35), Offset(35, 15),
+      ], width: 2);
+
+      final result = await ConvexHullCalculator.calculateOverlays([strokeA, strokeB]);
+
+      // Should be merged into 1 cluster due to overlapping boxes
+      expect(result.clusters, hasLength(1));
+      expect(result.clusters.first.strokes, hasLength(2));
+    });
+  });
+
   group('ConvexHullCalculator.minimalBoundingBoxForPolygon', () {
     test('matches axis-aligned rectangle', () {
       const List<Offset> polygon = <Offset>[
