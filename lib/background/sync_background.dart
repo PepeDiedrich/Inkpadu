@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:workmanager/workmanager.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
@@ -18,8 +18,12 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == backgroundSyncTask) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final cachedUserId = prefs.getString('inkpadu_cached_user_id');
+        // [SENTINEL] Use SecureStorage to retrieve user ID (PII) instead of SharedPreferences
+        // This also fixes a bug where background sync failed for migrated users.
+        const secureStorage = FlutterSecureStorage();
+        final cachedUserId = await secureStorage.read(
+          key: 'inkpadu_cached_user_id',
+        );
         if (cachedUserId == null) return Future.value(true);
 
         final localStorage = InkNotesLocalStorage();
