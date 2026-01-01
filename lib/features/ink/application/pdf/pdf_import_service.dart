@@ -104,7 +104,6 @@ class PdfPageExtractionResult {
   const PdfPageExtractionResult({
     required this.pageNumber,
     required this.extractedText,
-    required this.imageBytes,
   });
 
   /// Die 1-basierte Seitennummer.
@@ -112,9 +111,6 @@ class PdfPageExtractionResult {
 
   /// Der vom LLM extrahierte Text.
   final String extractedText;
-
-  /// Die PNG-Bytes des gerenderten Seitenbilds.
-  final Uint8List imageBytes;
 }
 
 /// Fortschrittsinformationen während der PDF-Verarbeitung.
@@ -228,7 +224,8 @@ Beispiel-Ausgabe:
 
   /// Importiert eine PDF-Datei und extrahiert den Text aller Seiten.
   ///
-  /// Die Verarbeitung erfolgt sequentiell, um API-Limits zu respektieren.
+  /// Die Verarbeitung erfolgt in Batches, um API-Limits zu respektieren und
+  /// gleichzeitig die Geschwindigkeit durch parallele Extraktion zu erhöhen.
   /// [pdfBytes] sind die Bytes der PDF-Datei.
   /// [onProgress] wird bei jedem Fortschrittsupdate aufgerufen.
   ///
@@ -244,36 +241,50 @@ Beispiel-Ausgabe:
     final List<PdfPageExtractionResult> results = <PdfPageExtractionResult>[];
 
     try {
-      for (int i = 1; i <= pageCount; i++) {
-        debugPrint('[PdfImportService] Processing page $i/$pageCount');
-        
-        // Phase 1: Seite rendern
-        onProgress(PdfImportProgress(
-          currentPage: i,
-          totalPages: pageCount,
-          stage: PdfImportStage.rendering,
-        ));
+      // Batch-Größe für parallele Extraktion
+      const int batchSize = 4;
 
-        debugPrint('[PdfImportService] Rendering page $i...');
-        final Uint8List imageBytes = await _renderPage(document, i);
-        debugPrint('[PdfImportService] Rendered page $i: ${imageBytes.length} bytes');
+      for (int i = 1; i <= pageCount; i += batchSize) {
+        final int end = (i + batchSize - 1).clamp(1, pageCount);
+        debugPrint('[PdfImportService] Processing batch: pages $i to $end');
 
-        // Phase 2: Text extrahieren
-        onProgress(PdfImportProgress(
-          currentPage: i,
-          totalPages: pageCount,
-          stage: PdfImportStage.extracting,
-        ));
+        // 1. Render images for the batch (Sequentially to be safe with PDF plugin)
+        final Map<int, Uint8List> batchImages = {};
+        for (int pageNum = i; pageNum <= end; pageNum++) {
+          onProgress(PdfImportProgress(
+            currentPage: pageNum,
+            totalPages: pageCount,
+            stage: PdfImportStage.rendering,
+          ));
 
-        debugPrint('[PdfImportService] Extracting text from page $i...');
-        final String extractedText = await _extractTextFromImage(imageBytes);
-        debugPrint('[PdfImportService] Extracted ${extractedText.length} chars from page $i');
+          debugPrint('[PdfImportService] Rendering page $pageNum...');
+          batchImages[pageNum] = await _renderPage(document, pageNum);
+        }
 
-        results.add(PdfPageExtractionResult(
-          pageNumber: i,
-          extractedText: extractedText,
-          imageBytes: imageBytes,
-        ));
+        // 2. Extract text for the batch (Parallel)
+        final List<Future<PdfPageExtractionResult>> extractionFutures = [];
+        for (int pageNum = i; pageNum <= end; pageNum++) {
+          extractionFutures.add(() async {
+            onProgress(PdfImportProgress(
+              currentPage: pageNum,
+              totalPages: pageCount,
+              stage: PdfImportStage.extracting,
+            ));
+
+            debugPrint('[PdfImportService] Extracting text from page $pageNum...');
+            final String extractedText = await _extractTextFromImage(batchImages[pageNum]!);
+            debugPrint('[PdfImportService] Extracted ${extractedText.length} chars from page $pageNum');
+
+            return PdfPageExtractionResult(
+              pageNumber: pageNum,
+              extractedText: extractedText,
+            );
+          }());
+        }
+
+        // Wait for all extractions in this batch to complete
+        final List<PdfPageExtractionResult> batchResults = await Future.wait(extractionFutures);
+        results.addAll(batchResults);
       }
     } finally {
       await document.close();
