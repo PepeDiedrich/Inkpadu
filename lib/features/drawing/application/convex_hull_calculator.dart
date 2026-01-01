@@ -1438,47 +1438,49 @@ _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
   };
 
   for (final contour in contours) {
-      if (contour.isEmpty) continue;
+    if (contour.isEmpty) continue;
 
-      final rect = ConvexHullCalculator._computeBounds(contour);
+    final rect = ConvexHullCalculator._computeBounds(contour);
 
-      final clusterPoints = <Offset>[];
-      final clusterStrokeIds = <String>[];
-      double maxRadius = 0;
-      final assignedIds = <String>[];
+    final clusterPoints = <Offset>[];
+    final clusterStrokeIds = <String>[];
+    double maxRadius = 0;
+    final assignedIds = <String>[];
 
-      remainingStrokes.forEach((id, stroke) {
-        if (stroke.points.isEmpty) return;
+    remainingStrokes.forEach((id, stroke) {
+      if (stroke.points.isEmpty) return;
 
-        // Check if stroke hits polygon (using manual check)
-        if (!ConvexHullCalculator._strokeHitsPolygon(stroke, contour, rect)) {
-          return;
-        }
-
-        clusterPoints.addAll(stroke.points.map((p) => p.position));
-        clusterStrokeIds.add(id);
-        maxRadius = math.max(
-          maxRadius,
-          ConvexHullCalculator._maxStrokeRadius(stroke),
-        );
-        assignedIds.add(id);
-      });
-
-      for (final id in assignedIds) remainingStrokes.remove(id);
-
-      RotatedBoundingBox? box;
-      if (clusterPoints.isNotEmpty) {
-        box = ConvexHullCalculator.minimalBoundingBoxForPolygon(clusterPoints);
-        if (box != null && maxRadius > 0) {
-          box = box!.expand(maxRadius);
-        }
-
-        if (box != null) {
-          clustersDTO.add(
-            _ClusterDataDTO(boundingBox: box!, strokeIds: clusterStrokeIds),
-          );
-        }
+      // Check if stroke hits polygon (using manual check)
+      if (!ConvexHullCalculator._strokeHitsPolygon(stroke, contour, rect)) {
+        return;
       }
+
+      clusterPoints.addAll(stroke.points.map((p) => p.position));
+      clusterStrokeIds.add(id);
+      maxRadius = math.max(
+        maxRadius,
+        ConvexHullCalculator._maxStrokeRadius(stroke),
+      );
+      assignedIds.add(id);
+    });
+
+    for (final id in assignedIds) {
+      remainingStrokes.remove(id);
+    }
+
+    RotatedBoundingBox? box;
+    if (clusterPoints.isNotEmpty) {
+      box = ConvexHullCalculator.minimalBoundingBoxForPolygon(clusterPoints);
+      if (box != null && maxRadius > 0) {
+        box = box.expand(maxRadius);
+      }
+
+      if (box != null) {
+        clustersDTO.add(
+          _ClusterDataDTO(boundingBox: box, strokeIds: clusterStrokeIds),
+        );
+      }
+    }
   }
 
   // Handle remaining strokes
