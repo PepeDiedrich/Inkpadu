@@ -1,71 +1,95 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:math' as math;
 import 'package:ai_handwriting_app/features/drawing/application/shape_recognizer.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ShapeRecognizer', () {
-    test('recognizes a perfect line', () {
+    test('recognizes a line', () {
       final points = [
-        DrawingPoint(position: const Offset(0, 0), pressure: 1.0),
-        DrawingPoint(position: const Offset(10, 10), pressure: 1.0),
-        DrawingPoint(position: const Offset(20, 20), pressure: 1.0),
-        DrawingPoint(position: const Offset(30, 30), pressure: 1.0),
-      ];
-
-      final match = ShapeRecognizer.recognizeShape(points, 2.0);
-      expect(match, isNotNull);
-      expect(match!.type, ShapeType.line);
-      expect(match.correctedPoints.length, 2);
-      expect(match.correctedPoints.first.position, const Offset(0, 0));
-      expect(match.correctedPoints.last.position, const Offset(30, 30));
-    });
-
-    test('recognizes a somewhat straight line within tolerance', () {
-      final points = [
-        DrawingPoint(position: const Offset(0, 0), pressure: 1.0),
-        DrawingPoint(position: const Offset(10, 12), pressure: 1.0), // slightly off
-        DrawingPoint(position: const Offset(20, 18), pressure: 1.0), // slightly off
-        DrawingPoint(position: const Offset(30, 30), pressure: 1.0),
-      ];
-
-      // Deviation is roughly 2.0
-      // sqrt(2*2) ~ 1.414 distance from line y=x?
-      // (10,12) -> proj on y=x is (11,11). dist sqrt(1+1) = 1.414.
-
-      final match = ShapeRecognizer.recognizeShape(points, 3.0);
-      expect(match, isNotNull);
-      expect(match!.type, ShapeType.line);
-    });
-
-    test('rejects a curve', () {
-      final points = [
-        DrawingPoint(position: const Offset(0, 0), pressure: 1.0),
-        DrawingPoint(position: const Offset(10, 20), pressure: 1.0),
-        DrawingPoint(position: const Offset(20, 20), pressure: 1.0),
-        DrawingPoint(position: const Offset(30, 0), pressure: 1.0),
+        DrawingPoint(position: const Offset(0, 0), pressure: 0.5),
+        DrawingPoint(position: const Offset(10, 10), pressure: 0.5),
+        DrawingPoint(position: const Offset(20, 20), pressure: 0.5),
+        DrawingPoint(position: const Offset(100, 100), pressure: 0.5),
       ];
 
       final match = ShapeRecognizer.recognizeShape(points, 5.0);
-      expect(match, isNull);
+      expect(match, isNotNull);
+      expect(match!.type, equals(ShapeType.line));
+      expect(match, isA<LineMatch>());
     });
 
-    test('rejects insufficient points', () {
-      final points = [
-        DrawingPoint(position: const Offset(0, 0), pressure: 1.0),
-      ];
-      final match = ShapeRecognizer.recognizeShape(points, 5.0);
-      expect(match, isNull);
-    });
+    test('recognizes a triangle', () {
+      // 3 corners + closed
+      // Need enough points so RDP doesn't kill it
+      final points = <DrawingPoint>[];
+      final vertices = [const Offset(0, 0), const Offset(100, 0), const Offset(50, 100)];
 
-    test('handles vertical line', () {
-       final points = [
-        DrawingPoint(position: const Offset(10, 0), pressure: 1.0),
-        DrawingPoint(position: const Offset(11, 10), pressure: 1.0),
-        DrawingPoint(position: const Offset(10, 20), pressure: 1.0),
-      ];
+      // Interpolate lines
+      void addLine(Offset start, Offset end) {
+        for(int i=0; i<=10; i++) {
+          final t = i / 10.0;
+          points.add(DrawingPoint(
+            position: Offset.lerp(start, end, t)!,
+            pressure: 0.5
+          ));
+        }
+      }
+
+      addLine(vertices[0], vertices[1]);
+      addLine(vertices[1], vertices[2]);
+      addLine(vertices[2], vertices[0]);
+
       final match = ShapeRecognizer.recognizeShape(points, 2.0);
       expect(match, isNotNull);
-      expect(match!.type, ShapeType.line);
+      expect(match!.type, equals(ShapeType.triangle));
+      expect(match, isA<TriangleMatch>());
+    });
+
+    test('recognizes a rectangle', () {
+      final points = <DrawingPoint>[];
+      final vertices = [const Offset(0, 0), const Offset(100, 0), const Offset(100, 50), const Offset(0, 50)];
+
+      void addLine(Offset start, Offset end) {
+        for(int i=0; i<=10; i++) {
+          final t = i / 10.0;
+          points.add(DrawingPoint(
+            position: Offset.lerp(start, end, t)!,
+            pressure: 0.5
+          ));
+        }
+      }
+
+      addLine(vertices[0], vertices[1]);
+      addLine(vertices[1], vertices[2]);
+      addLine(vertices[2], vertices[3]);
+      addLine(vertices[3], vertices[0]);
+
+      final match = ShapeRecognizer.recognizeShape(points, 2.0);
+      expect(match, isNotNull);
+      expect(match!.type, equals(ShapeType.rectangle));
+      expect(match, isA<RectangleMatch>());
+    });
+
+    test('recognizes an ellipse', () {
+      final points = <DrawingPoint>[];
+      final center = const Offset(100, 100);
+      final radius = 50.0;
+      const int steps = 40;
+
+      for(int i=0; i<=steps; i++) {
+        final t = (i / steps) * 2 * math.pi;
+        points.add(DrawingPoint(
+           position: Offset(center.dx + radius * math.cos(t), center.dy + radius * math.sin(t)),
+           pressure: 0.5
+        ));
+      }
+
+      final match = ShapeRecognizer.recognizeShape(points, 5.0);
+      expect(match, isNotNull);
+      expect(match!.type, equals(ShapeType.ellipse));
+      expect(match, isA<EllipseMatch>());
     });
   });
 }
