@@ -240,17 +240,22 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     if (currentStroke != null && currentStroke.points.length >= 2) {
       allStrokes.add(currentStroke);
     }
-    final List<List<Offset>> hulls = await ConvexHullCalculator.contoursForStrokes(
+
+    // Use the optimized combined calculation
+    final OverlayResult result = await ConvexHullCalculator.calculateOverlays(
       allStrokes,
     );
+
     if (!mounted) {
       return;
     }
-    final List<StrokeBoundingBoxCluster> clusters =
-        ConvexHullCalculator.clustersForContours(hulls, allStrokes);
+
+    final hulls = result.hulls;
+    final clusters = result.clusters;
     final List<RotatedBoundingBox> boxes = clusters
         .map((cluster) => cluster.boundingBox)
         .toList(growable: false);
+
     if (_hullsEqual(_convexHulls, hulls) &&
         _boxesEqual(_boundingBoxes, boxes) &&
         _clustersEqual(_strokeClusters, clusters)) {

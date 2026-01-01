@@ -5,6 +5,21 @@ import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+/// Container for the result of overlay calculations.
+class OverlayResult {
+  /// Erstellt ein neues Ergebnis für die Overlay-Berechnung.
+  const OverlayResult({
+    required this.hulls,
+    required this.clusters,
+  });
+
+  /// Die berechneten Konturen (Hüllen) der Striche.
+  final List<List<Offset>> hulls;
+
+  /// Die berechneten Cluster von Strichen mit ihren Bounding-Boxen.
+  final List<StrokeBoundingBoxCluster> clusters;
+}
+
 /// Berechnet enge Konturen um Strichdaten, indem die Zeichenfläche gerastert
 /// und anschließend eine Kontur mittels Marching-Squares extrahiert wird.
 class ConvexHullCalculator {
@@ -12,17 +27,11 @@ class ConvexHullCalculator {
 
   static const double _boundingBoxComparisonEpsilon = 1e-6;
 
-  /// Erstellt Konturen für die gegebenen [strokes] asynchron in einem Isolate.
+  /// Calculates hulls and clusters in a background isolate.
   ///
-  /// [cellSize] bestimmt die Rasterauflösung (in Pixeln). Kleinere Werte führen
-  /// zu präziseren, aber teureren Konturen. [padding] erweitert den betrachteten
-  /// Bereich um die Striche, sodass der Rand nicht abgeschnitten wird. Mit
-  /// [connectionMargin] kannst du steuern, wie stark nahe beieinander liegende
-  /// Striche miteinander verschmelzen.
-  ///
-  /// Diese Methode wird in einem separaten Isolate ausgeführt, um die
-  /// UI-Thread nicht zu blockieren.
-  static Future<List<List<Offset>>> contoursForStrokes(
+  /// This replaces separate calls to [contoursForStrokes] and [clustersForContours]
+  /// to perform all heavy geometry calculations off the UI thread.
+  static Future<OverlayResult> calculateOverlays(
     Iterable<Stroke> strokes, {
     double cellSize = _defaultCellSize,
     double padding = _defaultPadding,
@@ -30,8 +39,6 @@ class ConvexHullCalculator {
     double minimumArea = _minimumPolygonArea,
     double connectionMargin = 32,
   }) async {
-    // Wandle Iterable in Liste um, da Iterables nicht direkt gesendet werden können
-    // (es sei denn, sie sind Listen)
     final strokesList =
         strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
 
@@ -44,7 +51,51 @@ class ConvexHullCalculator {
       connectionMargin: connectionMargin,
     );
 
-    // Führe Berechnung im Isolate durch
+    final resultDTO = await compute(_computeOverlaysIsolate, params);
+
+    // Map DTO back to domain objects
+    final strokeMap = {for (final s in strokesList) s.id: s};
+
+    final clusters = resultDTO.clusters.map((dto) {
+      final clusterStrokes = dto.strokeIds
+          .map((id) => strokeMap[id])
+          .whereType<Stroke>()
+          .toList(growable: false);
+
+      return StrokeBoundingBoxCluster(
+        boundingBox: dto.boundingBox,
+        strokes: clusterStrokes,
+      );
+    }).toList(growable: false);
+
+    return OverlayResult(
+      hulls: resultDTO.hulls,
+      clusters: clusters,
+    );
+  }
+
+  /// Erstellt Konturen für die gegebenen [strokes] asynchron in einem Isolate.
+  static Future<List<List<Offset>>> contoursForStrokes(
+    Iterable<Stroke> strokes, {
+    double cellSize = _defaultCellSize,
+    double padding = _defaultPadding,
+    double simplifyToleranceFactor = _rdpToleranceFactor,
+    double minimumArea = _minimumPolygonArea,
+    double connectionMargin = 32,
+  }) async {
+    final strokesList =
+        strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
+
+    final params = _ContoursParams(
+      strokes: strokesList,
+      cellSize: cellSize,
+      padding: padding,
+      simplifyToleranceFactor: simplifyToleranceFactor,
+      minimumArea: minimumArea,
+      connectionMargin: connectionMargin,
+    );
+
+    // Serialisiere Offsets als Maps für Isolate-Übertragung (analog zur ursprünglichen Implementierung)
     final serializedContours = await compute(_computeContoursIsolate, params);
 
     // Deserialisiere Offsets
@@ -157,13 +208,7 @@ class ConvexHullCalculator {
     return polygons;
   }
 
-  /// Liefert für jede Kontur die kleinstmögliche gedrehte Bounding-Box, die
-  /// alle Strichpunkte innerhalb dieser Kontur einschließt.
-  ///
-  /// Die Konturen dienen lediglich dazu, Striche zu gruppieren. Für jede
-  /// Gruppe wird anschließend eine minimale Bounding-Box basierend auf den
-  /// tatsächlichen Strichpunkten berechnet. Die Box wird um den maximalen
-  /// Strichradius aufgeweitet, um die Strichbreite zu berücksichtigen.
+  /// Liefert für jede Kontur die kleinstmögliche gedrehte Bounding-Box.
   static List<RotatedBoundingBox> boundingBoxesForContours(
     Iterable<List<Offset>> contours,
     Iterable<Stroke> strokes,
@@ -172,12 +217,12 @@ class ConvexHullCalculator {
     strokes,
   ).map((cluster) => cluster.boundingBox).toList(growable: false);
 
-  /// Aggregiert Striche zu Clustern basierend auf den angegebenen [contours]
-  /// und berechnet für jeden Cluster die minimale Bounding-Box.
+  /// Aggregiert Striche zu Clustern basierend auf den angegebenen [contours].
   static List<StrokeBoundingBoxCluster> clustersForContours(
     Iterable<List<Offset>> contours,
     Iterable<Stroke> strokes,
   ) {
+    // This method runs on main thread and can use Path.
     final Map<String, Stroke> remainingStrokes = <String, Stroke>{
       for (final Stroke stroke in strokes) stroke.id: stroke,
     };
@@ -268,13 +313,11 @@ class ConvexHullCalculator {
           final boxB = clusters[j].boundingBox;
 
           if (boxA.overlaps(boxB)) {
-            // Kombiniere die beiden Cluster
             final combinedStrokes = <Stroke>[
               ...clusters[i].strokes,
               ...clusters[j].strokes,
             ];
 
-            // Aggregierte Punkte für die neue Bounding-Box
             final allPoints = <Offset>[];
             for (final stroke in combinedStrokes) {
               allPoints.addAll(stroke.points.map((p) => p.position));
@@ -283,7 +326,6 @@ class ConvexHullCalculator {
             RotatedBoundingBox? newBox = minimalBoundingBoxForPolygon(
               allPoints,
             );
-            // Wenn wir eine Box haben, ggf. wieder mit Radius erweitern
             if (newBox != null) {
               double maxRadius = 0;
               for (final s in combinedStrokes) {
@@ -293,7 +335,6 @@ class ConvexHullCalculator {
                 newBox = newBox.expand(maxRadius);
               }
 
-              // Alten Cluster i austauschen, j löschen
               clusters[i] = StrokeBoundingBoxCluster(
                 boundingBox: newBox,
                 strokes: combinedStrokes,
@@ -301,11 +342,11 @@ class ConvexHullCalculator {
               clusters.removeAt(j);
 
               merged = true;
-              break; // Springe aus innerer Schleife, starte neu
+              break;
             }
           }
         }
-        if (merged) break; // Springe aus äußerer Schleife
+        if (merged) break;
       }
     }
 
@@ -486,6 +527,44 @@ class ConvexHullCalculator {
       }
     }
     return false;
+  }
+
+  static bool _strokeHitsPolygon(Stroke stroke, List<Offset> polygon, Rect bounds) {
+    for (final point in stroke.points) {
+      final Offset position = point.position;
+      if (!bounds.contains(position)) {
+        continue;
+      }
+      if (_isPointInPolygon(position, polygon)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _isPointInPolygon(Offset point, List<Offset> polygon) {
+    if (polygon.length < 3) return false;
+    bool isInside = false;
+    for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      if (((polygon[i].dy > point.dy) != (polygon[j].dy > point.dy)) &&
+          (point.dx < (polygon[j].dx - polygon[i].dx) * (point.dy - polygon[i].dy) / (polygon[j].dy - polygon[i].dy) + polygon[i].dx)) {
+        isInside = !isInside;
+      }
+    }
+    return isInside;
+  }
+
+  static Rect _computeBounds(List<Offset> points) {
+    if (points.isEmpty) return Rect.zero;
+    double minX = double.infinity, maxX = -double.infinity;
+    double minY = double.infinity, maxY = -double.infinity;
+    for (final p in points) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
   static double _maxStrokeRadius(Stroke stroke) {
@@ -1281,9 +1360,6 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
 ];
 
 /// Parameter-Objekt für die Isolate-Kommunikation.
-///
-/// Dieses Objekt wird serialisiert, um über Isolate-Grenzen hinweg
-/// übertragen zu werden. Alle Felder müssen serialisierbar sein.
 class _ContoursParams {
   const _ContoursParams({
     required this.strokes,
@@ -1294,7 +1370,6 @@ class _ContoursParams {
     required this.connectionMargin,
   });
 
-  /// Direkt übertragene Stroke-Daten.
   final List<Stroke> strokes;
   final double cellSize;
   final double padding;
@@ -1303,15 +1378,22 @@ class _ContoursParams {
   final double connectionMargin;
 }
 
-/// Top-level Funktion für Isolate-Berechnung.
-///
-/// Diese Funktion dient als Einstiegspunkt für das Isolate.
-/// Die Funktion muss auf oberster Ebene definiert sein, da sie von einem
-/// separaten Isolate aufgerufen wird.
+class _ClusterDataDTO {
+  final RotatedBoundingBox boundingBox;
+  final List<String> strokeIds;
+  _ClusterDataDTO({required this.boundingBox, required this.strokeIds});
+}
+
+class _OverlayResultDTO {
+  final List<List<Offset>> hulls;
+  final List<_ClusterDataDTO> clusters;
+  _OverlayResultDTO({required this.hulls, required this.clusters});
+}
+
+/// Top-level Funktion für Isolate-Berechnung (Contours only).
 List<List<Map<String, double>>> _computeContoursIsolate(
   _ContoursParams params,
 ) {
-  // Führe Berechnung durch
   final contours = ConvexHullCalculator.contoursForStrokesSync(
     params.strokes,
     cellSize: params.cellSize,
@@ -1321,7 +1403,6 @@ List<List<Map<String, double>>> _computeContoursIsolate(
     connectionMargin: params.connectionMargin,
   );
 
-  // Serialisiere Offsets als Maps für Isolate-Übertragung
   return contours
       .map(
         (contour) => contour
@@ -1329,4 +1410,126 @@ List<List<Map<String, double>>> _computeContoursIsolate(
             .toList(growable: false),
       )
       .toList(growable: false);
+}
+
+/// Top-level Funktion für Isolate-Berechnung (Overlays: Contours + Clusters).
+_OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
+  // 1. Calculate contours (sync)
+  final contours = ConvexHullCalculator.contoursForStrokesSync(
+    params.strokes,
+    cellSize: params.cellSize,
+    padding: params.padding,
+    simplifyToleranceFactor: params.simplifyToleranceFactor,
+    minimumArea: params.minimumArea,
+    connectionMargin: params.connectionMargin,
+  );
+
+  // 2. Calculate clusters (sync, adapted for isolate)
+  // Replaced usage of Path with _isPointInPolygon manual check.
+
+  final clustersDTO = <_ClusterDataDTO>[];
+  final Map<String, Stroke> remainingStrokes = {
+      for (final Stroke stroke in params.strokes) stroke.id: stroke,
+  };
+
+  // Optimization: Map of id -> Stroke for fast lookup during merge
+  final Map<String, Stroke> allStrokesMap = {
+      for (final Stroke stroke in params.strokes) stroke.id: stroke,
+  };
+
+  for (final contour in contours) {
+    if (contour.isEmpty) continue;
+
+    final rect = ConvexHullCalculator._computeBounds(contour);
+
+    final clusterPoints = <Offset>[];
+    final clusterStrokeIds = <String>[];
+    double maxRadius = 0;
+    final assignedIds = <String>[];
+
+    remainingStrokes.forEach((id, stroke) {
+      if (stroke.points.isEmpty) return;
+
+      // Check if stroke hits polygon (using manual check)
+      if (!ConvexHullCalculator._strokeHitsPolygon(stroke, contour, rect)) {
+        return;
+      }
+
+      clusterPoints.addAll(stroke.points.map((p) => p.position));
+      clusterStrokeIds.add(id);
+      maxRadius = math.max(
+        maxRadius,
+        ConvexHullCalculator._maxStrokeRadius(stroke),
+      );
+      assignedIds.add(id);
+    });
+
+    for (final id in assignedIds) {
+      remainingStrokes.remove(id);
+    }
+
+    RotatedBoundingBox? box;
+    if (clusterPoints.isNotEmpty) {
+      box = ConvexHullCalculator.minimalBoundingBoxForPolygon(clusterPoints);
+      if (box != null && maxRadius > 0) {
+        box = box.expand(maxRadius);
+      }
+
+      if (box != null) {
+        clustersDTO.add(
+          _ClusterDataDTO(boundingBox: box, strokeIds: clusterStrokeIds),
+        );
+      }
+    }
+  }
+
+  // Handle remaining strokes
+  if (remainingStrokes.isNotEmpty) {
+      for (final stroke in remainingStrokes.values) {
+          if (stroke.points.isEmpty) continue;
+          final points = stroke.points.map((p) => p.position).toList(growable: false);
+          RotatedBoundingBox? box = ConvexHullCalculator.minimalBoundingBoxForPolygon(points);
+          if (box != null) {
+              final maxRadius = ConvexHullCalculator._maxStrokeRadius(stroke);
+              if (maxRadius > 0) box = box.expand(maxRadius);
+              clustersDTO.add(_ClusterDataDTO(boundingBox: box, strokeIds: [stroke.id]));
+          }
+      }
+  }
+
+  // Merge overlapping clusters (geometry only, so safe)
+  bool merged = true;
+  while (merged) {
+      merged = false;
+      for (var i = 0; i < clustersDTO.length; i++) {
+        for (var j = i + 1; j < clustersDTO.length; j++) {
+           if (clustersDTO[i].boundingBox.overlaps(clustersDTO[j].boundingBox)) {
+               // Merge
+               final newIds = [...clustersDTO[i].strokeIds, ...clustersDTO[j].strokeIds];
+
+               final allPoints = <Offset>[];
+               double maxRadius = 0;
+               for (final id in newIds) {
+                   final stroke = allStrokesMap[id];
+                   if (stroke != null) {
+                       allPoints.addAll(stroke.points.map((p) => p.position));
+                       maxRadius = math.max(maxRadius, ConvexHullCalculator._maxStrokeRadius(stroke));
+                   }
+               }
+
+               RotatedBoundingBox? newBox = ConvexHullCalculator.minimalBoundingBoxForPolygon(allPoints);
+               if (newBox != null) {
+                   if (maxRadius > 0) newBox = newBox.expand(maxRadius);
+                   clustersDTO[i] = _ClusterDataDTO(boundingBox: newBox, strokeIds: newIds);
+                   clustersDTO.removeAt(j);
+                   merged = true;
+                   break;
+               }
+           }
+        }
+        if (merged) break;
+      }
+  }
+
+  return _OverlayResultDTO(hulls: contours, clusters: clustersDTO);
 }
