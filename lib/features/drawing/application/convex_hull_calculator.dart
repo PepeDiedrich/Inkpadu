@@ -7,12 +7,16 @@ import 'package:flutter/material.dart';
 
 /// Container for the result of overlay calculations.
 class OverlayResult {
+  /// Erstellt ein neues Ergebnis für die Overlay-Berechnung.
   const OverlayResult({
     required this.hulls,
     required this.clusters,
   });
 
+  /// Die berechneten Konturen (Hüllen) der Striche.
   final List<List<Offset>> hulls;
+
+  /// Die berechneten Cluster von Strichen mit ihren Bounding-Boxen.
   final List<StrokeBoundingBoxCluster> clusters;
 }
 
@@ -1444,17 +1448,20 @@ _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
       final assignedIds = <String>[];
 
       remainingStrokes.forEach((id, stroke) {
-          if (stroke.points.isEmpty) return;
+        if (stroke.points.isEmpty) return;
 
-          // Check if stroke hits polygon (using manual check)
-          if (!ConvexHullCalculator._strokeHitsPolygon(stroke, contour, rect)) {
-              return;
-          }
+        // Check if stroke hits polygon (using manual check)
+        if (!ConvexHullCalculator._strokeHitsPolygon(stroke, contour, rect)) {
+          return;
+        }
 
-          clusterPoints.addAll(stroke.points.map((p) => p.position));
-          clusterStrokeIds.add(id);
-          maxRadius = math.max(maxRadius, ConvexHullCalculator._maxStrokeRadius(stroke));
-          assignedIds.add(id);
+        clusterPoints.addAll(stroke.points.map((p) => p.position));
+        clusterStrokeIds.add(id);
+        maxRadius = math.max(
+          maxRadius,
+          ConvexHullCalculator._maxStrokeRadius(stroke),
+        );
+        assignedIds.add(id);
       });
 
       for (final id in assignedIds) remainingStrokes.remove(id);
@@ -1462,10 +1469,14 @@ _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
       RotatedBoundingBox? box;
       if (clusterPoints.isNotEmpty) {
         box = ConvexHullCalculator.minimalBoundingBoxForPolygon(clusterPoints);
-        if (box != null && maxRadius > 0) box = box.expand(maxRadius);
+        if (box != null && maxRadius > 0) {
+          box = box!.expand(maxRadius);
+        }
 
         if (box != null) {
-          clustersDTO.add(_ClusterDataDTO(boundingBox: box, strokeIds: clusterStrokeIds));
+          clustersDTO.add(
+            _ClusterDataDTO(boundingBox: box!, strokeIds: clusterStrokeIds),
+          );
         }
       }
   }
