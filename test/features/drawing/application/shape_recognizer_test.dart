@@ -1,17 +1,16 @@
 import 'dart:math' as math;
 import 'package:ai_handwriting_app/features/drawing/application/shape_recognizer.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ShapeRecognizer', () {
     test('recognizes a line', () {
       final points = [
-        DrawingPoint(position: const Offset(0, 0), pressure: 0.5),
-        DrawingPoint(position: const Offset(10, 10), pressure: 0.5),
-        DrawingPoint(position: const Offset(20, 20), pressure: 0.5),
-        DrawingPoint(position: const Offset(100, 100), pressure: 0.5),
+        DrawingPoint(position: const Offset(0, 0)),
+        DrawingPoint(position: const Offset(10, 10)),
+        DrawingPoint(position: const Offset(20, 20)),
+        DrawingPoint(position: const Offset(100, 100)),
       ];
 
       final match = ShapeRecognizer.recognizeShape(points, 5.0);
@@ -32,7 +31,6 @@ void main() {
           final t = i / 10.0;
           points.add(DrawingPoint(
             position: Offset.lerp(start, end, t)!,
-            pressure: 0.5
           ));
         }
       }
@@ -56,7 +54,6 @@ void main() {
           final t = i / 10.0;
           points.add(DrawingPoint(
             position: Offset.lerp(start, end, t)!,
-            pressure: 0.5
           ));
         }
       }
@@ -82,7 +79,6 @@ void main() {
         final t = (i / steps) * 2 * math.pi;
         points.add(DrawingPoint(
            position: Offset(center.dx + radius * math.cos(t), center.dy + radius * math.sin(t)),
-           pressure: 0.5
         ));
       }
 

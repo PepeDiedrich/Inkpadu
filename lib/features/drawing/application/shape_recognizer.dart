@@ -28,38 +28,50 @@ class ShapeMatch {
   ShapeMatch({required this.type, required this.correctedPoints});
 }
 
+/// Ein erkanntes Linien-Element.
 class LineMatch extends ShapeMatch {
+  /// Erstellt ein [LineMatch].
   LineMatch({required List<DrawingPoint> points})
       : super(type: ShapeType.line, correctedPoints: points);
 }
 
+/// Ein erkanntes Dreieck.
 class TriangleMatch extends ShapeMatch {
+  /// Die Eckpunkte des Dreiecks.
   final List<Offset> vertices;
 
+  /// Erstellt ein [TriangleMatch].
   TriangleMatch({
     required this.vertices,
-    required List<DrawingPoint> correctedPoints,
-  }) : super(type: ShapeType.triangle, correctedPoints: correctedPoints);
+    required super.correctedPoints,
+  }) : super(type: ShapeType.triangle);
 }
 
+/// Ein erkanntes Rechteck.
 class RectangleMatch extends ShapeMatch {
+  /// Das zugrundeliegende Rechteck.
   final Rect rect;
-  final double angle; // Rotation, falls wir rotierte Rechtecke unterstützen wollen (0 für axis-aligned)
+  /// Der Rotationswinkel (Standard: 0.0).
+  final double angle;
 
+  /// Erstellt ein [RectangleMatch].
   RectangleMatch({
     required this.rect,
     this.angle = 0.0,
-    required List<DrawingPoint> correctedPoints,
-  }) : super(type: ShapeType.rectangle, correctedPoints: correctedPoints);
+    required super.correctedPoints,
+  }) : super(type: ShapeType.rectangle);
 }
 
+/// Ein erkannter Kreis oder Ellipse.
 class EllipseMatch extends ShapeMatch {
+  /// Die Bounding-Box der Ellipse.
   final Rect boundingBox;
 
+  /// Erstellt ein [EllipseMatch].
   EllipseMatch({
     required this.boundingBox,
-    required List<DrawingPoint> correctedPoints,
-  }) : super(type: ShapeType.ellipse, correctedPoints: correctedPoints);
+    required super.correctedPoints,
+  }) : super(type: ShapeType.ellipse);
 }
 
 /// Eine Hilfsklasse zur Erkennung von geometrischen Formen aus einer Liste von Punkten.
@@ -223,6 +235,7 @@ class ShapeRecognizer {
     return math.sqrt(dx * dx + dy * dy);
   }
 
+  /// Generiert Punkte für ein Polygon aus den gegebenen [vertices].
   static List<DrawingPoint> generatePolygonPoints(List<Offset> vertices, double pressure) {
     if (vertices.isEmpty) return [];
     final points = <DrawingPoint>[];
@@ -234,16 +247,16 @@ class ShapeRecognizer {
     return points;
   }
 
-  static List<DrawingPoint> generateRectPoints(Rect rect, double pressure) {
-    return [
+  /// Generiert Punkte für ein Rechteck [rect].
+  static List<DrawingPoint> generateRectPoints(Rect rect, double pressure) => [
       DrawingPoint(position: rect.topLeft, pressure: pressure),
       DrawingPoint(position: rect.topRight, pressure: pressure),
       DrawingPoint(position: rect.bottomRight, pressure: pressure),
       DrawingPoint(position: rect.bottomLeft, pressure: pressure),
       DrawingPoint(position: rect.topLeft, pressure: pressure),
     ];
-  }
 
+  /// Generiert Punkte für eine Ellipse in [rect].
   static List<DrawingPoint> generateEllipsePoints(Rect rect, double pressure) {
     final points = <DrawingPoint>[];
     final center = rect.center;
