@@ -24,6 +24,15 @@ class DrawingController extends ChangeNotifier {
   bool _isLockedToShape = false;
   ShapeType? _lockedShapeType;
 
+  /// Stores the vertices defining the locked shape.
+  /// For Line: [start, end]
+  /// For Triangle: [v1, v2, v3]
+  /// For Rect/Ellipse: [fixedCorner, movingCorner] (defining the diagonal)
+  List<Offset> _lockedVertices = [];
+
+  /// The index of the vertex in [_lockedVertices] that is currently being dragged.
+  int _activeVertexIndex = -1;
+
   /// Stack für Wiederherstellen-Operationen.
   final List<Stroke> _redoStack = [];
 
@@ -69,6 +78,8 @@ class DrawingController extends ChangeNotifier {
     );
     _isLockedToShape = false;
     _lockedShapeType = null;
+    _lockedVertices = [];
+    _activeVertexIndex = -1;
     _redoStack.clear();
     notifyListeners();
   }
@@ -77,13 +88,42 @@ class DrawingController extends ChangeNotifier {
   void updateStroke(DrawingPoint point) {
     if (_currentStroke == null) return;
 
-    if (_isLockedToShape && _lockedShapeType == ShapeType.line) {
-      // If locked to a line, we just update the end point (last point).
-      // We assume the stroke already has at least 2 points (start, end).
-      final points = List<DrawingPoint>.of(_currentStroke!.points);
-      if (points.isNotEmpty) {
-        points.last = point;
-        _currentStroke = _currentStroke!.copyWith(points: points);
+    if (_isLockedToShape && _lockedShapeType != null) {
+      // Wenn gesperrt, aktualisieren wir nur den aktiven Vertex und generieren die Form neu.
+      if (_activeVertexIndex >= 0 && _activeVertexIndex < _lockedVertices.length) {
+        _lockedVertices[_activeVertexIndex] = point.position;
+
+        List<DrawingPoint> newPoints = [];
+        final pressure = _currentStroke!.points.first.pressure;
+
+        switch (_lockedShapeType!) {
+          case ShapeType.line:
+            // Line: defined by 2 points.
+            newPoints = [
+              DrawingPoint(position: _lockedVertices[0], pressure: pressure),
+              DrawingPoint(position: _lockedVertices[1], pressure: pressure),
+            ];
+            break;
+
+          case ShapeType.triangle:
+             // Triangle: defined by 3 points. generatePolygonPoints handles it.
+             newPoints = ShapeRecognizer.generatePolygonPoints(_lockedVertices, pressure);
+             break;
+
+          case ShapeType.rectangle:
+             // Rect: defined by diagonal (2 points in _lockedVertices).
+             final rect = Rect.fromPoints(_lockedVertices[0], _lockedVertices[1]);
+             newPoints = ShapeRecognizer.generateRectPoints(rect, pressure);
+             break;
+
+          case ShapeType.ellipse:
+             // Ellipse: defined by diagonal (2 points in _lockedVertices).
+             final rect = Rect.fromPoints(_lockedVertices[0], _lockedVertices[1]);
+             newPoints = ShapeRecognizer.generateEllipsePoints(rect, pressure);
+             break;
+        }
+
+        _currentStroke = _currentStroke!.copyWith(points: newPoints);
         notifyListeners();
       }
       return;
@@ -101,6 +141,11 @@ class DrawingController extends ChangeNotifier {
       return false;
     }
 
+    // Save the last point of the original stroke to determine user intent/position.
+    final originalLastPoint = _currentStroke!.points.isNotEmpty
+        ? _currentStroke!.points.last.position
+        : Offset.zero;
+
     final match = ShapeRecognizer.recognizeShape(
       _currentStroke!.points,
       tolerance,
@@ -112,6 +157,90 @@ class DrawingController extends ChangeNotifier {
       );
       _isLockedToShape = true;
       _lockedShapeType = match.type;
+
+      // Initialize locking state for resizing
+      switch (match.type) {
+        case ShapeType.line:
+           if (match is LineMatch) {
+             // For line, [start, end].
+             _lockedVertices = [match.correctedPoints.first.position, match.correctedPoints.last.position];
+             // Find closest vertex to user's finger (originalLastPoint)
+             final dStart = (_lockedVertices[0] - originalLastPoint).distanceSquared;
+             final dEnd = (_lockedVertices[1] - originalLastPoint).distanceSquared;
+             _activeVertexIndex = dStart < dEnd ? 0 : 1;
+           }
+           break;
+
+        case ShapeType.triangle:
+           if (match is TriangleMatch) {
+             _lockedVertices = List.of(match.vertices);
+
+             // Find vertex closest to user's position.
+             int bestIndex = 0;
+             double minD = double.infinity;
+             for(int i=0; i<_lockedVertices.length; i++) {
+               final d = (_lockedVertices[i] - originalLastPoint).distanceSquared;
+               if (d < minD) {
+                 minD = d;
+                 bestIndex = i;
+               }
+             }
+             _activeVertexIndex = bestIndex;
+           }
+           break;
+
+        case ShapeType.rectangle:
+           if (match is RectangleMatch) {
+             final rect = match.rect;
+             // Define 4 corners
+             final corners = [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft];
+
+             // Find the corner closest to the user's finger.
+             int bestIndex = 0;
+             double minD = double.infinity;
+             for(int i=0; i<4; i++) {
+               final d = (corners[i] - originalLastPoint).distanceSquared;
+               if (d < minD) {
+                 minD = d;
+                 bestIndex = i;
+               }
+             }
+
+             // The closest corner is the "moving" one.
+             // The "fixed" corner is the opposite one (index + 2 % 4).
+             final movingCorner = corners[bestIndex];
+             final fixedCorner = corners[(bestIndex + 2) % 4];
+
+             // Store as [fixed, moving] so index 1 is always the moving one logic for rect/ellipse in updateStroke
+             _lockedVertices = [fixedCorner, movingCorner];
+             _activeVertexIndex = 1;
+           }
+           break;
+
+        case ShapeType.ellipse:
+           if (match is EllipseMatch) {
+             final rect = match.boundingBox;
+             final corners = [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft];
+
+             int bestIndex = 0;
+             double minD = double.infinity;
+             for(int i=0; i<4; i++) {
+               final d = (corners[i] - originalLastPoint).distanceSquared;
+               if (d < minD) {
+                 minD = d;
+                 bestIndex = i;
+               }
+             }
+
+             final movingCorner = corners[bestIndex];
+             final fixedCorner = corners[(bestIndex + 2) % 4];
+
+             _lockedVertices = [fixedCorner, movingCorner];
+             _activeVertexIndex = 1;
+           }
+           break;
+      }
+
       notifyListeners();
       return true;
     }
@@ -199,6 +328,8 @@ class DrawingController extends ChangeNotifier {
     final wasLocked = _isLockedToShape;
     _isLockedToShape = false;
     _lockedShapeType = null;
+    _lockedVertices = [];
+    _activeVertexIndex = -1;
 
     if (stroke.points.length < 2) {
       notifyListeners();
@@ -278,6 +409,8 @@ class DrawingController extends ChangeNotifier {
     _currentStroke = null;
     _isLockedToShape = false;
     _lockedShapeType = null;
+    _lockedVertices = [];
+    _activeVertexIndex = -1;
     notifyListeners();
   }
 
