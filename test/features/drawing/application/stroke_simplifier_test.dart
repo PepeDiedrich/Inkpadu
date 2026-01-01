@@ -61,7 +61,7 @@ void main() {
         DrawingPoint(position: const Offset(10, 0)),
       ];
       // Tolerance 1.0 > 0.5 -> remove
-      final result = simplifyStrokePoints(points, tolerance: 1.0);
+      final result = simplifyStrokePoints(points);
       expect(result, hasLength(2));
     });
 
@@ -72,7 +72,7 @@ void main() {
         DrawingPoint(position: const Offset(10, 0)),
       ];
       // Tolerance 1.0 < 1.5 -> keep
-      final result = simplifyStrokePoints(points, tolerance: 1.0);
+      final result = simplifyStrokePoints(points);
       expect(result, hasLength(3));
     });
 
@@ -97,7 +97,7 @@ void main() {
       ];
       // All peaks are far from baseline (0,0)->(20,0) but local recursion handles them.
       // Distances are 5.0.
-      final result = simplifyStrokePoints(points, tolerance: 1.0);
+      final result = simplifyStrokePoints(points);
       expect(result, hasLength(5));
     });
 
