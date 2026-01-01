@@ -1,4 +1,5 @@
 import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_link.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 
 /// Repräsentiert eine einzelne Notizenseite, die eine Sammlung von Strichen enthält.
@@ -7,18 +8,23 @@ class NotePage {
   NotePage({
     required this.strokes,
     List<AssistantMessage>? assistantHistory,
+    List<NoteLink>? links,
     this.cachedVisionDescription,
     this.cachedVisionSignature,
     this.importedPdfText,
-  }) : assistantHistory = List<AssistantMessage>.unmodifiable(
+  })  : assistantHistory = List<AssistantMessage>.unmodifiable(
           assistantHistory ?? const <AssistantMessage>[],
-        );
+        ),
+        links = List<NoteLink>.unmodifiable(links ?? const <NoteLink>[]);
 
   /// Die Liste aller Striche auf dieser Seite.
   final List<Stroke> strokes;
 
   /// Historie der Interaktionen mit dem KI-Assistenten.
   final List<AssistantMessage> assistantHistory;
+
+  /// Links zu anderen Notizen auf dieser Seite.
+  final List<NoteLink> links;
 
   /// Zwischengespeicherte Kurzbeschreibung der Seite, die von der KI erzeugt wurde.
   final String? cachedVisionDescription;

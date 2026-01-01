@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_link.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
@@ -41,6 +42,8 @@ class DrawingCanvas extends StatefulWidget {
     this.importedPdfText,
     this.isSubNote = false,
     this.onZoomOutExit,
+    this.links = const <NoteLink>[],
+    this.onLinkTap,
   });
 
   /// Controller, der die Striche verwaltet.
@@ -98,6 +101,12 @@ class DrawingCanvas extends StatefulWidget {
 
   /// Callback when zoom-out gesture is detected to exit sub-note.
   final VoidCallback? onZoomOutExit;
+
+  /// Links to other notes on this page.
+  final List<NoteLink> links;
+
+  /// Callback when a link is tapped.
+  final ValueChanged<NoteLink>? onLinkTap;
 
   @override
   State<DrawingCanvas> createState() => _DrawingCanvasState();
@@ -979,6 +988,62 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                               ),
                             ),
                           ),
+                        ...widget.links.map((link) => Positioned(
+                              left: link.position.dx,
+                              top: link.position.dy,
+                              child: GestureDetector(
+                                onTap: () => widget.onLinkTap?.call(link),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surface
+                                        .withValues(alpha: 0.9),
+                                    border: Border.all(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      width: 1.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.link,
+                                        size: 14,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        link.label,
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )),
                       ],
                     ),
                   ),

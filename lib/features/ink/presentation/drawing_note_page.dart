@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
     show StrokeBoundingBoxCluster;
+import 'package:ai_handwriting_app/features/drawing/domain/note_link.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
@@ -13,6 +14,7 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_servic
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/animated_sidebar.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/draggable_wobbly_window.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_breadcrumbs.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/floating_tool_window.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
@@ -339,50 +341,73 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                               left: panelOnRight ? 0 : contentInset,
                               right: panelOnRight ? contentInset : 0,
                             ),
-                            child: NotePageContent(
-                              noteId: noteId,
-                              pages: controller.pages,
-                              currentPageIndex: controller.currentPageIndex,
-                              pageController: _pageController!,
-                              pageScrollLocked: _pageScrollLocked,
-                              drawingController: controller.drawingController,
-                              currentTool: controller.currentTool,
-                              resolveTool: controller.resolveTool,
-                              eraserRadiusFor: controller.eraserRadiusFor,
-                              onPersistDrawing: controller.persistDrawing,
-                              onTwoFingerUndo: _handleUndo,
-                              onThreeFingerRedo: _handleRedo,
-                              paperStyle: controller.note.paperStyle,
-                              onRequestParentScrollLock: (lock) {
-                                if (!mounted) return;
-                                if (_pageScrollLocked == lock) return;
-                                setState(() => _pageScrollLocked = lock);
-                              },
-                              initScrollOffset: initOffset,
-                              onScrollOffsetChanged: (offset) {
-                                final c = _maybeController;
-                                if (c == null || !c.isInitialized) return;
-                                final currentId = c.note.id;
-                                final currentPage = c.currentPageIndex;
-                                notesScope.setScrollOffset(
-                                  currentId,
-                                  currentPage,
-                                  offset,
-                                );
-                              },
-                              onStrokeClustersChanged:
-                                  _handleStrokeClustersChanged,
-                              onPageChanged: (index) =>
-                                  _handlePageChanged(index, controller),
-                              onFocusPage: _focusPage,
-                              canCreateNewPage:
-                                  controller.currentPageHasContent,
-                              isSubNote: widget.isSubNote,
-                              onZoomOutExit: () {
-                                if (widget.isSubNote) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
+                            child: Stack(
+                              children: [
+                                NotePageContent(
+                                  noteId: noteId,
+                                  pages: controller.pages,
+                                  currentPageIndex: controller.currentPageIndex,
+                                  pageController: _pageController!,
+                                  pageScrollLocked: _pageScrollLocked,
+                                  drawingController:
+                                      controller.drawingController,
+                                  currentTool: controller.currentTool,
+                                  resolveTool: controller.resolveTool,
+                                  eraserRadiusFor: controller.eraserRadiusFor,
+                                  onPersistDrawing: controller.persistDrawing,
+                                  onTwoFingerUndo: _handleUndo,
+                                  onThreeFingerRedo: _handleRedo,
+                                  paperStyle: controller.note.paperStyle,
+                                  onRequestParentScrollLock: (lock) {
+                                    if (!mounted) return;
+                                    if (_pageScrollLocked == lock) return;
+                                    setState(() => _pageScrollLocked = lock);
+                                  },
+                                  initScrollOffset: initOffset,
+                                  onScrollOffsetChanged: (offset) {
+                                    final c = _maybeController;
+                                    if (c == null || !c.isInitialized) return;
+                                    final currentId = c.note.id;
+                                    final currentPage = c.currentPageIndex;
+                                    notesScope.setScrollOffset(
+                                      currentId,
+                                      currentPage,
+                                      offset,
+                                    );
+                                  },
+                                  onStrokeClustersChanged:
+                                      _handleStrokeClustersChanged,
+                                  onPageChanged: (index) =>
+                                      _handlePageChanged(index, controller),
+                                  onFocusPage: _focusPage,
+                                  canCreateNewPage:
+                                      controller.currentPageHasContent,
+                                  isSubNote: widget.isSubNote,
+                                  onZoomOutExit: () {
+                                    if (widget.isSubNote) {
+                                      Navigator.of(context).pop();
+                                    }
+                                  },
+                                  onLinkTap: (NoteLink link) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (context) => DrawingNotePage(
+                                          noteId: link.targetNoteId,
+                                          isSubNote: true,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                Positioned(
+                                  top: 16,
+                                  left: 16,
+                                  child: SafeArea(
+                                    child:
+                                        NoteBreadcrumbs(currentNoteId: noteId),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -478,7 +503,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                       _openToolConfigurator(newTool);
                     },
                     onExportPdf: () => _exportNoteToPdf(controller),
-                    onBackPressed: () => Navigator.of(context).pop(),
+                    onBackPressed: () =>
+                        Navigator.of(context).popUntil((route) => route.isFirst),
                     orientation: _toolbarOrientation,
                   ),
                 ),

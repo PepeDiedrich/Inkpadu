@@ -1,6 +1,7 @@
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
     show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_link.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
@@ -40,6 +41,7 @@ class NotePageContent extends StatelessWidget {
     required this.canCreateNewPage,
     this.isSubNote = false,
     this.onZoomOutExit,
+    this.onLinkTap,
   });
 
   /// The note ID for storage keys.
@@ -108,6 +110,9 @@ class NotePageContent extends StatelessWidget {
   /// Callback when zoom-out gesture is detected to exit sub-note.
   final VoidCallback? onZoomOutExit;
 
+  /// Callback when a link is tapped.
+  final ValueChanged<NoteLink>? onLinkTap;
+
   @override
   Widget build(BuildContext context) {
     final int placeholderIndex = canCreateNewPage ? pages.length : -1;
@@ -133,14 +138,12 @@ class NotePageContent extends StatelessWidget {
         final String? pdfText = page.importedPdfText;
 
         if (isActive) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Column(
-              children: [
-                if (pdfText != null && pdfText.isNotEmpty)
-                  ImportedTaskHeader(taskText: pdfText),
-                Expanded(
-                  child: DrawingCanvas(
+          return Column(
+            children: [
+              if (pdfText != null && pdfText.isNotEmpty)
+                ImportedTaskHeader(taskText: pdfText),
+              Expanded(
+                child: DrawingCanvas(
                     drawingController: drawingController,
                     currentTool: currentTool,
                     resolveTool: resolveTool,
@@ -160,12 +163,13 @@ class NotePageContent extends StatelessWidget {
                     // importedPdfText: pdfText, // Don't show text on canvas background
                     isSubNote: isSubNote,
                     onZoomOutExit: onZoomOutExit,
+                    links: page.links,
+                    onLinkTap: onLinkTap,
                   ),
                 ),
               ],
-            ),
-          );
-        }
+            );
+          }
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 24),
           child: GestureDetector(

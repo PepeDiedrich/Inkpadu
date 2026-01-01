@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/note_link.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:archive/archive.dart';
@@ -179,8 +180,9 @@ class InkNotePageCodec {
     final bool hasHistory = page.assistantHistory.isNotEmpty;
     final bool hasPdfText =
         (page.importedPdfText?.trim().isNotEmpty ?? false);
+    final bool hasLinks = page.links.isNotEmpty;
 
-    if (!hasDescription && !hasHistory && !hasPdfText) {
+    if (!hasDescription && !hasHistory && !hasPdfText && !hasLinks) {
       return null;
     }
 
@@ -191,6 +193,9 @@ class InkNotePageCodec {
             .map((message) => message.toJson())
             .toList(growable: false),
       if (hasPdfText) 'pdfText': page.importedPdfText,
+      if (hasLinks)
+        'links':
+            page.links.map((link) => link.toJson()).toList(growable: false),
     };
   }
 
@@ -212,13 +217,26 @@ class InkNotePageCodec {
     final List<AssistantMessage> history = _decodeHistory(rawContext['history']);
     final String? description = _decodeVisionDescription(rawContext['vision']);
     final String? pdfText = _decodePdfText(rawContext['pdfText']);
+    final List<NoteLink> links = _decodeLinks(rawContext['links']);
 
     return NotePage(
       strokes: strokes,
       assistantHistory: history,
       cachedVisionDescription: description,
       importedPdfText: pdfText,
+      links: links,
     );
+  }
+
+  static List<NoteLink> _decodeLinks(Object? rawLinks) {
+    if (rawLinks is! List) {
+      return const <NoteLink>[];
+    }
+
+    return rawLinks
+        .whereType<Map<String, dynamic>>()
+        .map(NoteLink.fromJson)
+        .toList(growable: false);
   }
 
   static List<AssistantMessage> _decodeHistory(Object? rawHistory) {
