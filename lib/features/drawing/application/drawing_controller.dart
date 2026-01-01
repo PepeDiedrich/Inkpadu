@@ -272,12 +272,23 @@ class DrawingController extends ChangeNotifier {
         continue;
       }
 
-      // Detaillierter Punkt-für-Punkt-Check nur bei Überschneidung
-      final bool shouldRemove = stroke.points.any((point) {
-        final double dx = point.position.dx - position.dx;
-        final double dy = point.position.dy - position.dy;
-        return (dx * dx + dy * dy) <= radiusSquared;
-      });
+      // Detaillierter Check: Segmente prüfen
+      bool shouldRemove = false;
+      if (stroke.points.length == 1) {
+         final point = stroke.points.first;
+         final double dx = point.position.dx - position.dx;
+         final double dy = point.position.dy - position.dy;
+         shouldRemove = (dx * dx + dy * dy) <= radiusSquared;
+      } else {
+        for (int i = 0; i < stroke.points.length - 1; i++) {
+          final p1 = stroke.points[i].position;
+          final p2 = stroke.points[i + 1].position;
+          if (_distanceToSegmentSquared(position, p1, p2) <= radiusSquared) {
+            shouldRemove = true;
+            break;
+          }
+        }
+      }
 
       if (shouldRemove) {
         removedAny = true;
@@ -295,6 +306,22 @@ class DrawingController extends ChangeNotifier {
     _strokesVersion++;
     notifyListeners();
     return true;
+  }
+
+  double _distanceToSegmentSquared(Offset p, Offset p1, Offset p2) {
+    final double l2 = (p1 - p2).distanceSquared;
+    if (l2 == 0) return (p - p1).distanceSquared;
+    
+    final double t = ((p.dx - p1.dx) * (p2.dx - p1.dx) + (p.dy - p1.dy) * (p2.dy - p1.dy)) / l2;
+    
+    if (t < 0) return (p - p1).distanceSquared;
+    if (t > 1) return (p - p2).distanceSquared;
+    
+    final Offset projection = Offset(
+      p1.dx + t * (p2.dx - p1.dx),
+      p1.dy + t * (p2.dy - p1.dy),
+    );
+    return (p - projection).distanceSquared;
   }
 
   /// Aktualisiert die Parameter des Linien-Vereinfachers.

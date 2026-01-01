@@ -105,7 +105,7 @@ class ShapeRecognizer {
     // Wir nutzen hier eine etwas aggressive Toleranz für die Eckenerkennung.
     final simplified = simplifyStrokePoints(points, tolerance: tolerance * 1.5);
     final int corners = isClosed
-        ? (simplified.length > 2 && (simplified.first.position - simplified.last.position).distance < 0.1 ? simplified.length - 1 : simplified.length)
+        ? (simplified.length > 2 ? simplified.length - 1 : simplified.length)
         : simplified.length;
 
     // 2. Check for Triangle (3 corners + closed)

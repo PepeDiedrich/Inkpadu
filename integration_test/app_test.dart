@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -11,6 +12,37 @@ void main() {
 
   group('End-to-End Flow', () {
     testWidgets('Notiz erstellen und Editor öffnen', (tester) async {
+      // Setup Mock for FlutterSecureStorage to avoid Libsecret errors on Linux
+      const MethodChannel channel = MethodChannel(
+        'plugins.it_nomads.com/flutter_secure_storage',
+      );
+      final Map<String, String> storageMap = {};
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+            final args = methodCall.arguments as Map?;
+            final key = args?['key'] as String?;
+            final value = args?['value'] as String?;
+
+            switch (methodCall.method) {
+              case 'read':
+                return storageMap[key];
+              case 'write':
+                if (key != null && value != null) storageMap[key] = value;
+                return null;
+              case 'delete':
+                if (key != null) storageMap.remove(key);
+                return null;
+              case 'deleteAll':
+                storageMap.clear();
+                return null;
+              case 'containsKey':
+                return storageMap.containsKey(key);
+              default:
+                return null;
+            }
+          });
+
       // Mock SharedPreferences, um das Onboarding zu überspringen
       SharedPreferences.setMockInitialValues({
         'inkpadu_cached_user_id': 'test-user-id',
@@ -47,7 +79,7 @@ void main() {
 
       // 5. Verifizieren, dass wir im Editor (DrawingNotePage) sind
       expect(find.byType(DrawingNotePage), findsOneWidget);
-      
+
       // Optional: Zurück zur Home-Seite navigieren
       final backBtn = find.byIcon(Icons.arrow_back);
       if (backBtn.evaluate().isNotEmpty) {

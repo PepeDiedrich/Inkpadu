@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/foundation.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:image/image.dart' as img;
+import 'package:pdfrx/pdfrx.dart';
 
 import 'package:ai_handwriting_app/features/ink/application/assistant/azure_assistant_api_service.dart';
 
@@ -236,7 +237,7 @@ Beispiel-Ausgabe:
   }) async {
     debugPrint('[PdfImportService] Opening PDF document...');
     final PdfDocument document = await PdfDocument.openData(pdfBytes);
-    final int pageCount = document.pagesCount;
+    final int pageCount = document.pages.length;
     debugPrint('[PdfImportService] PDF has $pageCount pages');
     final List<PdfPageExtractionResult> results = <PdfPageExtractionResult>[];
 
@@ -287,7 +288,7 @@ Beispiel-Ausgabe:
         results.addAll(batchResults);
       }
     } finally {
-      await document.close();
+      await document.dispose();
       debugPrint('[PdfImportService] PDF document closed');
     }
 
@@ -297,7 +298,7 @@ Beispiel-Ausgabe:
 
   /// Rendert eine einzelne PDF-Seite als PNG-Bild.
   Future<Uint8List> _renderPage(PdfDocument document, int pageNumber) async {
-    final PdfPage page = await document.getPage(pageNumber);
+    final PdfPage page = document.pages[pageNumber - 1];
     
     try {
       // Berechne optimale Auflösung (2x für gute OCR-Qualität)
@@ -305,20 +306,29 @@ Beispiel-Ausgabe:
       final double width = page.width * scale;
       final double height = page.height * scale;
 
-      final PdfPageImage? pageImage = await page.render(
-        width: width,
-        height: height,
-        format: PdfPageImageFormat.png,
-        backgroundColor: '#FFFFFF',
+      final image = await page.render(
+        width: width.toInt(),
+        height: height.toInt(),
+        backgroundColor: 0xFFFFFFFF,
       );
 
-      if (pageImage == null) {
+      if (image == null) {
         throw Exception('Seite $pageNumber konnte nicht gerendert werden');
       }
 
-      return pageImage.bytes;
+      // Konvertiere Raw-Pixel (BGRA) zu PNG
+      final img.Image pImage = img.Image.fromBytes(
+        width: image.width,
+        height: image.height,
+        bytes: image.pixels.buffer,
+        numChannels: 4,
+        order: img.ChannelOrder.bgra,
+      );
+
+      // Encode to PNG
+      return img.encodePng(pImage);
     } finally {
-      await page.close();
+      // page.dispose(); // pdfrx pages don't need explicit dispose usually
     }
   }
 
@@ -347,6 +357,7 @@ Beispiel-Ausgabe:
       systemPrompt: defaultExtractionPrompt,
       userContent: userContent,
       maxCompletionTokens: _config.maxCompletionTokens,
+      reasoningEffort: 'low',
     );
 
     final AzureAssistantPreparedRequest preparedRequest =
@@ -372,10 +383,8 @@ Beispiel-Ausgabe:
   /// Prüft, ob der PDF-Import auf der aktuellen Plattform verfügbar ist.
   static bool get isAvailable {
     if (kIsWeb) {
-      // Web wird via pdfx mit pdfjs unterstützt
       return true;
     }
-    // pdfx unterstützt Android, iOS, macOS, Windows, Linux
     return Platform.isAndroid ||
         Platform.isIOS ||
         Platform.isMacOS ||
@@ -407,6 +416,7 @@ Beispiel-Ausgabe:
         systemPrompt: taskExtractionPrompt,
         userContent: userContent,
         maxCompletionTokens: _config.maxCompletionTokens,
+        reasoningEffort: 'low',
       );
 
       final AzureAssistantPreparedRequest preparedRequest =

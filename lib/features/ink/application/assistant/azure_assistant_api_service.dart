@@ -279,12 +279,18 @@ class AzureAssistantApiService {
 
     messages.add({'role': 'user', 'content': request.userContent});
 
-    return <String, dynamic>{
+    final Map<String, dynamic> payload = <String, dynamic>{
       'messages': messages,
       'max_completion_tokens': request.maxCompletionTokens,
       'response_format': const {'type': 'text'},
       'stream': true,
     };
+
+    if (request.reasoningEffort != null) {
+      payload['reasoning_effort'] = request.reasoningEffort;
+    }
+
+    return payload;
   }
 
   String? _extractDeltaContent(
@@ -442,11 +448,13 @@ class AzureAssistantRequest {
   /// [maxCompletionTokens] begrenzt die Länge der Antwort.
   /// [pdfContext] ist optionaler PDF-Text, der immer vollständig als
   /// Kontext mitgesendet wird und nicht zum Token-Limit zählt.
+  /// [reasoningEffort] steuert den Aufwand für das "Thinking" (z.B. 'low', 'medium', 'high').
   const AzureAssistantRequest({
     required this.systemPrompt,
     required this.userContent,
     required this.maxCompletionTokens,
     this.pdfContext,
+    this.reasoningEffort,
   });
 
   /// Die System-Anweisung für das Modell.
@@ -461,6 +469,9 @@ class AzureAssistantRequest {
   /// Optionaler PDF-Text, der als Kontext immer vollständig mitgesendet wird.
   /// Dieser zählt nicht zum max_completion_tokens Limit.
   final String? pdfContext;
+
+  /// Der Aufwand für das "Thinking" (z.B. 'low', 'medium', 'high').
+  final String? reasoningEffort;
 }
 
 /// Enthält die serialisierte Payload inklusive Vorschau für Debug-Zwecke.

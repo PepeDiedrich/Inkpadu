@@ -37,8 +37,8 @@ class InkNotePageCodec {
   static const int _version = 3;
   static const int _positionScale = 1000;
   static const int _pressureScale = 1000;
-  static final GZipEncoder _gzipEncoder = GZipEncoder();
-  static final GZipDecoder _gzipDecoder = GZipDecoder();
+  static final GZipEncoder _gzipEncoder = const GZipEncoder();
+  static final GZipDecoder _gzipDecoder = const GZipDecoder();
 
   /// Kodiert eine Liste von Seiten nach Base64 (gzip-komprimiertes JSON).
   static String encode(
@@ -59,9 +59,6 @@ class InkNotePageCodec {
 
     final jsonString = jsonEncode(payload);
     final compressed = _gzipEncoder.encode(utf8.encode(jsonString));
-    if (compressed == null) {
-      throw const FormatException('Failed to gzip ink note payload');
-    }
     return base64Encode(compressed);
   }
 

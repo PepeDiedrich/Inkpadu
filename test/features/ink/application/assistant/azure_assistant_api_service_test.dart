@@ -49,6 +49,17 @@ void main() {
       expect(requestWithPdf.pdfContext, isNotNull);
       expect(requestWithoutPdf.pdfContext, isNull);
     });
+
+    test('creates request with reasoningEffort', () {
+      const AzureAssistantRequest request = AzureAssistantRequest(
+        systemPrompt: 'System prompt',
+        userContent: <Map<String, dynamic>>[],
+        maxCompletionTokens: 1000,
+        reasoningEffort: 'low',
+      );
+
+      expect(request.reasoningEffort, equals('low'));
+    });
   });
 
   group('AzureAssistantPreparedRequest', () {

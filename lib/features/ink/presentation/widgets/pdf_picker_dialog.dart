@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
@@ -90,8 +90,8 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
 
       // PDF öffnen um Seitenzahl zu ermitteln
       final PdfDocument document = await PdfDocument.openData(bytes);
-      final int pageCount = document.pagesCount;
-      await document.close();
+      final int pageCount = document.pages.length;
+      await document.dispose();
 
       if (!mounted) return;
 

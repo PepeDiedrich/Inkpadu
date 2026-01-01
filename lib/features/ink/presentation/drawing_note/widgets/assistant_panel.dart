@@ -234,6 +234,7 @@ class _AssistantPanelState extends State<AssistantPanel> {
               userContent: userContent,
               maxCompletionTokens: _maxCompletionTokens,
               pdfContext: pagePdfText,
+              reasoningEffort: 'low',
             ),
           );
 
