@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
     show StrokeBoundingBoxCluster;
@@ -56,7 +58,8 @@ class AssistantPanel extends StatefulWidget {
   State<AssistantPanel> createState() => _AssistantPanelState();
 }
 
-class _AssistantPanelState extends State<AssistantPanel> {
+class _AssistantPanelState extends State<AssistantPanel>
+  with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _isStreaming = false;
   String? _statusMessage = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
@@ -91,6 +94,16 @@ class _AssistantPanelState extends State<AssistantPanel> {
     _functions = Functions(AppwriteConfig.client);
     _assistantService = AzureAssistantApiService(functions: _functions);
     _promptManager = const AssistantPromptManager();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_prewarmAccessToken());
+  }
+
+  @override
+  void didUpdateWidget(covariant AssistantPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) {
+      unawaited(_prewarmAccessToken());
+    }
   }
 
   @override
@@ -126,7 +139,26 @@ class _AssistantPanelState extends State<AssistantPanel> {
 
     _streamingAnswer.dispose();
     _contentScrollController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_prewarmAccessToken());
+    }
+  }
+
+  Future<void> _prewarmAccessToken() async {
+    if (!widget.isActive) {
+      return;
+    }
+    try {
+      await _assistantService.getAccessToken();
+    } catch (error, stackTrace) {
+      debugPrint('[AssistantPanel] Token prewarm failed: $error\n$stackTrace');
+    }
   }
 
   Future<void> _handleAssistantRequest(AssistantRequestType type) async {

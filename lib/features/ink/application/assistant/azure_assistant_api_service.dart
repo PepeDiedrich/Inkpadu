@@ -98,8 +98,35 @@ class AzureAssistantApiService {
     void Function()? onStreamStarted,
     String? preloadedToken,
   }) async {
-    final String token = preloadedToken ?? await getAccessToken();
+    String token = preloadedToken ?? await getAccessToken();
+    bool hasRetriedAfterUnauthorized = false;
 
+    while (true) {
+      try {
+        return await _streamCompletionWithToken(
+          token: token,
+          preparedRequest: preparedRequest,
+          onStreamUpdate: onStreamUpdate,
+          onStreamStarted: onStreamStarted,
+        );
+      } on _AzureUnauthorizedException catch (error) {
+        if (hasRetriedAfterUnauthorized) {
+          throw Exception(error.message);
+        }
+        hasRetriedAfterUnauthorized = true;
+        _cachedAccessToken = null;
+        _cachedTokenExpiry = null;
+        token = await getAccessToken();
+      }
+    }
+  }
+
+  Future<AzureAssistantResult> _streamCompletionWithToken({
+    required String token,
+    required AzureAssistantPreparedRequest preparedRequest,
+    required void Function(String aggregatedText) onStreamUpdate,
+    void Function()? onStreamStarted,
+  }) async {
     final Uri url = Uri.parse(
       'https://$_azureResourceName.openai.azure.com/openai/deployments/$_azureDeploymentName/chat/completions?api-version=$_azureApiVersion',
     );
@@ -125,10 +152,10 @@ class AzureAssistantApiService {
 
       if (streamedResponse.statusCode != 200) {
         final String errorBody = await streamedResponse.stream.bytesToString();
-        // Falls Token abgelaufen/ungültig (401), könnten wir hier den Cache invalidieren und retry machen.
-        // Vereinfacht werfen wir den Fehler.
         if (streamedResponse.statusCode == 401) {
-          _cachedAccessToken = null;
+          throw _AzureUnauthorizedException(
+            'Azure-Fehler: ${streamedResponse.statusCode} $errorBody',
+          );
         }
         throw Exception(
           'Azure-Fehler: ${streamedResponse.statusCode} $errorBody',
@@ -494,6 +521,15 @@ class AzureAssistantPreparedRequest {
 
   /// Die formatierte Payload-Vorschau zur Anzeige.
   final String payloadPreview;
+}
+
+class _AzureUnauthorizedException implements Exception {
+  const _AzureUnauthorizedException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 /// Ergebnis eines Streaming-Aufrufs inklusive Abschlussgrund.
