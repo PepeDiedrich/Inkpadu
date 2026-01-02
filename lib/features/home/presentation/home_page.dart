@@ -488,7 +488,7 @@ class _HomePageState extends State<HomePage> {
           childBuilder: buildNoteItem, // Pass the builder function for recursion
           onTap: () => _open(note.id),
           onLongPress: () => _showNoteActions(note),
-          onDelete: () => _deleteNote(note.id, note.title),
+          onConfirmDelete: () => _confirmDelete(note.id, note.title),
           dateFormatter: _fmt,
           deleteTooltip: context.t.notes.deleteNoteTooltip,
         );
@@ -660,8 +660,8 @@ class ExpandableNoteCard extends StatefulWidget {
   /// Callback beim langen Drücken auf die Notiz.
   final VoidCallback onLongPress;
 
-  /// Callback zum Löschen der Notiz.
-  final VoidCallback onDelete;
+  /// Callback zum Bestätigen des Löschens (für Swipe-to-Delete).
+  final Future<bool> Function() onConfirmDelete;
 
   /// Funktion zur Formatierung des Datums.
   final String Function(DateTime) dateFormatter;
@@ -677,7 +677,7 @@ class ExpandableNoteCard extends StatefulWidget {
     required this.childBuilder,
     required this.onTap,
     required this.onLongPress,
-    required this.onDelete,
+    required this.onConfirmDelete,
     required this.dateFormatter,
     required this.deleteTooltip,
   });
@@ -692,72 +692,79 @@ class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Card(
-          elevation: 0,
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.3),
-              width: 2,
-            ),
-          ),
-          child: ListTile(
-            onTap: widget.onTap,
-            onLongPress: widget.onLongPress,
-            contentPadding: const EdgeInsets.only(left: 12, right: 8),
-            leading: NoteThumbnail(
-              page: widget.note.currentPage,
-              paperStyle: widget.note.paperStyle,
-              size: 48,
-            ),
-            title: Text(
-              widget.note.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            subtitle: Text(
-              '${widget.note.pages.length} ${widget.note.pages.length == 1 ? "Seite" : "Seiten"} · ${widget.dateFormatter(widget.note.updatedAt)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: widget.deleteTooltip,
-                  icon: const Icon(Icons.delete_outline),
-                  color: theme.colorScheme.error,
-                  onPressed: widget.onDelete,
-                ),
-                IconButton(
-                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
-                  onPressed: () {
-                    setState(() {
-                      _expanded = !_expanded;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
+
+    return Dismissible(
+      key: ValueKey('dismiss_${widget.note.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(16),
         ),
-        if (_expanded)
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: Column(
-              children: widget.childNotes.map(widget.childBuilder).toList(),
+        child: Icon(
+          Icons.delete_outline,
+          color: theme.colorScheme.onErrorContainer,
+        ),
+      ),
+      confirmDismiss: (_) => widget.onConfirmDelete(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Card(
+            elevation: 0,
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: ListTile(
+              onTap: widget.onTap,
+              onLongPress: widget.onLongPress,
+              contentPadding: const EdgeInsets.only(left: 12, right: 8),
+              leading: NoteThumbnail(
+                page: widget.note.currentPage,
+                paperStyle: widget.note.paperStyle,
+                size: 48,
+              ),
+              title: Text(
+                widget.note.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                '${widget.note.pages.length} ${widget.note.pages.length == 1 ? "Seite" : "Seiten"} · ${widget.dateFormatter(widget.note.updatedAt)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              trailing: IconButton(
+                icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                onPressed: () {
+                  setState(() {
+                    _expanded = !_expanded;
+                  });
+                },
+              ),
             ),
           ),
-      ],
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Column(
+                children: widget.childNotes.map(widget.childBuilder).toList(),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
