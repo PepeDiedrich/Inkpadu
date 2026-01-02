@@ -427,7 +427,6 @@ class _HomePageState extends State<HomePage> {
                       context,
                     ).colorScheme.surfaceContainerHighest,
                     contentPadding: const EdgeInsets.symmetric(
-                      vertical: 0,
                       horizontal: 16,
                     ),
                   ),
@@ -588,9 +587,7 @@ class _HomePageState extends State<HomePage> {
           color: theme.colorScheme.onErrorContainer,
         ),
       ),
-      confirmDismiss: (_) async {
-        return await _confirmDelete(n.id, n.title);
-      },
+      confirmDismiss: (_) => _confirmDelete(n.id, n.title),
       child: GestureDetector(
         onTap: () => _open(n.id),
         onLongPress: () => _showNoteActions(n),
@@ -653,8 +650,10 @@ class _HomePageState extends State<HomePage> {
 class ExpandableNoteCard extends StatefulWidget {
   /// Die anzuzeigende Notiz.
   final InkNote note;
-  /// Die Liste der Unternotizen-Widgets.
-  final List<Widget> children;
+  /// Die Liste der Unternotizen.
+  final List<InkNote> childNotes;
+  /// Builder für die Unternotizen.
+  final Widget Function(InkNote) childBuilder;
   /// Callback beim Tippen auf die Notiz.
   final VoidCallback onTap;
 
@@ -693,7 +692,6 @@ class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final note = widget.note;
     
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -704,13 +702,33 @@ class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: theme.colorScheme.primary.withOpacity(0.3),
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
               width: 2,
             ),
           ),
-          child: InkWell(
+          child: ListTile(
             onTap: widget.onTap,
             onLongPress: widget.onLongPress,
+            contentPadding: const EdgeInsets.only(left: 12, right: 8),
+            leading: NoteThumbnail(
+              page: widget.note.currentPage,
+              paperStyle: widget.note.paperStyle,
+              size: 48,
+            ),
+            title: Text(
+              widget.note.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: Text(
+              '${widget.note.pages.length} ${widget.note.pages.length == 1 ? "Seite" : "Seiten"} · ${widget.dateFormatter(widget.note.updatedAt)}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -735,7 +753,9 @@ class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
         if (_expanded)
           Padding(
             padding: const EdgeInsets.only(left: 16.0),
-            child: Column(children: widget.children),
+            child: Column(
+              children: widget.childNotes.map(widget.childBuilder).toList(),
+            ),
           ),
       ],
     );

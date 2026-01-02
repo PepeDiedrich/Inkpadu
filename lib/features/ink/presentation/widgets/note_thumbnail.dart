@@ -37,7 +37,6 @@ class NoteThumbnail extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
-          width: 1,
         ),
       ),
       child: ClipRRect(
@@ -93,15 +92,16 @@ class NoteThumbnail extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyPreview(BuildContext context) {
-    return Center(
-      child: Icon(
-        Icons.draw_outlined,
-        size: size * 0.4,
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
-      ),
-    );
-  }
+  Widget _buildEmptyPreview(BuildContext context) => Center(
+        child: Icon(
+          Icons.draw_outlined,
+          size: size * 0.4,
+          color: Theme.of(context)
+              .colorScheme
+              .onSurfaceVariant
+              .withValues(alpha: 0.5),
+        ),
+      );
 }
 
 /// Custom painter that renders scaled strokes for the thumbnail.
@@ -133,7 +133,7 @@ class _ThumbnailPainter extends CustomPainter {
 
     for (final stroke in strokes) {
       paint.color = stroke.isHighlighter
-          ? stroke.color.withOpacity(stroke.color.opacity * 0.5)
+          ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
           : stroke.color;
 
       if (stroke.points.isEmpty) continue;
