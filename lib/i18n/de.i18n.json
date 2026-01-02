@@ -65,7 +65,13 @@
     "openNote": "Notiz öffnen",
     "adjustTitlePaper": "Titel & Papier anpassen",
     "emptyNote": "Leere Notiz",
-    "emptyNoteSubtitle": "Starte mit einer leeren Seite"
+    "emptyNoteSubtitle": "Starte mit einer leeren Seite",
+    "swipeToDelete": "Zum Löschen wischen",
+    "noteDeleted": "Notiz gelöscht",
+    "undo": "Rückgängig",
+    "searchNotes": "Notizen durchsuchen...",
+    "pagesCount(count)": "${count} Seite(n)",
+    "strokesCount(count)": "${count} Strich(e)"
   },
   "drawing": {
     "pen": "Stift",
