@@ -6,9 +6,21 @@ import 'package:ai_handwriting_app/main.dart' as app;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
+import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
+
+class MockConnectivityPlatform extends ConnectivityPlatform {
+  @override
+  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
+      Stream.value([ConnectivityResult.wifi]);
+
+  @override
+  Future<List<ConnectivityResult>> checkConnectivity() async =>
+      [ConnectivityResult.wifi];
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  ConnectivityPlatform.instance = MockConnectivityPlatform();
 
   group('End-to-End Flow', () {
     testWidgets('Notiz erstellen und Editor öffnen', (tester) async {
