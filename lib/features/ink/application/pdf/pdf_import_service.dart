@@ -235,10 +235,10 @@ Beispiel-Ausgabe:
     required Uint8List pdfBytes,
     required void Function(PdfImportProgress progress) onProgress,
   }) async {
-    debugPrint('[PdfImportService] Opening PDF document...');
+    _log('[PdfImportService] Opening PDF document...');
     final PdfDocument document = await PdfDocument.openData(pdfBytes);
     final int pageCount = document.pages.length;
-    debugPrint('[PdfImportService] PDF has $pageCount pages');
+    _log('[PdfImportService] PDF has $pageCount pages');
     final List<PdfPageExtractionResult> results = <PdfPageExtractionResult>[];
 
     try {
@@ -247,7 +247,7 @@ Beispiel-Ausgabe:
 
       for (int i = 1; i <= pageCount; i += batchSize) {
         final int end = (i + batchSize - 1).clamp(1, pageCount);
-        debugPrint('[PdfImportService] Processing batch: pages $i to $end');
+        _log('[PdfImportService] Processing batch: pages $i to $end');
 
         // 1. Render images for the batch (Sequentially to be safe with PDF plugin)
         final Map<int, Uint8List> batchImages = {};
@@ -258,7 +258,7 @@ Beispiel-Ausgabe:
             stage: PdfImportStage.rendering,
           ));
 
-          debugPrint('[PdfImportService] Rendering page $pageNum...');
+          _log('[PdfImportService] Rendering page $pageNum...');
           batchImages[pageNum] = await _renderPage(document, pageNum);
         }
 
@@ -272,9 +272,9 @@ Beispiel-Ausgabe:
               stage: PdfImportStage.extracting,
             ));
 
-            debugPrint('[PdfImportService] Extracting text from page $pageNum...');
+            _log('[PdfImportService] Extracting text from page $pageNum...');
             final String extractedText = await _extractTextFromImage(batchImages[pageNum]!);
-            debugPrint('[PdfImportService] Extracted ${extractedText.length} chars from page $pageNum');
+            _log('[PdfImportService] Extracted ${extractedText.length} chars from page $pageNum');
 
             return PdfPageExtractionResult(
               pageNumber: pageNum,
@@ -289,10 +289,10 @@ Beispiel-Ausgabe:
       }
     } finally {
       await document.dispose();
-      debugPrint('[PdfImportService] PDF document closed');
+      _log('[PdfImportService] PDF document closed');
     }
 
-    debugPrint('[PdfImportService] Import complete: ${results.length} pages processed');
+    _log('[PdfImportService] Import complete: ${results.length} pages processed');
     return results;
   }
 
@@ -334,9 +334,9 @@ Beispiel-Ausgabe:
 
   /// Extrahiert Text aus einem Bild via Azure OpenAI Vision.
   Future<String> _extractTextFromImage(Uint8List imageBytes) async {
-    debugPrint('[PdfImportService] Encoding image to base64...');
+    _log('[PdfImportService] Encoding image to base64...');
     final String base64Image = base64Encode(imageBytes);
-    debugPrint('[PdfImportService] Base64 length: ${base64Image.length}');
+    _log('[PdfImportService] Base64 length: ${base64Image.length}');
 
     final List<Map<String, dynamic>> userContent = <Map<String, dynamic>>[
       {
@@ -352,7 +352,7 @@ Beispiel-Ausgabe:
       },
     ];
 
-    debugPrint('[PdfImportService] Creating Azure request with deployment: ${_config.deploymentName}');
+    _log('[PdfImportService] Creating Azure request with deployment: ${_config.deploymentName}');
     final AzureAssistantRequest request = AzureAssistantRequest(
       systemPrompt: defaultExtractionPrompt,
       userContent: userContent,
@@ -363,7 +363,7 @@ Beispiel-Ausgabe:
     final AzureAssistantPreparedRequest preparedRequest =
         _azureService.prepareRequest(request);
 
-    debugPrint('[PdfImportService] Sending request to Azure...');
+    _log('[PdfImportService] Sending request to Azure...');
     try {
       final AzureAssistantResult result = await _azureService.streamCompletion(
         preparedRequest: preparedRequest,
@@ -371,11 +371,11 @@ Beispiel-Ausgabe:
           // Optional: Log streaming progress
         },
       );
-      debugPrint('[PdfImportService] Azure response received: ${result.answer.length} chars');
+      _log('[PdfImportService] Azure response received: ${result.answer.length} chars');
       return result.answer;
     } catch (e, stackTrace) {
-      debugPrint('[PdfImportService] Azure API ERROR: $e');
-      debugPrint('[PdfImportService] Stack: $stackTrace');
+      _log('[PdfImportService] Azure API ERROR: $e');
+      _log('[PdfImportService] Stack: $stackTrace');
       rethrow;
     }
   }
@@ -402,7 +402,7 @@ Beispiel-Ausgabe:
       return <String>[];
     }
 
-    debugPrint('[PdfImportService] Extracting tasks from ${combinedText.length} chars...');
+    _log('[PdfImportService] Extracting tasks from ${combinedText.length} chars...');
 
     try {
       final List<Map<String, dynamic>> userContent = <Map<String, dynamic>>[
@@ -427,25 +427,25 @@ Beispiel-Ausgabe:
         onStreamUpdate: (_) {},
       );
 
-      debugPrint('[PdfImportService] Task extraction response: ${result.answer.length} chars');
+      _log('[PdfImportService] Task extraction response: ${result.answer.length} chars');
 
       // Parse JSON-Array aus der Antwort
       final List<String> tasks = _parseTasksFromJson(result.answer);
       
       if (tasks.isNotEmpty) {
-        debugPrint('[PdfImportService] Azure extracted ${tasks.length} tasks');
+        _log('[PdfImportService] Azure extracted ${tasks.length} tasks');
         return tasks;
       }
 
       // Fallback auf Regex wenn keine Aufgaben erkannt wurden
-      debugPrint('[PdfImportService] No tasks from Azure, trying regex fallback...');
+      _log('[PdfImportService] No tasks from Azure, trying regex fallback...');
       return _extractTasksWithRegex(combinedText);
     } catch (e, stackTrace) {
-      debugPrint('[PdfImportService] Task extraction ERROR: $e');
-      debugPrint('[PdfImportService] Stack: $stackTrace');
+      _log('[PdfImportService] Task extraction ERROR: $e');
+      _log('[PdfImportService] Stack: $stackTrace');
       
       // Fallback auf Regex bei API-Fehler
-      debugPrint('[PdfImportService] Using regex fallback due to error...');
+      _log('[PdfImportService] Using regex fallback due to error...');
       return _extractTasksWithRegex(combinedText);
     }
   }
@@ -472,7 +472,7 @@ Beispiel-Ausgabe:
       final int endIndex = jsonString.lastIndexOf(']');
       
       if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) {
-        debugPrint('[PdfImportService] No valid JSON array found in response');
+        _log('[PdfImportService] No valid JSON array found in response');
         return <String>[];
       }
 
@@ -488,7 +488,7 @@ Beispiel-Ausgabe:
       
       return <String>[];
     } catch (e) {
-      debugPrint('[PdfImportService] JSON parsing error: $e');
+      _log('[PdfImportService] JSON parsing error: $e');
       return <String>[];
     }
   }
@@ -501,7 +501,7 @@ Beispiel-Ausgabe:
   /// - "a)", "b)", "a.", "b."
   /// - "Exercise", "Problem", "Übung", "Frage"
   List<String> _extractTasksWithRegex(String text) {
-    debugPrint('[PdfImportService] Extracting tasks with regex...');
+    _log('[PdfImportService] Extracting tasks with regex...');
     
     final List<String> tasks = <String>[];
 
@@ -525,7 +525,7 @@ Beispiel-Ausgabe:
       // Keine Aufgaben-Marker gefunden - gesamten Text als eine Aufgabe zurückgeben
       final String trimmed = text.trim();
       if (trimmed.isNotEmpty) {
-        debugPrint('[PdfImportService] No task markers found, returning full text as single task');
+        _log('[PdfImportService] No task markers found, returning full text as single task');
         return <String>[trimmed];
       }
       return <String>[];
@@ -546,7 +546,13 @@ Beispiel-Ausgabe:
       }
     }
 
-    debugPrint('[PdfImportService] Regex extracted ${tasks.length} tasks');
+    _log('[PdfImportService] Regex extracted ${tasks.length} tasks');
     return tasks;
+  }
+}
+
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
   }
 }
