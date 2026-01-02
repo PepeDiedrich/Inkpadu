@@ -386,35 +386,40 @@ class _HomePageState extends State<HomePage> {
       notesByParent[parentId]!.add(note);
     }
 
-    // Helper to build list for a parent
-    List<Widget> buildLevel(String? parentId) {
-      final notes = notesByParent[parentId] ?? [];
-      // Sort by updated at (descending)
-      notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    // Helper to build recursive note structure lazily.
+    // Instead of building all children, we return a widget that builds children only when expanded.
 
-      return notes.map((note) {
-        final children = buildLevel(note.id);
-        if (children.isEmpty) {
-          return _buildNoteCard(note);
-        } else {
-          return ExpandableNoteCard(
-            key: ValueKey(note.id),
-            note: note,
-            onTap: () => _open(note.id),
-            onLongPress: () => _showNoteActions(note),
-            onDelete: () => _deleteNote(note.id, note.title),
-            dateFormatter: _fmt,
-            deleteTooltip: context.t.notes.deleteNoteTooltip,
-            children: children,
-          );
-        }
-      }).toList();
+    Widget buildNoteItem(InkNote note) {
+      final childNotes = notesByParent[note.id] ?? [];
+      // Sort child notes by updated at (descending)
+      childNotes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      if (childNotes.isEmpty) {
+        return _buildNoteCard(note);
+      } else {
+        return ExpandableNoteCard(
+          key: ValueKey(note.id),
+          note: note,
+          childNotes: childNotes,
+          childBuilder: buildNoteItem, // Pass the builder function for recursion
+          onTap: () => _open(note.id),
+          onLongPress: () => _showNoteActions(note),
+          onDelete: () => _deleteNote(note.id, note.title),
+          dateFormatter: _fmt,
+          deleteTooltip: context.t.notes.deleteNoteTooltip,
+        );
+      }
     }
 
-    return ListView(
+    // Root level notes (parentId == null)
+    final rootNotes = notesByParent[null] ?? [];
+    rootNotes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    return ListView.builder(
       key: const PageStorageKey('home_list'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      children: buildLevel(null),
+      itemCount: rootNotes.length,
+      itemBuilder: (context, index) => buildNoteItem(rootNotes[index]),
     );
   }
 
@@ -466,8 +471,13 @@ class _HomePageState extends State<HomePage> {
 class ExpandableNoteCard extends StatefulWidget {
   /// Die anzuzeigende Notiz.
   final InkNote note;
-  /// Die Liste der Unternotizen-Widgets.
-  final List<Widget> children;
+
+  /// Die Liste der Unternotizen-Objekte.
+  final List<InkNote> childNotes;
+
+  /// Builder-Funktion, um Widgets für die Unternotizen zu erstellen.
+  final Widget Function(InkNote) childBuilder;
+
   /// Callback beim Tippen auf die Notiz.
   final VoidCallback onTap;
   /// Callback beim langen Drücken auf die Notiz.
@@ -483,7 +493,8 @@ class ExpandableNoteCard extends StatefulWidget {
   const ExpandableNoteCard({
     super.key,
     required this.note,
-    required this.children,
+    required this.childNotes,
+    required this.childBuilder,
     required this.onTap,
     required this.onLongPress,
     required this.onDelete,
@@ -538,10 +549,13 @@ class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
             ),
           ),
         ),
+        // Lazy build children only if expanded
         if (_expanded)
           Padding(
             padding: const EdgeInsets.only(left: 16.0),
-            child: Column(children: widget.children),
+            child: Column(
+              children: widget.childNotes.map(widget.childBuilder).toList(),
+            ),
           ),
       ],
     );
