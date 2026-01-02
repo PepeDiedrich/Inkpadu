@@ -471,35 +471,40 @@ class _HomePageState extends State<HomePage> {
       notesByParent[parentId]!.add(note);
     }
 
-    // Helper to build list for a parent
-    List<Widget> buildLevel(String? parentId) {
-      final notes = notesByParent[parentId] ?? [];
-      // Sort by updated at (descending)
-      notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    // Helper to build recursive note structure lazily.
+    // Instead of building all children, we return a widget that builds children only when expanded.
 
-      return notes.map((note) {
-        final children = buildLevel(note.id);
-        if (children.isEmpty) {
-          return _buildNoteCard(note);
-        } else {
-          return ExpandableNoteCard(
-            key: ValueKey(note.id),
-            note: note,
-            onTap: () => _open(note.id),
-            onLongPress: () => _showNoteActions(note),
-            onDelete: () => _deleteNote(note.id, note.title),
-            dateFormatter: _fmt,
-            deleteTooltip: context.t.notes.deleteNoteTooltip,
-            children: children,
-          );
-        }
-      }).toList();
+    Widget buildNoteItem(InkNote note) {
+      final childNotes = notesByParent[note.id] ?? [];
+      // Sort child notes by updated at (descending)
+      childNotes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      if (childNotes.isEmpty) {
+        return _buildNoteCard(note);
+      } else {
+        return ExpandableNoteCard(
+          key: ValueKey(note.id),
+          note: note,
+          childNotes: childNotes,
+          childBuilder: buildNoteItem, // Pass the builder function for recursion
+          onTap: () => _open(note.id),
+          onLongPress: () => _showNoteActions(note),
+          onDelete: () => _deleteNote(note.id, note.title),
+          dateFormatter: _fmt,
+          deleteTooltip: context.t.notes.deleteNoteTooltip,
+        );
+      }
     }
 
-    return ListView(
+    // Root level notes (parentId == null)
+    final rootNotes = notesByParent[null] ?? [];
+    rootNotes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    return ListView.builder(
       key: const PageStorageKey('home_list'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      children: buildLevel(null),
+      itemCount: rootNotes.length,
+      itemBuilder: (context, index) => buildNoteItem(rootNotes[index]),
     );
   }
 
@@ -648,10 +653,8 @@ class _HomePageState extends State<HomePage> {
 class ExpandableNoteCard extends StatefulWidget {
   /// Die anzuzeigende Notiz.
   final InkNote note;
-
   /// Die Liste der Unternotizen-Widgets.
   final List<Widget> children;
-
   /// Callback beim Tippen auf die Notiz.
   final VoidCallback onTap;
 
@@ -671,7 +674,8 @@ class ExpandableNoteCard extends StatefulWidget {
   const ExpandableNoteCard({
     super.key,
     required this.note,
-    required this.children,
+    required this.childNotes,
+    required this.childBuilder,
     required this.onTap,
     required this.onLongPress,
     required this.onDelete,
@@ -707,105 +711,32 @@ class _ExpandableNoteCardState extends State<ExpandableNoteCard> {
           child: InkWell(
             onTap: widget.onTap,
             onLongPress: widget.onLongPress,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  // Thumbnail preview
-                  NoteThumbnail(
-                    page: note.currentPage,
-                    paperStyle: note.paperStyle,
-                    size: 56,
-                  ),
-                  const SizedBox(width: 12),
-                  // Note info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                note.title,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${widget.children.length}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${note.pages.length} ${note.pages.length == 1 ? "Seite" : "Seiten"} · ${note.currentPage.strokes.length} Striche · ${widget.dateFormatter(note.updatedAt)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(
-                              note.paperStyle.icon,
-                              size: 14,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              note.paperStyle.label,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
-                    onPressed: () {
-                      setState(() {
-                        _expanded = !_expanded;
-                      });
-                    },
-                  ),
-                ],
-              ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: widget.deleteTooltip,
+                  icon: const Icon(Icons.delete_outline),
+                  color: theme.colorScheme.error,
+                  onPressed: widget.onDelete,
+                ),
+                IconButton(
+                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                  onPressed: () {
+                    setState(() {
+                      _expanded = !_expanded;
+                    });
+                  },
+                ),
+              ],
             ),
           ),
         ),
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Padding(
-            padding: const EdgeInsets.only(left: 24.0),
+        if (_expanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
             child: Column(children: widget.children),
           ),
-          crossFadeState: _expanded 
-              ? CrossFadeState.showSecond 
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 200),
-        ),
       ],
     );
   }
