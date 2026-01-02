@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
 
@@ -468,6 +469,11 @@ class _AssistantBubble extends StatelessWidget {
 
                         final InkNotesController notesController =
                             InkNotesScope.of(context);
+                        
+                        final InkNote? parentNote = notesController.notes
+                            .where((n) => n.id == currentNoteId)
+                            .firstOrNull;
+
                         final InkNote note = notesController.notes.firstWhere(
                           (InkNote n) =>
                               n.parentId == currentNoteId &&
@@ -475,6 +481,7 @@ class _AssistantBubble extends StatelessWidget {
                           orElse: () => notesController.createEmpty(
                             title: cleanedTitle,
                             parentId: currentNoteId,
+                            paperStyle: parentNote?.paperStyle ?? NotePaperStyle.plain,
                           ),
                         );
                         Navigator.of(context).push(
@@ -492,6 +499,11 @@ class _AssistantBubble extends StatelessWidget {
 
                         final InkNotesController notesController =
                             InkNotesScope.of(context);
+
+                        final InkNote? parentNote = notesController.notes
+                            .where((n) => n.id == currentNoteId)
+                            .firstOrNull;
+
                         final InkNote note = notesController.notes.firstWhere(
                           (InkNote n) =>
                               n.parentId == currentNoteId &&
@@ -499,6 +511,7 @@ class _AssistantBubble extends StatelessWidget {
                           orElse: () => notesController.createEmpty(
                             title: cleanedTitle,
                             parentId: currentNoteId,
+                            paperStyle: parentNote?.paperStyle ?? NotePaperStyle.plain,
                           ),
                         );
                         Navigator.of(context).push(

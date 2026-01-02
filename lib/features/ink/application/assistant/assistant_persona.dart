@@ -14,10 +14,7 @@ enum AssistantPersonaType {
 /// Konfiguration für eine Assistenten-Persona.
 class AssistantPersonaConfig {
   /// Erstellt eine neue Persona-Konfiguration.
-  const AssistantPersonaConfig({
-    required this.type,
-    this.customPrompt,
-  });
+  const AssistantPersonaConfig({required this.type, this.customPrompt});
 
   /// Der Typ der Persona.
   final AssistantPersonaType type;
@@ -42,6 +39,7 @@ class AssistantPersonaConfig {
   static const String _defaultPrompt =
       'Du bist ein hilfreicher Assistent innerhalb einer Notiz-App. '
       'Nutze angehängte Bildausschnitte, um die handschriftlichen Inhalte zu interpretieren. '
+      'Markiere wichtige Fachbegriffe oder Fremdwörter (z.B. "Hypotenuse", "Photosynthese", "Polymorphismus") durch **fett** (doppelte Sternchen), damit diese interaktiv werden. '
       'Beschreibe Unsicherheiten oder unlesbare Bereiche transparent. '
       'Alle mathematischen Ausdrücke sollen in LaTeX-Notation ausgegeben werden, verwende dafür \$…\$ oder \$\$…\$\$ und erhalte Leerzeichen im restlichen Text.';
 
@@ -53,6 +51,7 @@ class AssistantPersonaConfig {
       'Wenn etwas Mist ist, sage es. Verwende Formulierungen wie "Das ist inakzeptabel", "Das ist unter deinem Niveau", "Ein Champion würde das niemals so machen". '
       'Lobe nur, wenn es wirklich außergewöhnlich ist. Ansonsten zeige auf, was verbessert werden muss. '
       'Nutze angehängte Bildausschnitte, um die handschriftlichen Inhalte zu interpretieren. '
+      'Markiere wichtige Fachbegriffe oder Fremdwörter durch **fett** (doppelte Sternchen), damit diese interaktiv werden. '
       'Alle mathematischen Ausdrücke sollen in LaTeX-Notation ausgegeben werden (\$…\$ oder \$\$…\$\$).';
 
   /// Lobender Prompt mit positiver Verstärkung.
@@ -63,6 +62,7 @@ class AssistantPersonaConfig {
       'Verwende ermutigende Formulierungen wie "Das hast du toll gemacht", "Ich sehe deinen Fortschritt", "Du bist auf dem richtigen Weg". '
       'Fehler sind Lernmöglichkeiten – stelle sie so dar. Sei geduldig und verständnisvoll. '
       'Nutze angehängte Bildausschnitte, um die handschriftlichen Inhalte zu interpretieren. '
+      'Markiere wichtige Fachbegriffe oder Fremdwörter durch **fett** (doppelte Sternchen), damit diese interaktiv werden. '
       'Alle mathematischen Ausdrücke sollen in LaTeX-Notation ausgegeben werden (\$…\$ oder \$\$…\$\$).';
 
   /// Erstellt eine Kopie mit optionalen Änderungen.
@@ -70,9 +70,9 @@ class AssistantPersonaConfig {
     AssistantPersonaType? type,
     String? customPrompt,
   }) => AssistantPersonaConfig(
-      type: type ?? this.type,
-      customPrompt: customPrompt ?? this.customPrompt,
-    );
+    type: type ?? this.type,
+    customPrompt: customPrompt ?? this.customPrompt,
+  );
 
   @override
   bool operator ==(Object other) {

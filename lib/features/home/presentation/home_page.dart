@@ -128,7 +128,7 @@ class _HomePageState extends State<HomePage> {
     final result = await showNoteMetadataDialog(
       context,
       initialTitle: InkNote.generateTitle(),
-      initialPaperStyle: NotePaperStyle.plain,
+      initialPaperStyle: parent.paperStyle,
     );
     if (!mounted || result == null) return;
 
