@@ -8,6 +8,25 @@ final Paint _sharedPaint = Paint()
   ..strokeCap = StrokeCap.round
   ..style = PaintingStyle.stroke;
 
+/// Checks if a stroke has constant pressure (or if variance is negligible).
+/// Also returns true for highlighters to force path rendering.
+bool _canUseFastPath(Stroke stroke) {
+  if (stroke.points.length < 2) return false;
+  if (stroke.isHighlighter) return true;
+
+  // Check first point pressure as baseline
+  final double baseline = stroke.points[0].pressure;
+  // If baseline is default 0.5 (often used for non-pressure inputs)
+  // or 1.0, and all others match, we can optimize.
+  // Actually, we just need to check if all pressures are effectively equal.
+  for (int i = 1; i < stroke.points.length; i++) {
+    if ((stroke.points[i].pressure - baseline).abs() > 0.01) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// Gemeinsame Low-Level Routine zum Zeichnen eines einzelnen [Stroke].
 void _paintStroke(Canvas canvas, Stroke stroke) {
   _sharedPaint.color = stroke.isHighlighter
@@ -15,6 +34,26 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
       : stroke.color;
 
   if (stroke.points.isEmpty) return;
+
+  // Optimization: If pressure is constant or it's a highlighter, use drawPath.
+  // This reduces JNI calls and fixes highlighter overlap artifacts.
+  if (_canUseFastPath(stroke)) {
+    final path = Path();
+    path.moveTo(stroke.points[0].position.dx, stroke.points[0].position.dy);
+    for (int i = 1; i < stroke.points.length; i++) {
+      path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
+    }
+
+    // Use average pressure for width (they are constant anyway)
+    final double avgPressure = stroke.points.isNotEmpty
+        ? stroke.points[0].pressure
+        : 1.0;
+
+    _sharedPaint.strokeWidth = stroke.baseWidth * avgPressure;
+    _sharedPaint.strokeJoin = StrokeJoin.round;
+    canvas.drawPath(path, _sharedPaint);
+    return;
+  }
 
   for (var i = 0; i < stroke.points.length - 1; i++) {
     final p1 = stroke.points[i];
