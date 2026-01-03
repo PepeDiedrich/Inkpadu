@@ -11,11 +11,10 @@ void main() {
     // Create a dummy stroke
     final stroke = Stroke(
       points: [
-        DrawingPoint(position: const Offset(10, 10), pressure: 0.5),
-        DrawingPoint(position: const Offset(20, 20), pressure: 0.5),
-        DrawingPoint(position: const Offset(30, 10), pressure: 0.5),
+        DrawingPoint(position: const Offset(10, 10)),
+        DrawingPoint(position: const Offset(20, 20)),
+        DrawingPoint(position: const Offset(30, 10)),
       ],
-      color: Colors.black,
       baseWidth: 5.0,
     );
 
