@@ -49,19 +49,18 @@ class NoteThumbnail extends StatelessWidget {
   }
 
   Widget _buildStrokesPreview(BuildContext context) {
-    // Calculate bounding box to scale strokes appropriately
+    // Calculate bounding box using cached Stroke properties (O(N) instead of O(TotalPoints))
     double minX = double.infinity;
     double minY = double.infinity;
     double maxX = double.negativeInfinity;
     double maxY = double.negativeInfinity;
 
     for (final stroke in page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dx < minX) minX = point.position.dx;
-        if (point.position.dy < minY) minY = point.position.dy;
-        if (point.position.dx > maxX) maxX = point.position.dx;
-        if (point.position.dy > maxY) maxY = point.position.dy;
-      }
+      final rect = stroke.boundingBox;
+      if (rect.left < minX) minX = rect.left;
+      if (rect.top < minY) minY = rect.top;
+      if (rect.right > maxX) maxX = rect.right;
+      if (rect.bottom > maxY) maxY = rect.bottom;
     }
 
     final contentWidth = maxX - minX;
@@ -132,21 +131,34 @@ class _ThumbnailPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     for (final stroke in strokes) {
+      if (stroke.points.isEmpty) continue;
+
       paint.color = stroke.isHighlighter
           ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
           : stroke.color;
 
-      if (stroke.points.isEmpty) continue;
+      // Optimization: Use drawPath instead of many drawLine calls.
+      // We calculate an average width for the stroke since variable pressure
+      // is hardly visible at thumbnail scale.
 
-      for (var i = 0; i < stroke.points.length - 1; i++) {
-        final p1 = stroke.points[i];
-        final p2 = stroke.points[i + 1];
-        // Use a thinner stroke for thumbnail
-        final width =
-            (stroke.baseWidth * (p1.pressure + p2.pressure) / 2) * 0.8;
-        paint.strokeWidth = width;
-        canvas.drawLine(p1.position, p2.position, paint);
+      final path = Path();
+      path.moveTo(stroke.points.first.position.dx, stroke.points.first.position.dy);
+
+      double totalPressure = 0.0;
+      for (int i = 1; i < stroke.points.length; i++) {
+        final p = stroke.points[i];
+        path.lineTo(p.position.dx, p.position.dy);
+        totalPressure += p.pressure;
       }
+
+      final avgPressure = stroke.points.length > 1
+          ? totalPressure / (stroke.points.length - 1)
+          : stroke.points.first.pressure;
+
+      // Use a thinner stroke for thumbnail (0.8 factor from original code)
+      paint.strokeWidth = (stroke.baseWidth * avgPressure) * 0.8;
+
+      canvas.drawPath(path, paint);
     }
 
     canvas.restore();
