@@ -163,7 +163,9 @@ class InkNotesSyncService implements InkNotesSync {
 
       return notes.whereType<InkNote>().toList(growable: false);
     } on AppwriteException catch (error, stackTrace) {
-      debugPrint('Appwrite fetchNotes failed: ${error.message}');
+      if (kDebugMode) {
+        debugPrint('Appwrite fetchNotes failed: ${error.message}');
+      }
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stackTrace,
@@ -174,7 +176,11 @@ class InkNotesSyncService implements InkNotesSync {
       ));
       rethrow;
     } catch (error, stackTrace) {
-      debugPrint('InkNotesSyncService: unexpected error during fetchNotes: $error');
+      if (kDebugMode) {
+        debugPrint(
+          'InkNotesSyncService: unexpected error during fetchNotes: $error',
+        );
+      }
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stackTrace,
@@ -266,7 +272,9 @@ class InkNotesSyncService implements InkNotesSync {
       if (error.code == 404) {
         return;
       }
-      debugPrint('Appwrite deleteNote failed: ${error.message}');
+      if (kDebugMode) {
+        debugPrint('Appwrite deleteNote failed: ${error.message}');
+      }
       rethrow;
     }
   }
@@ -350,7 +358,9 @@ class InkNotesSyncService implements InkNotesSync {
         fallback: 0,
       );
 
-      return InkNote(        parentId: parentId,  id: rawDoc[r'$id'] as String,
+      return InkNote(
+        parentId: parentId,
+        id: rawDoc[r'$id'] as String,
         title: title,
         updatedAt: updatedAt.toLocal(),
         pages: pages.isEmpty
@@ -362,7 +372,11 @@ class InkNotesSyncService implements InkNotesSync {
         paperStyle: _parsePaperStyle(paperStyleRaw),
       );
     } catch (error, stackTrace) {
-      debugPrint('InkNotesSyncService: Failed to build note ${rawDoc[r'$id']}: $error');
+      if (kDebugMode) {
+        debugPrint(
+          'InkNotesSyncService: Failed to build note ${rawDoc[r'$id']}: $error',
+        );
+      }
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stackTrace,
@@ -405,7 +419,11 @@ class InkNotesSyncService implements InkNotesSync {
         decodedPages[index] = InkNotePageCodec.decodeSingle(payload);
       }
     } on AppwriteException catch (error, stackTrace) {
-      debugPrint('InkNotesSyncService: Failed to fetch pages for $noteId: ${error.message}');
+      if (kDebugMode) {
+        debugPrint(
+          'InkNotesSyncService: Failed to fetch pages for $noteId: ${error.message}',
+        );
+      }
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stackTrace,
@@ -415,7 +433,11 @@ class InkNotesSyncService implements InkNotesSync {
         ],
       ));
     } catch (error, stackTrace) {
-      debugPrint('InkNotesSyncService: Unexpected error fetching pages for $noteId: $error');
+      if (kDebugMode) {
+        debugPrint(
+          'InkNotesSyncService: Unexpected error fetching pages for $noteId: $error',
+        );
+      }
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stackTrace,
@@ -466,7 +488,11 @@ class InkNotesSyncService implements InkNotesSync {
           },
         );
       } else {
-        debugPrint('InkNotesSyncService: create/update failed for $documentId: ${error.message}');
+        if (kDebugMode) {
+          debugPrint(
+            'InkNotesSyncService: create/update failed for $documentId: ${error.message}',
+          );
+        }
         rethrow;
       }
     }
@@ -563,7 +589,11 @@ class InkNotesSyncService implements InkNotesSync {
       if (error.code == 404) {
         return;
       }
-      debugPrint('InkNotesSyncService: Failed to delete stale pages for $noteId: ${error.message}');
+      if (kDebugMode) {
+        debugPrint(
+          'InkNotesSyncService: Failed to delete stale pages for $noteId: ${error.message}',
+        );
+      }
     }
   }
 
@@ -614,7 +644,11 @@ class InkNotesSyncService implements InkNotesSync {
       if (error.code == 404) {
         return null;
       }
-      debugPrint('InkNotesSyncService: Failed to fetch note $noteId: ${error.message}');
+      if (kDebugMode) {
+        debugPrint(
+          'InkNotesSyncService: Failed to fetch note $noteId: ${error.message}',
+        );
+      }
       return null;
     }
   }

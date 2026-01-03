@@ -62,9 +62,11 @@ class DrawingToolPreferencesRepository {
 
       return result;
     } catch (error, stackTrace) {
-      debugPrint(
-        'Fehler beim Laden der Werkzeug-Voreinstellungen: $error\n$stackTrace',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Laden der Werkzeug-Voreinstellungen: $error\n$stackTrace',
+        );
+      }
       return defaults;
     }
   }
@@ -91,7 +93,9 @@ class DrawingToolPreferencesRepository {
       await prefs.setDouble(_toolbarPositionXKey, position.dx);
       await prefs.setDouble(_toolbarPositionYKey, position.dy);
     } catch (error) {
-      debugPrint('Fehler beim Speichern der Toolbar-Position: $error');
+      if (kDebugMode) {
+        debugPrint('Fehler beim Speichern der Toolbar-Position: $error');
+      }
     }
   }
 
@@ -106,9 +110,11 @@ class DrawingToolPreferencesRepository {
       );
       await _syncRemoteState(tools: tools, selectedToolId: selectedToolId);
     } catch (error, stackTrace) {
-      debugPrint(
-        'Fehler beim Speichern der Werkzeug-Voreinstellungen: $error\n$stackTrace',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Speichern der Werkzeug-Voreinstellungen: $error\n$stackTrace',
+        );
+      }
     }
   }
 
@@ -124,9 +130,11 @@ class DrawingToolPreferencesRepository {
           currentTools ?? _readToolsFromPrefs(prefs) ?? const <DrawingTool>[];
       await _syncRemoteState(tools: tools, selectedToolId: toolId);
     } catch (error, stackTrace) {
-      debugPrint(
-        'Fehler beim Speichern der Werkzeugauswahl: $error\n$stackTrace',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Speichern der Werkzeugauswahl: $error\n$stackTrace',
+        );
+      }
     }
   }
 
@@ -145,7 +153,11 @@ class DrawingToolPreferencesRepository {
       }
       return remote?.selectedToolId;
     } catch (error, stackTrace) {
-      debugPrint('Fehler beim Laden der Werkzeugauswahl: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Laden der Werkzeugauswahl: $error\n$stackTrace',
+        );
+      }
       return null;
     }
   }
@@ -182,13 +194,19 @@ class DrawingToolPreferencesRepository {
           stored.add(DrawingTool.fromJson(map));
           continue;
         }
-        debugPrint('Unbekannter Werkzeugeintrag vom Typ ${entry.runtimeType}');
+        if (kDebugMode) {
+          debugPrint(
+            'Unbekannter Werkzeugeintrag vom Typ ${entry.runtimeType}',
+          );
+        }
       }
       return stored;
     } catch (error, stackTrace) {
-      debugPrint(
-        'Fehler beim Dekodieren der Werkzeugliste: $error\n$stackTrace',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Dekodieren der Werkzeugliste: $error\n$stackTrace',
+        );
+      }
       return const <DrawingTool>[];
     }
   }
@@ -252,9 +270,11 @@ class DrawingToolPreferencesRepository {
         updatedAt: payload.updatedAt,
       );
     } catch (error, stackTrace) {
-      debugPrint(
-        'Fehler beim Synchronisieren der Werkzeug-Voreinstellungen: $error\n$stackTrace',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Synchronisieren der Werkzeug-Voreinstellungen: $error\n$stackTrace',
+        );
+      }
     }
   }
 
@@ -278,9 +298,11 @@ class DrawingToolPreferencesRepository {
       }
       return remote;
     } catch (error, stackTrace) {
-      debugPrint(
-        'Fehler beim Laden der entfernten Werkzeug-Voreinstellungen: $error\n$stackTrace',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'Fehler beim Laden der entfernten Werkzeug-Voreinstellungen: $error\n$stackTrace',
+        );
+      }
       return null;
     }
   }
