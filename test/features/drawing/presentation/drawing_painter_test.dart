@@ -47,22 +47,14 @@ void main() {
       expect(painter2.shouldRepaint(painter1), isFalse);
     });
 
-    test('paint calls canvas.drawLine for each segment', () {
+    test('paint calls canvas.drawPath for optimized strokes', () {
       final canvas = MockCanvas();
       final painter = FinishedStrokesPainter(strokes: [stroke1, stroke2], version: 1);
 
       painter.paint(canvas, const Size(100, 100));
 
-      verify(() => canvas.drawLine(
-            const Offset(0, 0),
-            const Offset(10, 10),
-            any(),
-          )).called(1);
-      verify(() => canvas.drawLine(
-            const Offset(20, 20),
-            const Offset(30, 30),
-            any(),
-          )).called(1);
+      // Both strokes have constant pressure, so they use the fast path (drawPath)
+      verify(() => canvas.drawPath(any(), any())).called(2);
     });
 
     test('paint handles empty strokes gracefully', () {
@@ -111,17 +103,13 @@ void main() {
       expect(painter2.shouldRepaint(painter1), isFalse);
     });
 
-    test('paint calls canvas.drawLine', () {
+    test('paint calls canvas.drawPath for optimized stroke', () {
       final canvas = MockCanvas();
       final painter = CurrentStrokePainter(currentStroke: stroke, pointCount: 2);
 
       painter.paint(canvas, const Size(100, 100));
 
-      verify(() => canvas.drawLine(
-            const Offset(0, 0),
-            const Offset(10, 10),
-            any(),
-          )).called(1);
+      verify(() => canvas.drawPath(any(), any())).called(1);
     });
 
     test('paint does nothing if currentStroke is null', () {

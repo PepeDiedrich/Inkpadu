@@ -135,34 +135,38 @@ class ConvexHullsPainter extends CustomPainter {
   static const Color _boundingStrokeColor = Color(0xFF2962FF);
   static const Color _boundingFillColor = Color(0x1A2962FF);
 
+  // ⚡ Bolt Optimization: Reuse Paint objects to avoid allocation in paint()
+  static final Paint _fillPaint = Paint()
+    ..color = _fillColor
+    ..style = PaintingStyle.fill;
+
+  static final Paint _strokePaint = Paint()
+    ..color = _strokeColor
+    ..strokeWidth = 2
+    ..style = PaintingStyle.stroke;
+
+  static final Paint _boundingFillPaint = Paint()
+    ..color = _boundingFillColor
+    ..style = PaintingStyle.fill;
+
+  static final Paint _boundingStrokePaint = Paint()
+    ..color = _boundingStrokeColor
+    ..strokeWidth = 1.5
+    ..style = PaintingStyle.stroke;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (hulls.isEmpty) {
       return;
     }
 
-    final Paint fillPaint = Paint()
-      ..color = _fillColor
-      ..style = PaintingStyle.fill;
-    final Paint strokePaint = Paint()
-      ..color = _strokeColor
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    final Paint boundingFillPaint = Paint()
-      ..color = _boundingFillColor
-      ..style = PaintingStyle.fill;
-    final Paint boundingStrokePaint = Paint()
-      ..color = _boundingStrokeColor
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
     for (final hull in hulls) {
       if (hull.length < 2) {
         continue;
       }
       final path = Path()..addPolygon(hull, true);
-      canvas.drawPath(path, fillPaint);
-      canvas.drawPath(path, strokePaint);
+      canvas.drawPath(path, _fillPaint);
+      canvas.drawPath(path, _strokePaint);
     }
 
     for (final RotatedBoundingBox box in boundingBoxes) {
@@ -171,9 +175,9 @@ class ConvexHullsPainter extends CustomPainter {
       }
       final Path boxPath = Path()..addPolygon(box.corners, true);
       if (box.width > 0 && box.height > 0) {
-        canvas.drawPath(boxPath, boundingFillPaint);
+        canvas.drawPath(boxPath, _boundingFillPaint);
       }
-      canvas.drawPath(boxPath, boundingStrokePaint);
+      canvas.drawPath(boxPath, _boundingStrokePaint);
     }
   }
 
