@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -229,18 +230,26 @@ class InkNotesController extends ChangeNotifier {
     required Uint8List pdfBytes,
     required PdfImportService pdfImportService,
   }) async {
-    debugPrint('[PDF] Starting background processing for note: $noteId');
-    debugPrint('[PDF] PDF size: ${pdfBytes.length} bytes');
+    if (kDebugMode) {
+      debugPrint('[PDF] Starting background processing for note: $noteId');
+      debugPrint('[PDF] PDF size: ${pdfBytes.length} bytes');
+    }
     
     _pdfProcessingNoteIds.add(noteId);
     _safelyNotifyListeners();
 
     try {
-      debugPrint('[PDF] Calling importPdf...');
+      if (kDebugMode) {
+        debugPrint('[PDF] Calling importPdf...');
+      }
       final results = await pdfImportService.importPdf(
         pdfBytes: pdfBytes,
         onProgress: (progress) {
-          debugPrint('[PDF] Progress: page ${progress.currentPage}/${progress.totalPages}, stage: ${progress.stage}');
+          if (kDebugMode) {
+            debugPrint(
+              '[PDF] Progress: page ${progress.currentPage}/${progress.totalPages}, stage: ${progress.stage}',
+            );
+          }
           _pdfProgressController.add(PdfProcessingUpdate(
             noteId: noteId,
             currentPage: progress.currentPage,
@@ -250,14 +259,18 @@ class InkNotesController extends ChangeNotifier {
         },
       );
 
-      debugPrint('[PDF] Import complete! Got ${results.length} pages');
+      if (kDebugMode) {
+        debugPrint('[PDF] Import complete! Got ${results.length} pages');
+      }
 
       // Kombiniere den extrahierten Text aller Seiten
       final String combinedText = results
           .map((r) => '--- Seite ${r.pageNumber} ---\n${r.extractedText}')
           .join('\n\n');
       
-      debugPrint('[PDF] Combined text length: ${combinedText.length}');
+      if (kDebugMode) {
+        debugPrint('[PDF] Combined text length: ${combinedText.length}');
+      }
 
       // Signalisiere Aufgaben-Parsing-Phase
       _pdfProgressController.add(PdfProcessingUpdate(
@@ -268,14 +281,20 @@ class InkNotesController extends ChangeNotifier {
       ));
 
       // Extrahiere Aufgaben aus dem kombinierten Text
-      debugPrint('[PDF] Extracting tasks from combined text...');
+      if (kDebugMode) {
+        debugPrint('[PDF] Extracting tasks from combined text...');
+      }
       final List<String> tasks = await pdfImportService.extractTasksFromText(combinedText);
-      debugPrint('[PDF] Found ${tasks.length} tasks');
+      if (kDebugMode) {
+        debugPrint('[PDF] Found ${tasks.length} tasks');
+      }
 
       // Finde die Notiz
       final idx = _notes.indexWhere((n) => n.id == noteId);
       if (idx == -1) {
-        debugPrint('[PDF] Note $noteId not found in list!');
+        if (kDebugMode) {
+          debugPrint('[PDF] Note $noteId not found in list!');
+        }
         return;
       }
 
@@ -285,7 +304,11 @@ class InkNotesController extends ChangeNotifier {
 
       if (tasks.isEmpty) {
         // Keine Aufgaben erkannt - gesamten Text als eine Seite speichern
-        debugPrint('[PDF] No tasks found, creating single page with full text');
+        if (kDebugMode) {
+          debugPrint(
+            '[PDF] No tasks found, creating single page with full text',
+          );
+        }
         updatedPages.add(NotePage(
           strokes: const <Stroke>[],
           importedPdfText: combinedText.trim().isEmpty ? null : combinedText.trim(),
@@ -295,7 +318,11 @@ class InkNotesController extends ChangeNotifier {
         // Für jede Aufgabe eine eigene Seite erstellen
         for (int i = 0; i < tasks.length; i++) {
           final String taskText = tasks[i].trim();
-          debugPrint('[PDF] Creating page ${i + 1} for task: ${taskText.substring(0, taskText.length.clamp(0, 50))}...');
+          if (kDebugMode) {
+            debugPrint(
+              '[PDF] Creating page ${i + 1} for task: ${taskText.substring(0, taskText.length.clamp(0, 50))}...',
+            );
+          }
           
           updatedPages.add(NotePage(
             strokes: const <Stroke>[],
@@ -312,7 +339,11 @@ class InkNotesController extends ChangeNotifier {
         lastOpenedPageIndex: 0,
       );
       
-      debugPrint('[PDF] Upserting note with ${updatedPages.length} task pages');
+      if (kDebugMode) {
+        debugPrint(
+          '[PDF] Upserting note with ${updatedPages.length} task pages',
+        );
+      }
       upsert(updatedNote, changedPageIndices: changedPageIndices);
 
       // Sende finales Update mit den erkannten Aufgaben
@@ -324,10 +355,16 @@ class InkNotesController extends ChangeNotifier {
         parsedTasks: tasks,
       ));
 
-      debugPrint('[PDF] Processing complete! Created ${updatedPages.length} task pages');
+      if (kDebugMode) {
+        debugPrint(
+          '[PDF] Processing complete! Created ${updatedPages.length} task pages',
+        );
+      }
     } catch (error, stackTrace) {
-      debugPrint('[PDF] ERROR: $error');
-      debugPrint('[PDF] Stack trace: $stackTrace');
+      if (kDebugMode) {
+        debugPrint('[PDF] ERROR: $error');
+        debugPrint('[PDF] Stack trace: $stackTrace');
+      }
       _pdfProgressController.add(PdfProcessingUpdate(
         noteId: noteId,
         currentPage: 0,
@@ -380,7 +417,9 @@ class InkNotesController extends ChangeNotifier {
   }
 
   void _safelyNotifyListeners() {
-    debugPrint('[InkNotesController] notifyListeners called');
+    if (kDebugMode) {
+      debugPrint('[InkNotesController] notifyListeners called');
+    }
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
