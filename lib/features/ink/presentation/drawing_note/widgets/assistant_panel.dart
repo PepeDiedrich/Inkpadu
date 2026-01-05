@@ -478,8 +478,8 @@ class _AssistantPanelState extends State<AssistantPanel>
       }
     }
 
-    final List<Widget> listViewChildren = <Widget>[
-      AssistantConversationSection(
+    final List<Widget> slivers = <Widget>[
+      AssistantConversationSliver(
         statusMessage: _statusMessage,
         isLoading: _isLoading,
         messages: history,
@@ -493,45 +493,46 @@ class _AssistantPanelState extends State<AssistantPanel>
     ];
 
     if (showDebugControls) {
-      listViewChildren
-        ..add(const SizedBox(height: 12))
-        ..add(
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _showDebugPanel = !_showDebugPanel;
-                });
-              },
-              icon: Icon(
-                _showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined,
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showDebugPanel = !_showDebugPanel;
+                  });
+                },
+                icon: Icon(
+                  _showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined,
+                ),
+                label: Text(
+                  _showDebugPanel ? 'Debug ausblenden' : 'Debug anzeigen',
+                ),
               ),
-              label: Text(
-                _showDebugPanel ? 'Debug ausblenden' : 'Debug anzeigen',
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _showDebugPanel && hasDebugContent
+                    ? AssistantDebugSection(
+                        prompt: _debugPrompt,
+                        snapshot: _debugSnapshot,
+                        tokenEstimate: _debugTokenEstimate,
+                        totalClusters: _debugTotalClusters,
+                        payloadPreview: _debugPayloadPreview,
+                        clusterShapes: clusterShapes,
+                        showClusterInfo: shouldShowClusterInfo,
+                        pdfContextTokens: _debugPdfContextTokens,
+                      )
+                    : const SizedBox.shrink(),
               ),
-            ),
+            ],
           ),
-        )
-        ..add(
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 160),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeIn,
-            child: _showDebugPanel && hasDebugContent
-                ? AssistantDebugSection(
-                    prompt: _debugPrompt,
-                    snapshot: _debugSnapshot,
-                    tokenEstimate: _debugTokenEstimate,
-                    totalClusters: _debugTotalClusters,
-                    payloadPreview: _debugPayloadPreview,
-                    clusterShapes: clusterShapes,
-                    showClusterInfo: shouldShowClusterInfo,
-                    pdfContextTokens: _debugPdfContextTokens,
-                  )
-                : const SizedBox.shrink(),
-          ),
-        );
+        ),
+      );
     }
 
     return Stack(
@@ -588,10 +589,9 @@ class _AssistantPanelState extends State<AssistantPanel>
                 Expanded(
                   child: Scrollbar(
                     controller: _contentScrollController,
-                    child: ListView(
+                    child: CustomScrollView(
                       controller: _contentScrollController,
-                      padding: EdgeInsets.zero,
-                      children: listViewChildren,
+                      slivers: slivers,
                     ),
                   ),
                 ),
