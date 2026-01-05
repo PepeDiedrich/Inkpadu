@@ -70,7 +70,7 @@ void main() {
     group('copyWith', () {
       test('copies with new values', () {
         final stroke = Stroke(points: [], color: Colors.blue);
-        final newPoints = [DrawingPoint(position: const Offset(1, 1), pressure: 0.5)];
+        final newPoints = [DrawingPoint(position: const Offset(1, 1))];
         final copied = stroke.copyWith(
           points: newPoints,
           color: Colors.green,
@@ -88,7 +88,7 @@ void main() {
 
       test('copies with existing values if nulls passed', () {
         final stroke = Stroke(
-          points: [DrawingPoint(position: const Offset(1, 1), pressure: 0.5)],
+          points: [DrawingPoint(position: const Offset(1, 1))],
           color: Colors.blue,
           baseWidth: 3.0,
           isHighlighter: true,
@@ -141,7 +141,7 @@ void main() {
 
         final stroke = Stroke.fromJson(json);
         expect(stroke.id, 'json-id');
-        expect(stroke.color.value, Colors.red.value);
+        expect(stroke.color.toARGB32(), Colors.red.toARGB32());
         expect(stroke.baseWidth, 6.0);
         expect(stroke.isHighlighter, false);
         expect(stroke.points.length, 1);
@@ -150,8 +150,8 @@ void main() {
       });
 
       test('fromJson handles missing optional fields', () {
-        final json = {
-          'points': [],
+        final json = <String, dynamic>{
+          'points': <Map<String, dynamic>>[],
         };
         final stroke = Stroke.fromJson(json);
         expect(stroke.id, isNotNull); // Should generate new ID if missing? Logic says id = json['id'] as String? which is nullable in factory but constructor generates it.
