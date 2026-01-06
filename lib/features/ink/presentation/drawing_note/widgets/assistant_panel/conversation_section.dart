@@ -12,9 +12,9 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.d
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
 
 /// Stellt den Gesprächsverlauf des Assistenten inklusive Statusmeldungen dar.
-class AssistantConversationSection extends StatelessWidget {
+class AssistantConversationSliver extends StatelessWidget {
   /// Erstellt eine Gesprächssektion für das KI-Panel.
-  const AssistantConversationSection({
+  const AssistantConversationSliver({
     super.key,
     required this.statusMessage,
     required this.isLoading,
@@ -48,64 +48,73 @@ class AssistantConversationSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> children = <Widget>[];
+    final List<Object> items = <Object>[];
 
     // PDF-Text als Kontext anzeigen (falls vorhanden)
     final String? pdfText = importedPdfText?.trim();
     if (pdfText != null && pdfText.isNotEmpty) {
-      children.add(_PdfContextBanner(pdfText: pdfText));
+      items.add(_PdfContextBanner(pdfText: pdfText));
     }
 
     if (statusMessage != null) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 12));
-      }
-      children.add(_AssistantStatusBanner(
+      if (items.isNotEmpty) items.add(const SizedBox(height: 12));
+      items.add(_AssistantStatusBanner(
         message: statusMessage!,
         isLoading: isLoading,
       ));
     }
 
     if (messages.isEmpty) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 16));
-      }
-      children.add(const _AssistantEmptyPlaceholder());
+      if (items.isNotEmpty) items.add(const SizedBox(height: 16));
+      items.add(const _AssistantEmptyPlaceholder());
     } else {
       for (int index = 0; index < messages.length; index++) {
-        if (children.isNotEmpty) {
-          children.add(const SizedBox(height: 16));
+        if (items.isNotEmpty) {
+          items.add(const SizedBox(height: 16));
         }
-        children.add(
-          _AssistantMessageGroup(
-            message: messages[index],
-            debugModeEnabled: debugModeEnabled,
-            currentNoteId: currentNoteId,
-          ),
-        );
+        items.add(messages[index]);
       }
     }
 
     if (pendingMessage != null) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: 16));
-      }
-      children.add(
-        _AssistantMessageGroup(
-          message: pendingMessage!,
-          debugModeEnabled: debugModeEnabled,
-          isPending: isStreaming,
-          streamingAnswerListenable: streamingAnswerListenable,
-          currentNoteId: currentNoteId,
-        ),
-      );
+      if (items.isNotEmpty) items.add(const SizedBox(height: 16));
+      items.add(_PendingMessageWrapper(pendingMessage!));
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: children,
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (BuildContext context, int index) {
+          final Object item = items[index];
+          if (item is Widget) {
+            return item;
+          }
+          if (item is AssistantMessage) {
+            return _AssistantMessageGroup(
+              message: item,
+              debugModeEnabled: debugModeEnabled,
+              currentNoteId: currentNoteId,
+            );
+          }
+          if (item is _PendingMessageWrapper) {
+            return _AssistantMessageGroup(
+              message: item.message,
+              debugModeEnabled: debugModeEnabled,
+              isPending: isStreaming,
+              streamingAnswerListenable: streamingAnswerListenable,
+              currentNoteId: currentNoteId,
+            );
+          }
+          return const SizedBox.shrink();
+        },
+        childCount: items.length,
+      ),
     );
   }
+}
+
+class _PendingMessageWrapper {
+  const _PendingMessageWrapper(this.message);
+  final AssistantMessage message;
 }
 
 class _PdfContextBanner extends StatefulWidget {
