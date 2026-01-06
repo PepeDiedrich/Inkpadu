@@ -60,7 +60,6 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   SidebarResizeTrend _resizeTrend = SidebarResizeTrend.none;
   List<StrokeBoundingBoxCluster> _latestStrokeClusters =
       const <StrokeBoundingBoxCluster>[];
-  Axis _toolbarOrientation = Axis.horizontal;
 
   @override
   void didChangeDependencies() {
@@ -488,8 +487,8 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   initialOffset: controller.toolbarPosition,
                   onDragEnd: controller.saveToolbarPosition,
                   onOrientationChanged: (orientation) {
-                    if (_toolbarOrientation != orientation) {
-                      setState(() => _toolbarOrientation = orientation);
+                    if (controller.toolbarOrientation != orientation) {
+                      controller.saveToolbarOrientation(orientation);
                     }
                   },
                   child: FloatingToolWindow(
@@ -505,7 +504,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                     onExportPdf: () => _exportNoteToPdf(controller),
                     onBackPressed: () =>
                         Navigator.of(context).popUntil((route) => route.isFirst),
-                    orientation: _toolbarOrientation,
+                    orientation: controller.toolbarOrientation,
                   ),
                 ),
               ],

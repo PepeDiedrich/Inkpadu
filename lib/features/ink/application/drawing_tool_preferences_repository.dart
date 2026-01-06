@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Persistiert benutzerdefinierte Zeichenwerkzeuge.
@@ -30,6 +30,7 @@ class DrawingToolPreferencesRepository {
   static const String _selectedToolKey = 'drawing_selected_tool_v1';
   static const String _toolbarPositionXKey = 'drawing_toolbar_pos_x_v1';
   static const String _toolbarPositionYKey = 'drawing_toolbar_pos_y_v1';
+  static const String _toolbarOrientationKey = 'drawing_toolbar_orientation_v1';
 
   /// Lädt gespeicherte Werkzeuge.
   Future<List<DrawingTool>> load(List<DrawingTool> defaults) async {
@@ -95,6 +96,32 @@ class DrawingToolPreferencesRepository {
     } catch (error) {
       if (kDebugMode) {
         debugPrint('Fehler beim Speichern der Toolbar-Position: $error');
+      }
+    }
+  }
+
+  /// Lädt die gespeicherte Toolbar-Ausrichtung.
+  Future<Axis> loadToolbarOrientation() async {
+    try {
+      final SharedPreferences prefs = await _prefs;
+      final int? index = prefs.getInt(_toolbarOrientationKey);
+      if (index != null && index >= 0 && index < Axis.values.length) {
+        return Axis.values[index];
+      }
+      return Axis.horizontal;
+    } catch (error) {
+      return Axis.horizontal;
+    }
+  }
+
+  /// Speichert die Toolbar-Ausrichtung.
+  Future<void> saveToolbarOrientation(Axis orientation) async {
+    try {
+      final SharedPreferences prefs = await _prefs;
+      await prefs.setInt(_toolbarOrientationKey, orientation.index);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Fehler beim Speichern der Toolbar-Ausrichtung: $error');
       }
     }
   }

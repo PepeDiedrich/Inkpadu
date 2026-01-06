@@ -74,6 +74,7 @@ class DrawingNoteController extends ChangeNotifier {
   List<DrawingTool> _tools = const [];
   late String _selectedToolId;
   Offset? _toolbarPosition;
+  Axis _toolbarOrientation = Axis.horizontal;
   bool _initialized = false;
   bool _toolsLoaded = false;
   List<bool> _pageContentHistory = <bool>[];
@@ -112,6 +113,9 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Die gespeicherte Position der Toolbar.
   Offset? get toolbarPosition => _toolbarPosition;
+
+  /// Die gespeicherte Ausrichtung der Toolbar.
+  Axis get toolbarOrientation => _toolbarOrientation;
 
   /// Liefert das aktuell verwendete Werkzeug.
   DrawingTool get currentTool => resolveTool(_selectedToolId);
@@ -218,6 +222,8 @@ class DrawingNoteController extends ChangeNotifier {
     }
 
     _toolbarPosition = await _toolPreferencesRepository.loadToolbarPosition();
+    _toolbarOrientation =
+        await _toolPreferencesRepository.loadToolbarOrientation();
 
     _toolsLoaded = true;
     notifyListeners();
@@ -286,6 +292,13 @@ class DrawingNoteController extends ChangeNotifier {
   Future<void> saveToolbarPosition(Offset position) async {
     _toolbarPosition = position;
     await _toolPreferencesRepository.saveToolbarPosition(position);
+  }
+
+  /// Speichert die Toolbar-Ausrichtung.
+  Future<void> saveToolbarOrientation(Axis orientation) async {
+    _toolbarOrientation = orientation;
+    await _toolPreferencesRepository.saveToolbarOrientation(orientation);
+    notifyListeners();
   }
 
   /// Aktualisiert ein Werkzeug und speichert die Konfiguration.

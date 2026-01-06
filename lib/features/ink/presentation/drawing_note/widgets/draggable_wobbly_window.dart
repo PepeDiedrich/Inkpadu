@@ -43,6 +43,14 @@ class _DraggableWobblyWindowState extends State<DraggableWobblyWindow> {
     _offset = widget.initialOffset ?? Offset.zero;
   }
 
+  @override
+  void didUpdateWidget(DraggableWobblyWindow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialOffset != oldWidget.initialOffset) {
+      _offset = widget.initialOffset ?? Offset.zero;
+    }
+  }
+
   void _handlePanUpdate(DragUpdateDetails details) {
     final size = MediaQuery.of(context).size;
     final RenderBox? renderBox =
