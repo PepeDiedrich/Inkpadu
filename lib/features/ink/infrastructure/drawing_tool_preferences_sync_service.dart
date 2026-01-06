@@ -196,7 +196,9 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
             normalized['created_at'] ?? normalized[r'$createdAt'],
       );
     } on FormatException catch (error, stackTrace) {
-      debugPrint('DrawingToolPreferencesSyncService: Formatfehler $error');
+      if (kDebugMode) {
+        debugPrint('DrawingToolPreferencesSyncService: Formatfehler $error');
+      }
       FlutterError.reportError(
         FlutterErrorDetails(
           exception: error,
@@ -212,7 +214,11 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
       if (error.code == 404) {
         return null;
       }
-      debugPrint('Appwrite fetchPreferences fehlgeschlagen: ${error.message}');
+      if (kDebugMode) {
+        debugPrint(
+          'Appwrite fetchPreferences fehlgeschlagen: ${error.message}',
+        );
+      }
       FlutterError.reportError(
         FlutterErrorDetails(
           exception: error,
@@ -283,7 +289,11 @@ class DrawingToolPreferencesSyncService implements DrawingToolPreferencesSync {
         );
         return;
       }
-      debugPrint('Appwrite upsertPreferences fehlgeschlagen: ${error.message}');
+      if (kDebugMode) {
+        debugPrint(
+          'Appwrite upsertPreferences fehlgeschlagen: ${error.message}',
+        );
+      }
       rethrow;
     }
   }
