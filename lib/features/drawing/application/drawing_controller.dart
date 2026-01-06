@@ -13,6 +13,9 @@ class DrawingController extends ChangeNotifier {
   /// Aktuell gezeichnete Striche.
   List<Stroke> _strokes = const [];
 
+  /// Zwischengespeicherte, unveränderliche Ansicht der Striche.
+  List<Stroke>? _cachedStrokes;
+
   /// Version der Strichliste. Erhöht sich bei jeder strukturellen Änderung
   /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
   int _strokesVersion = 0;
@@ -40,7 +43,7 @@ class DrawingController extends ChangeNotifier {
   double _simplifierMinTolerance = 0.3;
 
   /// Liefert eine unveränderliche Sicht auf alle gespeicherten Striche.
-  List<Stroke> get strokes => List.unmodifiable(_strokes);
+  List<Stroke> get strokes => _cachedStrokes ??= List.unmodifiable(_strokes);
 
   /// Liefert die aktuelle Versionsnummer der Strichliste.
   int get strokesVersion => _strokesVersion;
@@ -57,6 +60,7 @@ class DrawingController extends ChangeNotifier {
   /// Übernimmt eine bestehende Liste von Strichen in den Controller.
   void initialize(List<Stroke> initialStrokes) {
     _strokes = List<Stroke>.of(initialStrokes);
+    _cachedStrokes = null;
     _strokesVersion++; // Initialisierung zählt als Änderung.
     _currentStroke = null;
     _redoStack.clear();
@@ -302,6 +306,7 @@ class DrawingController extends ChangeNotifier {
     }
 
     _strokes = List<Stroke>.of(retained);
+    _cachedStrokes = null;
     _redoStack.clear();
     _strokesVersion++;
     notifyListeners();
@@ -388,6 +393,7 @@ class DrawingController extends ChangeNotifier {
     }
 
     _strokes = List<Stroke>.of(_strokes)..add(strokeToStore);
+    _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -401,6 +407,7 @@ class DrawingController extends ChangeNotifier {
     final removed = updated.removeLast();
     _redoStack.add(removed);
     _strokes = updated;
+    _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -412,6 +419,7 @@ class DrawingController extends ChangeNotifier {
 
     final stroke = _redoStack.removeLast();
     _strokes = List<Stroke>.of(_strokes)..add(stroke);
+    _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -423,6 +431,7 @@ class DrawingController extends ChangeNotifier {
       return false;
     }
     _strokes = const [];
+    _cachedStrokes = null;
     _currentStroke = null;
     _redoStack.clear();
     _strokesVersion++;

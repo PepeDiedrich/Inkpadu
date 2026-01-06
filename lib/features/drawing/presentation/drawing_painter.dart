@@ -67,8 +67,7 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
 /// Malt alle abgeschlossenen Striche. Repaint nur wenn sich die Version ändert.
 class FinishedStrokesPainter extends CustomPainter {
   /// Erstellt einen Painter für bereits abgeschlossene Striche.
-  FinishedStrokesPainter({required List<Stroke> strokes, required this.version})
-      : strokes = List<Stroke>.unmodifiable(strokes);
+  const FinishedStrokesPainter({required this.strokes, required this.version});
 
   /// Alle abgeschlossenen Striche auf der Seite.
   final List<Stroke> strokes;
