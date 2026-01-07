@@ -38,10 +38,14 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
   // Optimization: If pressure is constant or it's a highlighter, use drawPath.
   // This reduces JNI calls and fixes highlighter overlap artifacts.
   if (_canUseFastPath(stroke)) {
-    final path = Path();
-    path.moveTo(stroke.points[0].position.dx, stroke.points[0].position.dy);
-    for (int i = 1; i < stroke.points.length; i++) {
-      path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
+    Path? path = stroke.cachedPath;
+    if (path == null) {
+      path = Path();
+      path.moveTo(stroke.points[0].position.dx, stroke.points[0].position.dy);
+      for (int i = 1; i < stroke.points.length; i++) {
+        path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
+      }
+      stroke.cachedPath = path;
     }
 
     // Use average pressure for width (they are constant anyway)
