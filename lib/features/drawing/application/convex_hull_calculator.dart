@@ -8,10 +8,7 @@ import 'package:flutter/material.dart';
 /// Container for the result of overlay calculations.
 class OverlayResult {
   /// Erstellt ein neues Ergebnis für die Overlay-Berechnung.
-  const OverlayResult({
-    required this.hulls,
-    required this.clusters,
-  });
+  const OverlayResult({required this.hulls, required this.clusters});
 
   /// Die berechneten Konturen (Hüllen) der Striche.
   final List<List<Offset>> hulls;
@@ -39,8 +36,9 @@ class ConvexHullCalculator {
     double minimumArea = _minimumPolygonArea,
     double connectionMargin = 32,
   }) async {
-    final strokesList =
-        strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
+    final strokesList = strokes is List<Stroke>
+        ? strokes
+        : strokes.toList(growable: false);
 
     final params = _ContoursParams(
       strokes: strokesList,
@@ -56,22 +54,21 @@ class ConvexHullCalculator {
     // Map DTO back to domain objects
     final strokeMap = {for (final s in strokesList) s.id: s};
 
-    final clusters = resultDTO.clusters.map((dto) {
-      final clusterStrokes = dto.strokeIds
-          .map((id) => strokeMap[id])
-          .whereType<Stroke>()
-          .toList(growable: false);
+    final clusters = resultDTO.clusters
+        .map((dto) {
+          final clusterStrokes = dto.strokeIds
+              .map((id) => strokeMap[id])
+              .whereType<Stroke>()
+              .toList(growable: false);
 
-      return StrokeBoundingBoxCluster(
-        boundingBox: dto.boundingBox,
-        strokes: clusterStrokes,
-      );
-    }).toList(growable: false);
+          return StrokeBoundingBoxCluster(
+            boundingBox: dto.boundingBox,
+            strokes: clusterStrokes,
+          );
+        })
+        .toList(growable: false);
 
-    return OverlayResult(
-      hulls: resultDTO.hulls,
-      clusters: clusters,
-    );
+    return OverlayResult(hulls: resultDTO.hulls, clusters: clusters);
   }
 
   /// Erstellt Konturen für die gegebenen [strokes] asynchron in einem Isolate.
@@ -83,8 +80,9 @@ class ConvexHullCalculator {
     double minimumArea = _minimumPolygonArea,
     double connectionMargin = 32,
   }) async {
-    final strokesList =
-        strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
+    final strokesList = strokes is List<Stroke>
+        ? strokes
+        : strokes.toList(growable: false);
 
     final params = _ContoursParams(
       strokes: strokesList,
@@ -529,7 +527,11 @@ class ConvexHullCalculator {
     return false;
   }
 
-  static bool _strokeHitsPolygon(Stroke stroke, List<Offset> polygon, Rect bounds) {
+  static bool _strokeHitsPolygon(
+    Stroke stroke,
+    List<Offset> polygon,
+    Rect bounds,
+  ) {
     for (final point in stroke.points) {
       final Offset position = point.position;
       if (!bounds.contains(position)) {
@@ -547,7 +549,11 @@ class ConvexHullCalculator {
     bool isInside = false;
     for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
       if (((polygon[i].dy > point.dy) != (polygon[j].dy > point.dy)) &&
-          (point.dx < (polygon[j].dx - polygon[i].dx) * (point.dy - polygon[i].dy) / (polygon[j].dy - polygon[i].dy) + polygon[i].dx)) {
+          (point.dx <
+              (polygon[j].dx - polygon[i].dx) *
+                      (point.dy - polygon[i].dy) /
+                      (polygon[j].dy - polygon[i].dy) +
+                  polygon[i].dx)) {
         isInside = !isInside;
       }
     }
@@ -1429,12 +1435,12 @@ _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
 
   final clustersDTO = <_ClusterDataDTO>[];
   final Map<String, Stroke> remainingStrokes = {
-      for (final Stroke stroke in params.strokes) stroke.id: stroke,
+    for (final Stroke stroke in params.strokes) stroke.id: stroke,
   };
 
   // Optimization: Map of id -> Stroke for fast lookup during merge
   final Map<String, Stroke> allStrokesMap = {
-      for (final Stroke stroke in params.strokes) stroke.id: stroke,
+    for (final Stroke stroke in params.strokes) stroke.id: stroke,
   };
 
   for (final contour in contours) {
@@ -1485,50 +1491,65 @@ _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
 
   // Handle remaining strokes
   if (remainingStrokes.isNotEmpty) {
-      for (final stroke in remainingStrokes.values) {
-          if (stroke.points.isEmpty) continue;
-          final points = stroke.points.map((p) => p.position).toList(growable: false);
-          RotatedBoundingBox? box = ConvexHullCalculator.minimalBoundingBoxForPolygon(points);
-          if (box != null) {
-              final maxRadius = ConvexHullCalculator._maxStrokeRadius(stroke);
-              if (maxRadius > 0) box = box.expand(maxRadius);
-              clustersDTO.add(_ClusterDataDTO(boundingBox: box, strokeIds: [stroke.id]));
-          }
+    for (final stroke in remainingStrokes.values) {
+      if (stroke.points.isEmpty) continue;
+      final points = stroke.points
+          .map((p) => p.position)
+          .toList(growable: false);
+      RotatedBoundingBox? box =
+          ConvexHullCalculator.minimalBoundingBoxForPolygon(points);
+      if (box != null) {
+        final maxRadius = ConvexHullCalculator._maxStrokeRadius(stroke);
+        if (maxRadius > 0) box = box.expand(maxRadius);
+        clustersDTO.add(
+          _ClusterDataDTO(boundingBox: box, strokeIds: [stroke.id]),
+        );
       }
+    }
   }
 
   // Merge overlapping clusters (geometry only, so safe)
   bool merged = true;
   while (merged) {
-      merged = false;
-      for (var i = 0; i < clustersDTO.length; i++) {
-        for (var j = i + 1; j < clustersDTO.length; j++) {
-           if (clustersDTO[i].boundingBox.overlaps(clustersDTO[j].boundingBox)) {
-               // Merge
-               final newIds = [...clustersDTO[i].strokeIds, ...clustersDTO[j].strokeIds];
+    merged = false;
+    for (var i = 0; i < clustersDTO.length; i++) {
+      for (var j = i + 1; j < clustersDTO.length; j++) {
+        if (clustersDTO[i].boundingBox.overlaps(clustersDTO[j].boundingBox)) {
+          // Merge
+          final newIds = [
+            ...clustersDTO[i].strokeIds,
+            ...clustersDTO[j].strokeIds,
+          ];
 
-               final allPoints = <Offset>[];
-               double maxRadius = 0;
-               for (final id in newIds) {
-                   final stroke = allStrokesMap[id];
-                   if (stroke != null) {
-                       allPoints.addAll(stroke.points.map((p) => p.position));
-                       maxRadius = math.max(maxRadius, ConvexHullCalculator._maxStrokeRadius(stroke));
-                   }
-               }
+          final allPoints = <Offset>[];
+          double maxRadius = 0;
+          for (final id in newIds) {
+            final stroke = allStrokesMap[id];
+            if (stroke != null) {
+              allPoints.addAll(stroke.points.map((p) => p.position));
+              maxRadius = math.max(
+                maxRadius,
+                ConvexHullCalculator._maxStrokeRadius(stroke),
+              );
+            }
+          }
 
-               RotatedBoundingBox? newBox = ConvexHullCalculator.minimalBoundingBoxForPolygon(allPoints);
-               if (newBox != null) {
-                   if (maxRadius > 0) newBox = newBox.expand(maxRadius);
-                   clustersDTO[i] = _ClusterDataDTO(boundingBox: newBox, strokeIds: newIds);
-                   clustersDTO.removeAt(j);
-                   merged = true;
-                   break;
-               }
-           }
+          RotatedBoundingBox? newBox =
+              ConvexHullCalculator.minimalBoundingBoxForPolygon(allPoints);
+          if (newBox != null) {
+            if (maxRadius > 0) newBox = newBox.expand(maxRadius);
+            clustersDTO[i] = _ClusterDataDTO(
+              boundingBox: newBox,
+              strokeIds: newIds,
+            );
+            clustersDTO.removeAt(j);
+            merged = true;
+            break;
+          }
         }
-        if (merged) break;
       }
+      if (merged) break;
+    }
   }
 
   return _OverlayResultDTO(hulls: contours, clusters: clustersDTO);

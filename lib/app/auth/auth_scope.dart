@@ -5,8 +5,11 @@ import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 /// Stellt den [AuthController] niedrigschwellig im Widget-Baum bereit.
 class AuthScope extends InheritedNotifier<AuthController> {
   /// Erstellt einen neuen [AuthScope] mit dem gegebenen Controller und Child.
-  const AuthScope({super.key, required AuthController controller, required super.child})
-    : super(notifier: controller);
+  const AuthScope({
+    super.key,
+    required AuthController controller,
+    required super.child,
+  }) : super(notifier: controller);
 
   /// Gibt den [AuthController] aus dem nächsten [AuthScope] im Kontext zurück.
   static AuthController of(BuildContext context) {
@@ -22,5 +25,6 @@ class AuthScope extends InheritedNotifier<AuthController> {
   }
 
   @override
-  bool updateShouldNotify(covariant AuthScope oldWidget) => notifier != oldWidget.notifier;
+  bool updateShouldNotify(covariant AuthScope oldWidget) =>
+      notifier != oldWidget.notifier;
 }

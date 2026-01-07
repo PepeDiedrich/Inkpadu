@@ -16,4 +16,3 @@ import 'package:inkpadu_llm_auth/src/token_function.dart' as impl;
 /// - Prüft, ob die Anfrage von einem angemeldeten Appwrite-User kommt
 ///   (Header: `x-appwrite-user-id`).
 Future<dynamic> main(dynamic context) => impl.handleRequest(context);
-

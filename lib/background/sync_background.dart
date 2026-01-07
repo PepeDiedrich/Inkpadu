@@ -29,7 +29,10 @@ void callbackDispatcher() {
         final localStorage = InkNotesLocalStorage();
         await localStorage.init();
         final syncService = InkNotesSyncService();
-        final repository = InkNotesRepository(localStorage: localStorage, syncService: syncService);
+        final repository = InkNotesRepository(
+          localStorage: localStorage,
+          syncService: syncService,
+        );
 
         // process pending queue items once
         await repository.processQueueOnce(userId: cachedUserId);

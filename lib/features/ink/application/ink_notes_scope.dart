@@ -29,8 +29,13 @@ class InkNotesController extends ChangeNotifier {
     ConnectivityService? connectivityService,
     bool enableConnectivityMonitoring = true,
     this.debounceDuration = const Duration(seconds: 3),
-  })  : _repository = repository ?? InkNotesRepository(localStorage: InkNotesLocalStorage(), syncService: syncService),
-        _auth = auth {
+  }) : _repository =
+           repository ??
+           InkNotesRepository(
+             localStorage: InkNotesLocalStorage(),
+             syncService: syncService,
+           ),
+       _auth = auth {
     final authBridge = _auth;
     if (authBridge != null) {
       authBridge.addListener(_handleAuthChanged);
@@ -39,9 +44,12 @@ class InkNotesController extends ChangeNotifier {
     unawaited(_loadLocalNotes());
     // Start connectivity monitoring and auto-sync when online
     if (enableConnectivityMonitoring) {
-      _connectivityService = connectivityService ?? ConnectivityService(repository: _repository);
+      _connectivityService =
+          connectivityService ?? ConnectivityService(repository: _repository);
       _connectivityService!.startMonitoring();
-      _connectivitySubscription = _connectivityService!.isOnline.listen((online) async {
+      _connectivitySubscription = _connectivityService!.isOnline.listen((
+        online,
+      ) async {
         if (online && _activeUserId != null) {
           await _repository.syncAll(userId: _activeUserId!);
           await _repository.processQueueOnce(userId: _activeUserId!);
@@ -66,6 +74,7 @@ class InkNotesController extends ChangeNotifier {
   // Caches aggregierte Seitenänderungen, die beim nächsten Sync gesendet
   // werden sollen. `null` kennzeichnet eine vollständige Synchronisation.
   final Map<String, Set<int>?> _pendingPageChanges = <String, Set<int>?>{};
+
   /// Verzögerung für Debounce-Operationen beim Synchronisieren von Notizen.
   /// Standardmäßig 3 Sekunden; wird nach jeder Änderung für dieselbe Notiz-ID zurückgesetzt.
   final Duration debounceDuration;
@@ -79,7 +88,8 @@ class InkNotesController extends ChangeNotifier {
   Duration _foregroundSyncInterval = const Duration(minutes: 5);
 
   // Flüchtige Scroll-Offsets pro Notiz und Seite (nur zur Laufzeit im Speicher)
-  final Map<String, Map<int, double>> _scrollOffsets = <String, Map<int, double>>{};
+  final Map<String, Map<int, double>> _scrollOffsets =
+      <String, Map<int, double>>{};
 
   // PDF-Hintergrundverarbeitung: Speichert IDs von Notizen, die gerade verarbeitet werden
   final Set<String> _pdfProcessingNoteIds = <String>{};
@@ -99,7 +109,8 @@ class InkNotesController extends ChangeNotifier {
       StreamController<PdfProcessingUpdate>.broadcast();
 
   /// Stream von PDF-Verarbeitungs-Updates.
-  Stream<PdfProcessingUpdate> get pdfProcessingUpdates => _pdfProgressController.stream;
+  Stream<PdfProcessingUpdate> get pdfProcessingUpdates =>
+      _pdfProgressController.stream;
 
   /// Liefert den zuletzt bekannten Scroll-Offset für [noteId] und [pageIndex].
   double? getScrollOffset(String noteId, int pageIndex) {
@@ -109,7 +120,10 @@ class InkNotesController extends ChangeNotifier {
 
   /// Setzt den Scroll-Offset für [noteId] und [pageIndex].
   void setScrollOffset(String noteId, int pageIndex, double offset) {
-    final Map<int, double> pages = _scrollOffsets.putIfAbsent(noteId, () => <int, double>{});
+    final Map<int, double> pages = _scrollOffsets.putIfAbsent(
+      noteId,
+      () => <int, double>{},
+    );
     pages[pageIndex] = offset;
   }
 
@@ -143,12 +157,14 @@ class InkNotesController extends ChangeNotifier {
   }) {
     final String? cleanedTitle = title?.trim();
     final DateTime now = DateTime.now().toLocal();
-    
+
     final List<NotePage> pages = extractedTexts
-        .map((text) => NotePage(
-              strokes: const <Stroke>[],
-              importedPdfText: text.trim().isEmpty ? null : text.trim(),
-            ))
+        .map(
+          (text) => NotePage(
+            strokes: const <Stroke>[],
+            importedPdfText: text.trim().isEmpty ? null : text.trim(),
+          ),
+        )
         .toList();
 
     // Mindestens eine Seite erstellen, falls extractedTexts leer ist
@@ -158,8 +174,8 @@ class InkNotesController extends ChangeNotifier {
 
     final note = InkNote(
       id: now.microsecondsSinceEpoch.toString(),
-      title: (cleanedTitle?.isEmpty ?? true) 
-          ? InkNote.generateTitle(now) 
+      title: (cleanedTitle?.isEmpty ?? true)
+          ? InkNote.generateTitle(now)
           : cleanedTitle!,
       updatedAt: now,
       pages: List<NotePage>.unmodifiable(pages),
@@ -168,13 +184,13 @@ class InkNotesController extends ChangeNotifier {
 
     _notes.insert(0, note);
     _safelyNotifyListeners();
-    
+
     // Alle Seiten als geändert markieren
     final Set<int> allPageIndices = Set<int>.from(
       List<int>.generate(pages.length, (i) => i),
     );
     _syncIfPossible(note, changedPageIndices: allPageIndices);
-    
+
     return note;
   }
 
@@ -190,7 +206,7 @@ class InkNotesController extends ChangeNotifier {
   }) {
     final String? cleanedTitle = title?.trim();
     final DateTime now = DateTime.now().toLocal();
-    
+
     // Erstelle nur eine Platzhalter-Seite - die finalen Aufgaben-Seiten
     // werden nach dem Parsing dynamisch erstellt
     final List<NotePage> pages = <NotePage>[
@@ -199,8 +215,8 @@ class InkNotesController extends ChangeNotifier {
 
     final note = InkNote(
       id: now.microsecondsSinceEpoch.toString(),
-      title: (cleanedTitle?.isEmpty ?? true) 
-          ? InkNote.generateTitle(now) 
+      title: (cleanedTitle?.isEmpty ?? true)
+          ? InkNote.generateTitle(now)
           : cleanedTitle!,
       updatedAt: now,
       pages: List<NotePage>.unmodifiable(pages),
@@ -209,9 +225,9 @@ class InkNotesController extends ChangeNotifier {
 
     _notes.insert(0, note);
     _safelyNotifyListeners();
-    
+
     _syncIfPossible(note, changedPageIndices: const <int>{0});
-    
+
     return note;
   }
 
@@ -233,7 +249,7 @@ class InkNotesController extends ChangeNotifier {
       debugPrint('[PDF] Starting background processing for note: $noteId');
       debugPrint('[PDF] PDF size: ${pdfBytes.length} bytes');
     }
-    
+
     _pdfProcessingNoteIds.add(noteId);
     _safelyNotifyListeners();
 
@@ -249,12 +265,14 @@ class InkNotesController extends ChangeNotifier {
               '[PDF] Progress: page ${progress.currentPage}/${progress.totalPages}, stage: ${progress.stage}',
             );
           }
-          _pdfProgressController.add(PdfProcessingUpdate(
-            noteId: noteId,
-            currentPage: progress.currentPage,
-            totalPages: progress.totalPages,
-            stage: progress.stage,
-          ));
+          _pdfProgressController.add(
+            PdfProcessingUpdate(
+              noteId: noteId,
+              currentPage: progress.currentPage,
+              totalPages: progress.totalPages,
+              stage: progress.stage,
+            ),
+          );
         },
       );
 
@@ -266,24 +284,28 @@ class InkNotesController extends ChangeNotifier {
       final String combinedText = results
           .map((r) => '--- Seite ${r.pageNumber} ---\n${r.extractedText}')
           .join('\n\n');
-      
+
       if (kDebugMode) {
         debugPrint('[PDF] Combined text length: ${combinedText.length}');
       }
 
       // Signalisiere Aufgaben-Parsing-Phase
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: results.length,
-        totalPages: results.length,
-        stage: PdfImportStage.parsingTasks,
-      ));
+      _pdfProgressController.add(
+        PdfProcessingUpdate(
+          noteId: noteId,
+          currentPage: results.length,
+          totalPages: results.length,
+          stage: PdfImportStage.parsingTasks,
+        ),
+      );
 
       // Extrahiere Aufgaben aus dem kombinierten Text
       if (kDebugMode) {
         debugPrint('[PDF] Extracting tasks from combined text...');
       }
-      final List<String> tasks = await pdfImportService.extractTasksFromText(combinedText);
+      final List<String> tasks = await pdfImportService.extractTasksFromText(
+        combinedText,
+      );
       if (kDebugMode) {
         debugPrint('[PDF] Found ${tasks.length} tasks');
       }
@@ -308,10 +330,14 @@ class InkNotesController extends ChangeNotifier {
             '[PDF] No tasks found, creating single page with full text',
           );
         }
-        updatedPages.add(NotePage(
-          strokes: const <Stroke>[],
-          importedPdfText: combinedText.trim().isEmpty ? null : combinedText.trim(),
-        ));
+        updatedPages.add(
+          NotePage(
+            strokes: const <Stroke>[],
+            importedPdfText: combinedText.trim().isEmpty
+                ? null
+                : combinedText.trim(),
+          ),
+        );
         changedPageIndices.add(0);
       } else {
         // Für jede Aufgabe eine eigene Seite erstellen
@@ -322,11 +348,13 @@ class InkNotesController extends ChangeNotifier {
               '[PDF] Creating page ${i + 1} for task: ${taskText.substring(0, taskText.length.clamp(0, 50))}...',
             );
           }
-          
-          updatedPages.add(NotePage(
-            strokes: const <Stroke>[],
-            importedPdfText: taskText.isEmpty ? null : taskText,
-          ));
+
+          updatedPages.add(
+            NotePage(
+              strokes: const <Stroke>[],
+              importedPdfText: taskText.isEmpty ? null : taskText,
+            ),
+          );
           changedPageIndices.add(i);
         }
       }
@@ -337,7 +365,7 @@ class InkNotesController extends ChangeNotifier {
         updatedAt: DateTime.now(),
         lastOpenedPageIndex: 0,
       );
-      
+
       if (kDebugMode) {
         debugPrint(
           '[PDF] Upserting note with ${updatedPages.length} task pages',
@@ -346,13 +374,15 @@ class InkNotesController extends ChangeNotifier {
       upsert(updatedNote, changedPageIndices: changedPageIndices);
 
       // Sende finales Update mit den erkannten Aufgaben
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: tasks.length,
-        totalPages: tasks.length,
-        stage: PdfImportStage.parsingTasks,
-        parsedTasks: tasks,
-      ));
+      _pdfProgressController.add(
+        PdfProcessingUpdate(
+          noteId: noteId,
+          currentPage: tasks.length,
+          totalPages: tasks.length,
+          stage: PdfImportStage.parsingTasks,
+          parsedTasks: tasks,
+        ),
+      );
 
       if (kDebugMode) {
         debugPrint(
@@ -364,13 +394,15 @@ class InkNotesController extends ChangeNotifier {
         debugPrint('[PDF] ERROR: $error');
         debugPrint('[PDF] Stack trace: $stackTrace');
       }
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: 0,
-        totalPages: 0,
-        stage: PdfImportStage.extracting,
-        error: error.toString(),
-      ));
+      _pdfProgressController.add(
+        PdfProcessingUpdate(
+          noteId: noteId,
+          currentPage: 0,
+          totalPages: 0,
+          stage: PdfImportStage.extracting,
+          error: error.toString(),
+        ),
+      );
     } finally {
       _pdfProcessingNoteIds.remove(noteId);
       _safelyNotifyListeners();
@@ -506,8 +538,7 @@ class InkNotesController extends ChangeNotifier {
       if (event is InkNotesRemoteUpsert) {
         final incoming = event.note;
         final idx = _notes.indexWhere((n) => n.id == incoming.id);
-        if (idx != -1 &&
-            _notes[idx].updatedAt.isAfter(incoming.updatedAt)) {
+        if (idx != -1 && _notes[idx].updatedAt.isAfter(incoming.updatedAt)) {
           return;
         }
         upsert(incoming, fromRemote: true);
@@ -536,10 +567,7 @@ class InkNotesController extends ChangeNotifier {
     }
   }
 
-  void _syncIfPossible(
-    InkNote note, {
-    Set<int>? changedPageIndices,
-  }) {
+  void _syncIfPossible(InkNote note, {Set<int>? changedPageIndices}) {
     final userId = _activeUserId;
     if (userId == null) return;
     // Save locally and schedule repository sync via debounce
@@ -576,7 +604,7 @@ class InkNotesController extends ChangeNotifier {
 
   void _deleteIfPossible(String noteId) {
     final userId = _activeUserId;
-    
+
     // Mark as pending deletion so it doesn't reappear on reload
     _pendingDeletionIds.add(noteId);
 
@@ -630,8 +658,11 @@ class InkNotesController extends ChangeNotifier {
 /// Inherited Scope für Zugriff auf [InkNotesController].
 class InkNotesScope extends InheritedNotifier<InkNotesController> {
   /// Erstellt eine neue [InkNotesScope] mit dem gegebenen Controller.
-  const InkNotesScope({super.key, required InkNotesController controller, required super.child})
-      : super(notifier: controller);
+  const InkNotesScope({
+    super.key,
+    required InkNotesController controller,
+    required super.child,
+  }) : super(notifier: controller);
 
   /// Liefert den [InkNotesController] aus dem Kontext.
   static InkNotesController of(BuildContext context) {
@@ -647,5 +678,6 @@ class InkNotesScope extends InheritedNotifier<InkNotesController> {
   }
 
   @override
-  bool updateShouldNotify(covariant InkNotesScope oldWidget) => notifier != oldWidget.notifier;
+  bool updateShouldNotify(covariant InkNotesScope oldWidget) =>
+      notifier != oldWidget.notifier;
 }
