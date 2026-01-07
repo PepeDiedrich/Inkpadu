@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -18,8 +19,6 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == backgroundSyncTask) {
       try {
-        // [SENTINEL] Use SecureStorage to retrieve user ID (PII) instead of SharedPreferences
-        // This also fixes a bug where background sync failed for migrated users.
         const secureStorage = FlutterSecureStorage();
         final cachedUserId = await secureStorage.read(
           key: 'inkpadu_cached_user_id',
@@ -29,7 +28,10 @@ void callbackDispatcher() {
         final localStorage = InkNotesLocalStorage();
         await localStorage.init();
         final syncService = InkNotesSyncService();
-        final repository = InkNotesRepository(localStorage: localStorage, syncService: syncService);
+        final repository = InkNotesRepository(
+          localStorage: localStorage,
+          syncService: syncService,
+        );
 
         // process pending queue items once
         await repository.processQueueOnce(userId: cachedUserId);
@@ -37,6 +39,12 @@ void callbackDispatcher() {
         await repository.syncAll(userId: cachedUserId);
       } catch (e) {
         // In background we should swallow errors and report success so platform can schedule again.
+        // We log in debug mode to facilitate diagnosis.
+        if (kDebugMode) {
+          debugPrint(
+            '[BackgroundSync] Error: $e',
+          );
+        }
       }
     }
     return Future.value(true);
