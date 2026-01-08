@@ -43,10 +43,14 @@ class InkNotesController extends ChangeNotifier {
       _connectivityService!.startMonitoring();
       _connectivitySubscription = _connectivityService!.isOnline.listen((online) async {
         if (online && _activeUserId != null) {
+          if (_disposed) return;
           await _repository.syncAll(userId: _activeUserId!);
+          if (_disposed) return;
           await _repository.processQueueOnce(userId: _activeUserId!);
+          if (_disposed) return;
           // reload local notes after sync
           final local = await _repository.getLocalNotes();
+          if (_disposed) return;
           _notes
             ..clear()
             ..addAll(local.where((n) => !_pendingDeletionIds.contains(n.id)))
@@ -73,6 +77,7 @@ class InkNotesController extends ChangeNotifier {
   InkNotesRealtimeSubscription? _realtimeSubscription;
   String? _activeUserId;
   bool _applyingRemoteUpdate = false;
+  bool _disposed = false;
   ConnectivityService? _connectivityService;
   StreamSubscription<bool>? _connectivitySubscription;
   Timer? _foregroundSyncTimer;
@@ -244,6 +249,7 @@ class InkNotesController extends ChangeNotifier {
       final results = await pdfImportService.importPdf(
         pdfBytes: pdfBytes,
         onProgress: (progress) {
+          if (_disposed || _pdfProgressController.isClosed) return;
           if (kDebugMode) {
             debugPrint(
               '[PDF] Progress: page ${progress.currentPage}/${progress.totalPages}, stage: ${progress.stage}',
@@ -258,6 +264,8 @@ class InkNotesController extends ChangeNotifier {
         },
       );
 
+      if (_disposed) return;
+
       if (kDebugMode) {
         debugPrint('[PDF] Import complete! Got ${results.length} pages');
       }
@@ -271,6 +279,7 @@ class InkNotesController extends ChangeNotifier {
         debugPrint('[PDF] Combined text length: ${combinedText.length}');
       }
 
+      if (_pdfProgressController.isClosed) return;
       // Signalisiere Aufgaben-Parsing-Phase
       _pdfProgressController.add(PdfProcessingUpdate(
         noteId: noteId,
@@ -284,6 +293,7 @@ class InkNotesController extends ChangeNotifier {
         debugPrint('[PDF] Extracting tasks from combined text...');
       }
       final List<String> tasks = await pdfImportService.extractTasksFromText(combinedText);
+      if (_disposed) return;
       if (kDebugMode) {
         debugPrint('[PDF] Found ${tasks.length} tasks');
       }
@@ -345,6 +355,7 @@ class InkNotesController extends ChangeNotifier {
       }
       upsert(updatedNote, changedPageIndices: changedPageIndices);
 
+      if (_pdfProgressController.isClosed) return;
       // Sende finales Update mit den erkannten Aufgaben
       _pdfProgressController.add(PdfProcessingUpdate(
         noteId: noteId,
@@ -364,13 +375,15 @@ class InkNotesController extends ChangeNotifier {
         debugPrint('[PDF] ERROR: $error');
         debugPrint('[PDF] Stack trace: $stackTrace');
       }
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: 0,
-        totalPages: 0,
-        stage: PdfImportStage.extracting,
-        error: error.toString(),
-      ));
+      if (!_pdfProgressController.isClosed) {
+        _pdfProgressController.add(PdfProcessingUpdate(
+          noteId: noteId,
+          currentPage: 0,
+          totalPages: 0,
+          stage: PdfImportStage.extracting,
+          error: error.toString(),
+        ));
+      }
     } finally {
       _pdfProcessingNoteIds.remove(noteId);
       _safelyNotifyListeners();
@@ -470,8 +483,13 @@ class InkNotesController extends ChangeNotifier {
     // Initialize repository and try a full sync
     await _repository.init();
 
+    if (_disposed) return;
+
     // Load local notes
     final localBefore = await _repository.getLocalNotes();
+    
+    if (_disposed) return;
+
     _notes
       ..clear()
       ..addAll(localBefore.where((n) => !_pendingDeletionIds.contains(n.id)))
@@ -481,8 +499,13 @@ class InkNotesController extends ChangeNotifier {
     // Trigger repository sync which will attempt to upload pending items and merge
     await _repository.syncAll(userId: userId);
 
+    if (_disposed) return;
+
     // After sync, reload local notes
     final localAfter = await _repository.getLocalNotes();
+
+    if (_disposed) return;
+
     _notes
       ..clear()
       ..addAll(localAfter.where((n) => !_pendingDeletionIds.contains(n.id)))
@@ -493,10 +516,12 @@ class InkNotesController extends ChangeNotifier {
     final service = _repository.syncService;
     if (service != null) {
       await _realtimeSubscription?.cancel();
-      _realtimeSubscription = service.observeUserNotes(
-        userId: userId,
-        onEvent: _handleRemoteEvent,
-      );
+      if (!_disposed) {
+        _realtimeSubscription = service.observeUserNotes(
+          userId: userId,
+          onEvent: _handleRemoteEvent,
+        );
+      }
     }
   }
 
@@ -524,8 +549,11 @@ class InkNotesController extends ChangeNotifier {
     if (userId == null) return;
     try {
       await _repository.syncAll(userId: userId);
+      if (_disposed) return;
       await _repository.processQueueOnce(userId: userId);
+      if (_disposed) return;
       final local = await _repository.getLocalNotes();
+      if (_disposed) return;
       _notes
         ..clear()
         ..addAll(local.where((n) => !_pendingDeletionIds.contains(n.id)))
@@ -592,6 +620,7 @@ class InkNotesController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _auth?.removeListener(_handleAuthChanged);
     unawaited(_realtimeSubscription?.cancel());
     unawaited(_connectivitySubscription?.cancel());
@@ -615,7 +644,9 @@ class InkNotesController extends ChangeNotifier {
   Future<void> _loadLocalNotes() async {
     try {
       await _repository.init();
+      if (_disposed) return;
       final local = await _repository.getLocalNotes();
+      if (_disposed) return;
       _notes
         ..clear()
         ..addAll(local.where((n) => !_pendingDeletionIds.contains(n.id)))
