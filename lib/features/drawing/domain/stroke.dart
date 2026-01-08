@@ -22,6 +22,12 @@ class Stroke {
   /// Gecachte Bounding Box für schnelle Hit-Tests.
   Rect? _cachedBoundingBox;
 
+  /// Gecachter Path für schnelles Rendering (lazy berechnet).
+  /// Wird nur verwendet, wenn der Strich für Fast-Path-Rendering geeignet ist.
+  /// Dies ist eine mutable Eigenschaft, die zur Laufzeit (UI-Thread) gesetzt wird.
+  /// Sie wird nicht persistiert und nicht über Isolates transportiert.
+  Path? cachedPath;
+
   /// Liefert die Bounding Box aller Punkte des Strichs (lazy berechnet).
   Rect get boundingBox {
     if (_cachedBoundingBox != null) return _cachedBoundingBox!;
