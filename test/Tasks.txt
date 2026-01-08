@@ -1,0 +1,18 @@
+// ...existing code...
+- [ ] Feature: Paper Style Selection Dialog & Preview
+  - **Kontext:** Beim Erstellen einer neuen Notiz oder Ändern des Hintergrunds soll die Auswahl des Papierstils (Liniert, Kariert, Blanko, etc.) isoliert werden.
+  - **Anforderungen:**
+    1. **UI Komponente:** Erstelle einen dedizierten Dialog (oder ModalBottomSheet) für die Auswahl.
+    2. **Vorschau-Logik:** Der obere Teil des Dialogs muss eine visuelle Vorschau des gewählten Stils anzeigen (Live-Rendering des CustomPainters).
+    3. **Auswahl:** Liste oder Grid mit Buttons für die Stile: Blanko, Liniert, Kariert, Gepunktet.
+  - **Technische Richtlinien:**
+    - **Lokalisierung (WICHTIG):** Alle Texte (z.B. "Wähle Hintergrund", "Liniert") müssen in `lib/i18n/en.i18n.json` und `de.i18n.json` eingetragen und via `context.t// filepath: /home/pepe/Inkpadu/test/Tasks.txt
+// ...existing code...
+- [ ] Feature: Paper Style Selection Dialog & Preview
+  - **Kontext:** Beim Erstellen einer neuen Notiz oder Ändern des Hintergrunds soll die Auswahl des Papierstils (Liniert, Kariert, Blanko, etc.) isoliert werden.
+  - **Anforderungen:**
+    1. **UI Komponente:** Erstelle einen dedizierten Dialog (oder ModalBottomSheet) für die Auswahl.
+    2. **Vorschau-Logik:** Der obere Teil des Dialogs muss eine visuelle Vorschau des gewählten Stils anzeigen (Live-Rendering des CustomPainters).
+    3. **Auswahl:** Liste oder Grid mit Buttons für die Stile: Blanko, Liniert, Kariert, Gepunktet.
+  - **Technische Richtlinien:**
+    - **Lokalisierung (WICHTIG):** Alle Texte (z.B. "Wähle Hintergrund", "Liniert") müssen in `lib/i18n/en.i18n.json` und `de.i18n.json` eingetragen und via `context.t
