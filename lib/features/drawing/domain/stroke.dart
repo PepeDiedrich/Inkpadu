@@ -22,6 +22,30 @@ class Stroke {
   /// Gecachte Bounding Box für schnelle Hit-Tests.
   Rect? _cachedBoundingBox;
 
+  /// Gecachter Wert für konstanten Druck (lazy berechnet).
+  bool? _cachedIsConstantPressure;
+
+  /// Gibt true zurück, wenn alle Punkte im Strich annähernd den gleichen Druck haben.
+  /// Dieser Wert wird beim ersten Zugriff berechnet und gecacht.
+  bool get isConstantPressure {
+    if (_cachedIsConstantPressure != null) return _cachedIsConstantPressure!;
+
+    if (points.isEmpty) {
+      _cachedIsConstantPressure = true;
+      return true;
+    }
+
+    final double baseline = points[0].pressure;
+    for (int i = 1; i < points.length; i++) {
+      if ((points[i].pressure - baseline).abs() > 0.01) {
+        _cachedIsConstantPressure = false;
+        return false;
+      }
+    }
+    _cachedIsConstantPressure = true;
+    return true;
+  }
+
   /// Gecachter Path für schnelles Rendering (lazy berechnet).
   /// Wird nur verwendet, wenn der Strich für Fast-Path-Rendering geeignet ist.
   /// Dies ist eine mutable Eigenschaft, die zur Laufzeit (UI-Thread) gesetzt wird.

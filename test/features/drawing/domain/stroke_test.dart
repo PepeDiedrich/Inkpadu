@@ -30,6 +30,53 @@ void main() {
       expect(stroke.id, 'custom-id');
     });
 
+    group('isConstantPressure', () {
+      test('returns true for empty points', () {
+        final stroke = Stroke(points: []);
+        expect(stroke.isConstantPressure, true);
+      });
+
+      test('returns true for single point', () {
+        final stroke = Stroke(
+          points: [DrawingPoint(position: Offset.zero)],
+        );
+        expect(stroke.isConstantPressure, true);
+      });
+
+      test('returns true for constant pressure points', () {
+        final points = [
+          DrawingPoint(position: Offset.zero),
+          DrawingPoint(position: const Offset(10, 10)),
+          DrawingPoint(position: const Offset(20, 20), pressure: 0.509), // Within 0.01 tolerance
+        ];
+        final stroke = Stroke(points: points);
+        expect(stroke.isConstantPressure, true);
+      });
+
+      test('returns false for variable pressure points', () {
+        final points = [
+          DrawingPoint(position: Offset.zero),
+          DrawingPoint(position: const Offset(10, 10), pressure: 0.8),
+        ];
+        final stroke = Stroke(points: points);
+        expect(stroke.isConstantPressure, false);
+      });
+
+      test('caches result', () {
+        final points = [
+          DrawingPoint(position: Offset.zero),
+          DrawingPoint(position: const Offset(10, 10)),
+        ];
+        final stroke = Stroke(points: points);
+
+        // First access
+        expect(stroke.isConstantPressure, true);
+
+        // Second access
+        expect(stroke.isConstantPressure, true);
+      });
+    });
+
     group('boundingBox', () {
       test('returns Rect.zero for empty points', () {
         final stroke = Stroke(points: []);
