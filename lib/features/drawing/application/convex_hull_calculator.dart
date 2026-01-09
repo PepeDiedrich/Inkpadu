@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -43,7 +44,15 @@ class ConvexHullCalculator {
         strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
 
     final params = _ContoursParams(
-      strokes: strokesList,
+      strokes: strokesList
+          .map(
+            (s) => _StrokeDTO(
+              id: s.id,
+              points: s.points,
+              baseWidth: s.baseWidth,
+            ),
+          )
+          .toList(growable: false),
       cellSize: cellSize,
       padding: padding,
       simplifyToleranceFactor: simplifyToleranceFactor,
@@ -87,7 +96,15 @@ class ConvexHullCalculator {
         strokes is List<Stroke> ? strokes : strokes.toList(growable: false);
 
     final params = _ContoursParams(
-      strokes: strokesList,
+      strokes: strokesList
+          .map(
+            (s) => _StrokeDTO(
+              id: s.id,
+              points: s.points,
+              baseWidth: s.baseWidth,
+            ),
+          )
+          .toList(growable: false),
       cellSize: cellSize,
       padding: padding,
       simplifyToleranceFactor: simplifyToleranceFactor,
@@ -1359,6 +1376,25 @@ const List<_GridPoint> _neighborOffsets = <_GridPoint>[
   _GridPoint(0, -1),
 ];
 
+/// Data Transfer Object for Stroke to avoid sending dart:ui objects (like Path) to isolates.
+class _StrokeDTO {
+  final String id;
+  final List<DrawingPoint> points;
+  final double baseWidth;
+
+  const _StrokeDTO({
+    required this.id,
+    required this.points,
+    required this.baseWidth,
+  });
+
+  Stroke toDomain() => Stroke(
+    id: id,
+    points: points,
+    baseWidth: baseWidth,
+  );
+}
+
 /// Parameter-Objekt für die Isolate-Kommunikation.
 class _ContoursParams {
   const _ContoursParams({
@@ -1370,7 +1406,7 @@ class _ContoursParams {
     required this.connectionMargin,
   });
 
-  final List<Stroke> strokes;
+  final List<_StrokeDTO> strokes;
   final double cellSize;
   final double padding;
   final double simplifyToleranceFactor;
@@ -1394,8 +1430,13 @@ class _OverlayResultDTO {
 List<List<Map<String, double>>> _computeContoursIsolate(
   _ContoursParams params,
 ) {
+  final strokes =
+      params.strokes
+          .map((dto) => dto.toDomain())
+          .toList(growable: false);
+
   final contours = ConvexHullCalculator.contoursForStrokesSync(
-    params.strokes,
+    strokes,
     cellSize: params.cellSize,
     padding: params.padding,
     simplifyToleranceFactor: params.simplifyToleranceFactor,
@@ -1414,9 +1455,14 @@ List<List<Map<String, double>>> _computeContoursIsolate(
 
 /// Top-level Funktion für Isolate-Berechnung (Overlays: Contours + Clusters).
 _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
+  final strokes =
+      params.strokes
+          .map((dto) => dto.toDomain())
+          .toList(growable: false);
+
   // 1. Calculate contours (sync)
   final contours = ConvexHullCalculator.contoursForStrokesSync(
-    params.strokes,
+    strokes,
     cellSize: params.cellSize,
     padding: params.padding,
     simplifyToleranceFactor: params.simplifyToleranceFactor,
@@ -1429,12 +1475,12 @@ _OverlayResultDTO _computeOverlaysIsolate(_ContoursParams params) {
 
   final clustersDTO = <_ClusterDataDTO>[];
   final Map<String, Stroke> remainingStrokes = {
-      for (final Stroke stroke in params.strokes) stroke.id: stroke,
+      for (final Stroke stroke in strokes) stroke.id: stroke,
   };
 
   // Optimization: Map of id -> Stroke for fast lookup during merge
   final Map<String, Stroke> allStrokesMap = {
-      for (final Stroke stroke in params.strokes) stroke.id: stroke,
+      for (final Stroke stroke in strokes) stroke.id: stroke,
   };
 
   for (final contour in contours) {

@@ -181,7 +181,7 @@ void main() {
 
       // Simulate some strokes on the current page
       final strokes = [
-        Stroke(points: [DrawingPoint(position: Offset.zero, pressure: 0.5)], baseWidth: 1.0)
+        Stroke(points: [DrawingPoint(position: Offset.zero)])
       ];
       when(() => mockDrawingController.strokes).thenReturn(strokes);
 
@@ -201,7 +201,7 @@ void main() {
     test('addPageAfterCurrent inserts page and switches to it', () {
         // Mock current page having content so we can add a page
        when(() => mockDrawingController.strokes).thenReturn([
-         Stroke(points: [DrawingPoint(position: Offset.zero, pressure: 0.5)], baseWidth: 1.0)
+         Stroke(points: [DrawingPoint(position: Offset.zero)])
        ]);
 
       final initialLength = controller.pages.length;
