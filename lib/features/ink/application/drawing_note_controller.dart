@@ -447,7 +447,8 @@ class DrawingNoteController extends ChangeNotifier {
       return;
     }
 
-    _persistCurrentPageStrokes();
+    final bool currentChanged = _persistCurrentPageStrokes();
+    final int previousIndex = _currentPageIndex;
 
     final ({int targetIndex, bool removedPage}) result =
         _maybeRemoveCurrentPageIfEmpty(pageIndex);
@@ -465,10 +466,18 @@ class DrawingNoteController extends ChangeNotifier {
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
+
+    final Set<int> changedIndices = {};
+    if (result.removedPage) {
+      changedIndices.add(_currentPageIndex);
+    }
+    if (currentChanged && !result.removedPage) {
+      changedIndices.add(previousIndex);
+    }
+
     _inkNotesController.upsert(
       _note,
-      changedPageIndices:
-          result.removedPage ? {_currentPageIndex} : const <int>{},
+      changedPageIndices: changedIndices,
     );
     notifyListeners();
   }
@@ -510,9 +519,11 @@ class DrawingNoteController extends ChangeNotifier {
     return _currentPageIndex;
   }
 
-  void _persistCurrentPageStrokes() {
+  /// Persistiert die Striche der aktuellen Seite.
+  /// Gibt `true` zurück, wenn sich etwas geändert hat.
+  bool _persistCurrentPageStrokes() {
     if (!_initialized || _note.pages.isEmpty) {
-      return;
+      return false;
     }
     final List<NotePage> updatedPages = List<NotePage>.of(_note.pages);
     final NotePage currentPage = updatedPages[_currentPageIndex];
@@ -540,7 +551,7 @@ class DrawingNoteController extends ChangeNotifier {
         currentPage.cachedVisionSignature != nextSignature;
 
     if (!strokesChanged && !descriptionChanged && !signatureChanged) {
-      return;
+      return false;
     }
 
     updatedPages[_currentPageIndex] = currentPage.copyWith(
@@ -552,6 +563,7 @@ class DrawingNoteController extends ChangeNotifier {
     _note = _note.copyWith(
       pages: List<NotePage>.unmodifiable(updatedPages),
     );
+    return true;
   }
 
   bool _strokesHaveContent(List<Stroke> strokes) => strokes.any(
