@@ -14,17 +14,8 @@ bool _canUseFastPath(Stroke stroke) {
   if (stroke.points.length < 2) return false;
   if (stroke.isHighlighter) return true;
 
-  // Check first point pressure as baseline
-  final double baseline = stroke.points[0].pressure;
-  // If baseline is default 0.5 (often used for non-pressure inputs)
-  // or 1.0, and all others match, we can optimize.
-  // Actually, we just need to check if all pressures are effectively equal.
-  for (int i = 1; i < stroke.points.length; i++) {
-    if ((stroke.points[i].pressure - baseline).abs() > 0.01) {
-      return false;
-    }
-  }
-  return true;
+  // Use the cached property on the stroke entity
+  return stroke.isConstantPressure;
 }
 
 /// Gemeinsame Low-Level Routine zum Zeichnen eines einzelnen [Stroke].
