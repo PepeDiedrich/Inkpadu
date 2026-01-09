@@ -7,10 +7,18 @@ class AppwriteConfig {
   AppwriteConfig._();
 
   /// Globale Endpoint-URL für Appwrite.
-  static const String endpoint = 'https://appwrite.nebulium.info/v1';
+  /// Standardwert ist der Prod-Endpoint, kann via --dart-define=APPWRITE_ENDPOINT=... überschrieben werden.
+  static const String endpoint = String.fromEnvironment(
+    'APPWRITE_ENDPOINT',
+    defaultValue: 'https://appwrite.nebulium.info/v1',
+  );
 
   /// Globale Projekt-ID für Appwrite.
-  static const String projectId = '68de8b41001d59b1c2d0';
+  /// Standardwert ist die Prod-ID, kann via --dart-define=APPWRITE_PROJECT_ID=... überschrieben werden.
+  static const String projectId = String.fromEnvironment(
+    'APPWRITE_PROJECT_ID',
+    defaultValue: '68de8b41001d59b1c2d0',
+  );
 
   /// Callback-Scheme für OAuth-Redirects (http, damit ein lokaler Redirect-Server genutzt werden kann).
   static const String callbackScheme = 'http';
