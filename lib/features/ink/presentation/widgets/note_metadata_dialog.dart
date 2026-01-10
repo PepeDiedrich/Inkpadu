@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/extensions/note_paper_style_extensions.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Ergebnis des Metadaten-Dialogs.
@@ -72,13 +73,15 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final titleText = widget.isEditing ? context.t.notes.adjustTitlePaper : context.t.notes.newNote;
+    final titleText = widget.isEditing
+        ? context.t.notes.adjustTitlePaper
+        : context.t.notes.newNote;
     final segments = NotePaperStyle.values
         .map(
           (style) => ButtonSegment<NotePaperStyle>(
             value: style,
             icon: Icon(style.icon, size: 16),
-            label: Text(style.label),
+            label: Text(style.localizedLabel(context)),
           ),
         )
         .toList(growable: false);
@@ -97,7 +100,9 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
         actions: [
           TextButton(
             onPressed: _submit,
-            child: Text(widget.isEditing ? context.t.common.save : context.t.common.next),
+            child: Text(
+              widget.isEditing ? context.t.common.save : context.t.common.next,
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -119,14 +124,17 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
                       labelText: context.t.editor.title,
-                      hintText: '${context.t.editor.title} (${context.t.common.no})',
+                      hintText:
+                          '${context.t.editor.title} (${context.t.common.no})',
                       border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 32),
                   Text(
                     'Paper style',
-                    style: theme.textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<NotePaperStyle>(
@@ -161,7 +169,11 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
             Expanded(
               child: FilledButton(
                 onPressed: _submit,
-                child: Text(widget.isEditing ? context.t.common.save : context.t.common.next),
+                child: Text(
+                  widget.isEditing
+                      ? context.t.common.save
+                      : context.t.common.next,
+                ),
               ),
             ),
           ],

@@ -8,6 +8,7 @@ import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/extensions/note_paper_style_extensions.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_thumbnail.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/pdf_picker_dialog.dart';
@@ -426,9 +427,7 @@ class _HomePageState extends State<HomePage> {
                     fillColor: Theme.of(
                       context,
                     ).colorScheme.surfaceContainerHighest,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                   onChanged: (value) => setState(() => _searchQuery = value),
                 ),
@@ -485,7 +484,8 @@ class _HomePageState extends State<HomePage> {
           key: ValueKey(note.id),
           note: note,
           childNotes: childNotes,
-          childBuilder: buildNoteItem, // Pass the builder function for recursion
+          childBuilder:
+              buildNoteItem, // Pass the builder function for recursion
           onTap: () => _open(note.id),
           onLongPress: () => _showNoteActions(note),
           onConfirmDelete: () => _confirmDelete(note.id, note.title),
@@ -554,7 +554,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        n.paperStyle.label,
+                        n.paperStyle.localizedLabel(context),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.primary,
                         ),
@@ -650,10 +650,13 @@ class _HomePageState extends State<HomePage> {
 class ExpandableNoteCard extends StatefulWidget {
   /// Die anzuzeigende Notiz.
   final InkNote note;
+
   /// Die Liste der Unternotizen.
   final List<InkNote> childNotes;
+
   /// Builder für die Unternotizen.
   final Widget Function(InkNote) childBuilder;
+
   /// Callback beim Tippen auf die Notiz.
   final VoidCallback onTap;
 

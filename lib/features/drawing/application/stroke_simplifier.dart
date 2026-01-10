@@ -23,11 +23,11 @@ List<DrawingPoint> simplifyStrokePoints(
 }
 
 /// Vereinfacht einen [Stroke] und gibt eine neue Instanz mit reduziertem Punkt-Set zurück.
-Stroke simplifyStroke(
-  Stroke stroke, {
-  double tolerance = 1.0,
-}) {
-  final simplifiedPoints = simplifyStrokePoints(stroke.points, tolerance: tolerance);
+Stroke simplifyStroke(Stroke stroke, {double tolerance = 1.0}) {
+  final simplifiedPoints = simplifyStrokePoints(
+    stroke.points,
+    tolerance: tolerance,
+  );
   return stroke.copyWith(points: simplifiedPoints);
 }
 
