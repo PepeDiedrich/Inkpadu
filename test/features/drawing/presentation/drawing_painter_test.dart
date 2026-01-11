@@ -72,6 +72,31 @@ void main() {
 
       verifyNever(() => canvas.drawLine(any(), any(), any()));
     });
+
+    test('paint calls canvas.drawLine for variable pressure strokes', () {
+      final canvas = MockCanvas();
+      final variableStroke = Stroke(
+        points: [
+          DrawingPoint(position: const Offset(0, 0), pressure: 0.1),
+          DrawingPoint(position: const Offset(10, 10), pressure: 0.9),
+          DrawingPoint(position: const Offset(20, 20), pressure: 0.5),
+        ],
+        baseWidth: 2.0,
+      );
+      final painter = FinishedStrokesPainter(strokes: [variableStroke], version: 1);
+
+      painter.paint(canvas, const Size(100, 100));
+
+      // Should call drawLine for each segment (2 segments)
+      verify(() => canvas.drawLine(
+            any(),
+            any(),
+            any(),
+          )).called(2);
+
+      // Should NOT call drawPath
+      verifyNever(() => canvas.drawPath(any(), any()));
+    });
   });
 
   group('CurrentStrokePainter', () {
@@ -171,25 +196,25 @@ void main() {
     });
 
     test('paint handles zero size boxes', () {
-       final canvas = MockCanvas();
-       // Hull with < 2 points is invalid
-       final invalidHull = [const Offset(0, 0)];
+      final canvas = MockCanvas();
+      // Hull with < 2 points is invalid
+      final invalidHull = [const Offset(0, 0)];
 
-       final zeroBox = RotatedBoundingBox(
-         corners: const [Offset.zero, Offset.zero, Offset.zero, Offset.zero],
-         angle: 0,
-         width: 0,
-         height: 0,
-       );
+      final zeroBox = RotatedBoundingBox(
+        corners: const [Offset.zero, Offset.zero, Offset.zero, Offset.zero],
+        angle: 0,
+        width: 0,
+        height: 0,
+      );
 
-       final painter = ConvexHullsPainter(hulls: [invalidHull], boundingBoxes: [zeroBox]);
+      final painter = ConvexHullsPainter(hulls: [invalidHull], boundingBoxes: [zeroBox]);
 
-       painter.paint(canvas, const Size(100, 100));
+      painter.paint(canvas, const Size(100, 100));
 
-       // Hull is skipped (<2 points)
-       // Box is drawn but not filled because width/height <= 0
-       // So we expect 1 drawPath call (stroke only)
-       verify(() => canvas.drawPath(any(), any())).called(1);
+      // Hull is skipped (<2 points)
+      // Box is drawn but not filled because width/height <= 0
+      // So we expect 1 drawPath call (stroke only, no fill)
+      verify(() => canvas.drawPath(any(), any())).called(1);
     });
   });
 }
