@@ -320,11 +320,12 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
     var maxY = 0.0;
     for (final stroke in strokes) {
-      for (final point in stroke.points) {
-        final y = point.position.dy;
-        if (y > maxY) {
-          maxY = y;
-        }
+      if (stroke.points.isEmpty) continue;
+      // Use cached bounding box to avoid O(N) iteration over points.
+      // This changes complexity from O(TotalPoints) to O(StrokeCount).
+      final bottom = stroke.boundingBox.bottom;
+      if (bottom > maxY) {
+        maxY = bottom;
       }
     }
     return math.max(
