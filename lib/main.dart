@@ -29,6 +29,17 @@ import 'package:ai_handwriting_app/i18n/translations.g.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Sentinel: Disable logging and sensitive dumps in Release Mode
+  // Defense in depth: Ensure no data leaks to logcat even if debugPrint checks are missed.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+    // Also suppress default error dumping to console which might contain stacktraces
+    FlutterError.onError = (FlutterErrorDetails details) {
+      // In a real app, you would report to Crashlytics/Sentry here
+      // For now, we just suppress the console output to prevent leaks
+    };
+  }
+
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
   
