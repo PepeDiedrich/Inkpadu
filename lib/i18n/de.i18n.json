@@ -99,6 +99,7 @@
     "neon": "Neon"
   },
   "paper": {
+    "selectionTitle": "Hintergrund wählen",
     "plain": "Blanko",
     "lined": "Liniert",
     "grid": "Kariert",

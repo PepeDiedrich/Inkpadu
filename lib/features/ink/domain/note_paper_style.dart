@@ -1,3 +1,4 @@
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 
 /// Beschreibt verfügbare Papier- bzw. Hintergrundstile für eine Notizseite.
@@ -16,10 +17,10 @@ enum NotePaperStyle {
 
   /// Lokalisierter Anzeigename für den Stil.
   String get label => switch (this) {
-    NotePaperStyle.plain => 'Blanko',
-    NotePaperStyle.lined => 'Liniert',
-    NotePaperStyle.grid => 'Kariert',
-    NotePaperStyle.dotted => 'Punktiert',
+    NotePaperStyle.plain => t.paper.plain,
+    NotePaperStyle.lined => t.paper.lined,
+    NotePaperStyle.grid => t.paper.grid,
+    NotePaperStyle.dotted => t.paper.dotted,
   };
 
   /// Symbol, das den Stil in der UI repräsentiert.

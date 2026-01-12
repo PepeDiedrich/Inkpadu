@@ -197,6 +197,7 @@ class _TranslationsPaperEn extends TranslationsPaperDe {
 	final TranslationsEn _root; // ignore: unused_field
 
 	// Translations
+	@override String get selectionTitle => 'Choose paper style';
 	@override String get plain => 'Plain';
 	@override String get lined => 'Lined';
 	@override String get grid => 'Grid';
@@ -479,6 +480,7 @@ extension on TranslationsEn {
 			'drawing.fountainPen' => 'Fountain pen',
 			'drawing.marker' => 'Marker',
 			'drawing.neon' => 'Neon',
+			'paper.selectionTitle' => 'Choose paper style',
 			'paper.plain' => 'Plain',
 			'paper.lined' => 'Lined',
 			'paper.grid' => 'Grid',
