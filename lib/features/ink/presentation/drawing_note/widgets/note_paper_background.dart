@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
@@ -112,45 +116,66 @@ class _NotePaperPainter extends CustomPainter {
     textPainter.paint(canvas, const Offset(padding, padding));
   }
 
+  // ⚡ Bolt Optimization: Use drawPath instead of repeated drawLine
   void _paintLined(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = lineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
+
+    final path = Path();
     const double spacing = 48;
     for (double y = 0; y <= size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      path.moveTo(0, y);
+      path.lineTo(size.width, y);
     }
+    canvas.drawPath(path, paint);
   }
 
+  // ⚡ Bolt Optimization: Use drawPath instead of repeated drawLine
   void _paintGrid(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = lineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
+    final path = Path();
     const double spacing = 48;
     for (double y = 0; y <= size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      path.moveTo(0, y);
+      path.lineTo(size.width, y);
     }
     for (double x = 0; x <= size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      path.moveTo(x, 0);
+      path.lineTo(x, size.height);
     }
+    canvas.drawPath(path, paint);
   }
 
+  // ⚡ Bolt Optimization: Use drawRawPoints instead of repeated drawCircle
   void _paintDotted(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = lineColor
-      ..style = PaintingStyle.fill;
-
     const double spacing = 36;
     const double radius = 1.4;
+
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = radius * 2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.fill;
+
+    // Use Float32List for lower memory overhead and raw drawing performance
+    final List<double> points = [];
+
     for (double y = 0; y <= size.height; y += spacing) {
       final double offset = (y ~/ spacing).isEven ? 0 : spacing / 2;
       for (double x = -offset; x <= size.width; x += spacing) {
-        canvas.drawCircle(Offset(x, y), radius, paint);
+        points.add(x);
+        points.add(y);
       }
     }
+
+    final rawPoints = Float32List.fromList(points);
+    canvas.drawRawPoints(ui.PointMode.points, rawPoints, paint);
   }
 
   @override
