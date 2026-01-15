@@ -22,18 +22,25 @@ class AssistantDebugSection extends StatelessWidget {
 
   /// Vollständiger Prompttext, der an das Modell gesendet wurde.
   final String prompt;
+
   /// Kombinierter Snapshot der Zeichenfläche.
   final CombinedSnapshot? snapshot;
+
   /// Geschätzte Anzahl konsumierter Tokens.
   final int? tokenEstimate;
+
   /// Anzahl erkannter Stroke-Cluster auf der Zeichenfläche.
   final int totalClusters;
+
   /// JSON-Vorschau der generierten Payload.
   final String? payloadPreview;
+
   /// Geometrische Formen der Cluster zur Visualisierung.
   final List<ClusterShapeData> clusterShapes;
+
   /// Ob Bounding-Boxen und Hüllen angezeigt werden sollen.
   final bool showClusterInfo;
+
   /// Geschätzte Tokens für den PDF-Kontext (zählt nicht zum Limit).
   final int pdfContextTokens;
 
@@ -45,8 +52,8 @@ class AssistantDebugSection extends StatelessWidget {
 
     final String tokenLabel = tokenEstimate != null
         ? pdfContextTokens > 0
-            ? 'Tokens: $tokenEstimate (+$pdfContextTokens PDF)'
-            : 'Token-Schätzung: $tokenEstimate T.'
+              ? 'Tokens: $tokenEstimate (+$pdfContextTokens PDF)'
+              : 'Token-Schätzung: $tokenEstimate T.'
         : 'Token-Schätzung: –';
 
     final List<Widget> children = <Widget>[
@@ -212,10 +219,7 @@ class AssistantDebugSection extends StatelessWidget {
         )
         ..add(const SizedBox(height: 6))
         ..add(
-          _ClusterDebugPreview(
-            shapes: clusterShapes,
-            colorScheme: colorScheme,
-          ),
+          _ClusterDebugPreview(shapes: clusterShapes, colorScheme: colorScheme),
         )
         ..add(const SizedBox(height: 6))
         ..add(
@@ -247,29 +251,26 @@ class AssistantDebugSection extends StatelessWidget {
 }
 
 class _ClusterDebugPreview extends StatelessWidget {
-  const _ClusterDebugPreview({
-    required this.shapes,
-    required this.colorScheme,
-  });
+  const _ClusterDebugPreview({required this.shapes, required this.colorScheme});
 
   final List<ClusterShapeData> shapes;
   final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(14),
+    child: Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: colorScheme.outlineVariant),
-          ),
-          child: AspectRatio(
-            aspectRatio: 4 / 3,
-            child: CustomPaint(painter: _ClusterPreviewPainter(shapes)),
-          ),
-        ),
-      );
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: AspectRatio(
+        aspectRatio: 4 / 3,
+        child: CustomPaint(painter: _ClusterPreviewPainter(shapes)),
+      ),
+    ),
+  );
 }
 
 class _ClusterPreviewPainter extends CustomPainter {

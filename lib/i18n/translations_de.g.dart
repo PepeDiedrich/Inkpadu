@@ -379,6 +379,9 @@ class TranslationsPaperDe {
 
 	// Translations
 
+	/// de: 'Hintergrund wählen'
+	String get select => 'Hintergrund wählen';
+
 	/// de: 'Blanko'
 	String get plain => 'Blanko';
 
@@ -922,6 +925,7 @@ extension on Translations {
 			'drawing.fountainPen' => 'Füller',
 			'drawing.marker' => 'Marker',
 			'drawing.neon' => 'Neon',
+			'paper.select' => 'Hintergrund wählen',
 			'paper.plain' => 'Blanko',
 			'paper.lined' => 'Liniert',
 			'paper.grid' => 'Kariert',

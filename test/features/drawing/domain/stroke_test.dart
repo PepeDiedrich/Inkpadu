@@ -15,7 +15,9 @@ void main() {
     });
 
     test('creates Stroke with custom values', () {
-      final points = [DrawingPoint(position: const Offset(0, 0), pressure: 1.0)];
+      final points = [
+        DrawingPoint(position: const Offset(0, 0), pressure: 1.0),
+      ];
       final stroke = Stroke(
         points: points,
         color: Colors.red,
@@ -106,7 +108,9 @@ void main() {
 
     group('serialization', () {
       test('toJson converts correctly', () {
-        final points = [DrawingPoint(position: const Offset(10, 20), pressure: 0.8)];
+        final points = [
+          DrawingPoint(position: const Offset(10, 20), pressure: 0.8),
+        ];
         final stroke = Stroke(
           id: 'test-id',
           points: points,
@@ -135,8 +139,8 @@ void main() {
           'width': 6.0,
           'isHighlighter': false,
           'points': [
-            {'x': 5.0, 'y': 5.0, 'p': 0.5}
-          ]
+            {'x': 5.0, 'y': 5.0, 'p': 0.5},
+          ],
         };
 
         final stroke = Stroke.fromJson(json);
@@ -150,11 +154,12 @@ void main() {
       });
 
       test('fromJson handles missing optional fields', () {
-        final json = {
-          'points': <dynamic>[],
-        };
+        final json = {'points': <dynamic>[]};
         final stroke = Stroke.fromJson(json);
-        expect(stroke.id, isNotNull); // Should generate new ID if missing? Logic says id = json['id'] as String? which is nullable in factory but constructor generates it.
+        expect(
+          stroke.id,
+          isNotNull,
+        ); // Should generate new ID if missing? Logic says id = json['id'] as String? which is nullable in factory but constructor generates it.
         // Wait, factory passes: id: json['id'] as String?. If null, constructor generates it.
         expect(stroke.color, Colors.black); // Default
         expect(stroke.baseWidth, 4.0); // Default
