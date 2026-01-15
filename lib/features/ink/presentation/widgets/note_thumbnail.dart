@@ -35,9 +35,7 @@ class NoteThumbnail extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(7),
@@ -55,13 +53,16 @@ class NoteThumbnail extends StatelessWidget {
     double maxX = double.negativeInfinity;
     double maxY = double.negativeInfinity;
 
+    // ⚡ Bolt Optimization: Use cached bounding boxes instead of iterating points.
+    // This reduces complexity from O(TotalPoints) to O(Strokes).
     for (final stroke in page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dx < minX) minX = point.position.dx;
-        if (point.position.dy < minY) minY = point.position.dy;
-        if (point.position.dx > maxX) maxX = point.position.dx;
-        if (point.position.dy > maxY) maxY = point.position.dy;
-      }
+      if (stroke.points.isEmpty) continue;
+
+      final rect = stroke.boundingBox;
+      if (rect.left < minX) minX = rect.left;
+      if (rect.top < minY) minY = rect.top;
+      if (rect.right > maxX) maxX = rect.right;
+      if (rect.bottom > maxY) maxY = rect.bottom;
     }
 
     final contentWidth = maxX - minX;
@@ -93,15 +94,14 @@ class NoteThumbnail extends StatelessWidget {
   }
 
   Widget _buildEmptyPreview(BuildContext context) => Center(
-        child: Icon(
-          Icons.draw_outlined,
-          size: size * 0.4,
-          color: Theme.of(context)
-              .colorScheme
-              .onSurfaceVariant
-              .withValues(alpha: 0.5),
-        ),
-      );
+    child: Icon(
+      Icons.draw_outlined,
+      size: size * 0.4,
+      color: Theme.of(
+        context,
+      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    ),
+  );
 }
 
 /// Custom painter that renders scaled strokes for the thumbnail.

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('EditorPage zeigt die initialen Inhalte an', (WidgetTester tester) async {
+  testWidgets('EditorPage zeigt die initialen Inhalte an', (
+    WidgetTester tester,
+  ) async {
     final note = Note(
       id: 'note-1',
       title: 'Projektplan',
@@ -15,9 +17,7 @@ void main() {
 
     await tester.pumpWidget(
       TranslationProvider(
-        child: MaterialApp(
-          home: EditorPage(initialNote: note),
-        ),
+        child: MaterialApp(home: EditorPage(initialNote: note)),
       ),
     );
 

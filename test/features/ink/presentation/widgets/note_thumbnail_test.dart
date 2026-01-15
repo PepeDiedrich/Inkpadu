@@ -7,7 +7,9 @@ import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  testWidgets('NoteThumbnail renders correctly with strokes', (WidgetTester tester) async {
+  testWidgets('NoteThumbnail renders correctly with strokes', (
+    WidgetTester tester,
+  ) async {
     // Create a dummy stroke
     final stroke = Stroke(
       points: [
@@ -42,5 +44,34 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('NoteThumbnail handles empty strokes gracefully', (WidgetTester tester) async {
+    // Create an empty stroke
+    final emptyStroke = Stroke(points: [], baseWidth: 5.0);
+     final stroke = Stroke(
+      points: [
+        DrawingPoint(position: const Offset(10, 10)),
+        DrawingPoint(position: const Offset(20, 20)),
+      ],
+      baseWidth: 5.0,
+    );
+
+    final page = NotePage(strokes: [emptyStroke, stroke]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NoteThumbnail(
+            page: page,
+            paperStyle: NotePaperStyle.plain,
+            size: 100,
+          ),
+        ),
+      ),
+    );
+
+    // Should not crash and should render
+    expect(find.byType(NoteThumbnail), findsOneWidget);
   });
 }

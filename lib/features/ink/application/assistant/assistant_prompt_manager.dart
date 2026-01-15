@@ -4,7 +4,7 @@ import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dar
 import 'package:ai_handwriting_app/features/ink/application/assistant/assistant_request_type.dart';
 
 /// Verwaltet Prompts, Nachrichtenzusammenfassungen und Token-Schätzungen.
-/// 
+///
 /// Diese Klasse bietet Funktionen zur Verwaltung von Assistenten-Prompts,
 /// einschließlich Prompt-Vorlagen für verschiedene Anfragety­pen, Erstellung
 /// von Benutzerinhalten für Chat-Vorlagen, Token-Schätzung und
@@ -28,7 +28,7 @@ class AssistantPromptManager {
   }
 
   /// Baut die Nutzlast für den `user`-Teil der Chat-Vorgabe zusammen.
-  /// 
+  ///
   /// Der [importedPdfText] wird NICHT mehr hier eingefügt, sondern separat
   /// als System-Nachricht gesendet, damit er immer vollständig im Kontext bleibt.
   List<Map<String, dynamic>> buildUserContent({
@@ -68,16 +68,13 @@ class AssistantPromptManager {
       });
     }
 
-    content.add({
-      'type': 'text',
-      'text': 'Frage: $prompt',
-    });
+    content.add({'type': 'text', 'text': 'Frage: $prompt'});
 
     return content;
   }
 
   /// Schätzt die zu erwartenden Tokens für Text- und Bildanteile.
-  /// 
+  ///
   /// Der [pdfContextTokens] wird separat berechnet und hier nicht einbezogen,
   /// da der PDF-Kontext nicht zum max_completion_tokens Limit zählt.
   int estimateTokenUsage({
@@ -99,7 +96,7 @@ class AssistantPromptManager {
   }
 
   /// Schätzt die Tokens für den PDF-Kontext.
-  /// 
+  ///
   /// Diese werden separat ausgewiesen, da der PDF-Kontext immer vollständig
   /// mitgesendet wird und nicht zum max_completion_tokens Limit zählt.
   int estimatePdfContextTokens(String? pdfText) {

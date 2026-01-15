@@ -5,23 +5,30 @@ void main() {
   group('AssistantPersonaType', () {
     test('hat drei Werte', () {
       expect(AssistantPersonaType.values.length, 3);
-      expect(AssistantPersonaType.values, containsAll([
-        AssistantPersonaType.critical,
-        AssistantPersonaType.praising,
-        AssistantPersonaType.custom,
-      ]));
+      expect(
+        AssistantPersonaType.values,
+        containsAll([
+          AssistantPersonaType.critical,
+          AssistantPersonaType.praising,
+          AssistantPersonaType.custom,
+        ]),
+      );
     });
   });
 
   group('AssistantPersonaConfig', () {
     test('liefert kritischen Prompt für critical Typ', () {
-      const config = AssistantPersonaConfig(type: AssistantPersonaType.critical);
+      const config = AssistantPersonaConfig(
+        type: AssistantPersonaType.critical,
+      );
       expect(config.systemPrompt, contains('streng'));
       expect(config.systemPrompt, contains('Trainer'));
     });
 
     test('liefert lobenden Prompt für praising Typ', () {
-      const config = AssistantPersonaConfig(type: AssistantPersonaType.praising);
+      const config = AssistantPersonaConfig(
+        type: AssistantPersonaType.praising,
+      );
       expect(config.systemPrompt, contains('warmherzig'));
       expect(config.systemPrompt, contains('ermutigend'));
     });
@@ -55,7 +62,7 @@ void main() {
         type: AssistantPersonaType.critical,
       );
       final copied = original.copyWith(type: AssistantPersonaType.praising);
-      
+
       expect(original.type, AssistantPersonaType.critical);
       expect(copied.type, AssistantPersonaType.praising);
     });
@@ -66,7 +73,7 @@ void main() {
         customPrompt: 'Test Prompt',
       );
       final copied = original.copyWith(type: AssistantPersonaType.critical);
-      
+
       expect(copied.customPrompt, 'Test Prompt');
     });
 
@@ -89,12 +96,8 @@ void main() {
     });
 
     test('hashCode ist konsistent mit equality', () {
-      const a = AssistantPersonaConfig(
-        type: AssistantPersonaType.praising,
-      );
-      const b = AssistantPersonaConfig(
-        type: AssistantPersonaType.praising,
-      );
+      const a = AssistantPersonaConfig(type: AssistantPersonaType.praising);
+      const b = AssistantPersonaConfig(type: AssistantPersonaType.praising);
 
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -103,12 +106,12 @@ void main() {
       for (final type in AssistantPersonaType.values) {
         final config = AssistantPersonaConfig(
           type: type,
-          customPrompt: type == AssistantPersonaType.custom 
-            ? 'Custom mit LaTeX (\$…\$)' 
-            : null,
+          customPrompt: type == AssistantPersonaType.custom
+              ? 'Custom mit LaTeX (\$…\$)'
+              : null,
         );
         final prompt = config.systemPrompt;
-        
+
         if (type != AssistantPersonaType.custom) {
           expect(
             prompt.contains('LaTeX') || prompt.contains(r'$'),
