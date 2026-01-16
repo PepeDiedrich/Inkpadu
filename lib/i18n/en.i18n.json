@@ -96,7 +96,8 @@
     "plain": "Plain",
     "lined": "Lined",
     "grid": "Grid",
-    "dotted": "Dotted"
+    "dotted": "Dotted",
+    "chooseBackground": "Choose background"
   },
   "ai": {
     "title": "AI Features",
