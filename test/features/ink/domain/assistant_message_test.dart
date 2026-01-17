@@ -3,207 +3,146 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AssistantMessage', () {
-    final testTime = DateTime(2024, 6, 15, 14, 30);
+    test('initializes correctly', () {
+      final now = DateTime.now();
+      final message = AssistantMessage(
+        question: 'Q',
+        answer: 'A',
+        visionDescription: 'desc',
+        createdAt: now,
+        reusedCachedDescription: true,
+      );
 
-    group('constructor', () {
-      test('creates message with required properties', () {
-        final message = AssistantMessage(
-          question: 'What is this?',
-          answer: 'This is a test.',
-          createdAt: testTime,
-        );
-        expect(message.question, 'What is this?');
-        expect(message.answer, 'This is a test.');
-        expect(message.createdAt, testTime);
-      });
+      expect(message.question, 'Q');
+      expect(message.answer, 'A');
+      expect(message.visionDescription, 'desc');
+      expect(message.createdAt, now);
+      expect(message.reusedCachedDescription, isTrue);
+    });
 
-      test('has null visionDescription by default', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'A',
-          createdAt: testTime,
-        );
-        expect(message.visionDescription, isNull);
-      });
+    test('copyWith updates fields', () {
+      final now = DateTime.now();
+      final message = AssistantMessage(
+        question: 'Q',
+        answer: 'A',
+        createdAt: now,
+      );
 
-      test('has false reusedCachedDescription by default', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'A',
-          createdAt: testTime,
-        );
-        expect(message.reusedCachedDescription, false);
-      });
+      final updated = message.copyWith(
+        question: 'Q2',
+        answer: 'A2',
+        visionDescription: 'desc2',
+        reusedCachedDescription: true,
+      );
 
-      test('can set all optional properties', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'A',
-          createdAt: testTime,
-          visionDescription: 'A diagram',
-          reusedCachedDescription: true,
-        );
-        expect(message.visionDescription, 'A diagram');
-        expect(message.reusedCachedDescription, true);
+      expect(updated.question, 'Q2');
+      expect(updated.answer, 'A2');
+      expect(updated.visionDescription, 'desc2');
+      expect(updated.createdAt, now);
+      expect(updated.reusedCachedDescription, isTrue);
+    });
+
+    test('copyWith handles null values correctly via sentinel', () {
+      final message = AssistantMessage(
+        question: 'Q',
+        answer: 'A',
+        visionDescription: 'desc',
+        createdAt: DateTime.now(),
+      );
+
+      final cleared = message.copyWith(visionDescription: null);
+      expect(cleared.visionDescription, isNull);
+
+      final kept = message.copyWith();
+      expect(kept.visionDescription, 'desc');
+    });
+
+    test('toJson returns correct map', () {
+      final now = DateTime.utc(2023, 1, 1, 12, 0, 0);
+      final message = AssistantMessage(
+        question: 'Q',
+        answer: 'A',
+        visionDescription: 'desc',
+        createdAt: now,
+        reusedCachedDescription: true,
+      );
+
+      final json = message.toJson();
+
+      expect(json, {
+        'question': 'Q',
+        'answer': 'A',
+        'vision_description': 'desc',
+        'created_at': '2023-01-01T12:00:00.000Z',
+        'reused_cached_description': true,
       });
     });
 
-    group('copyWith', () {
-      test('copies with new question', () {
-        final message = AssistantMessage(
-          question: 'Original',
-          answer: 'A',
-          createdAt: testTime,
-        );
-        final copied = message.copyWith(question: 'New Question');
-        expect(copied.question, 'New Question');
-        expect(copied.answer, 'A');
-      });
+    test('fromJson handles standard JSON', () {
+      final json = {
+        'question': 'Q',
+        'answer': 'A',
+        'vision_description': 'desc',
+        'created_at': '2023-01-01T12:00:00.000Z',
+        'reused_cached_description': true,
+      };
 
-      test('copies with new answer', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'Original',
-          createdAt: testTime,
-        );
-        final copied = message.copyWith(answer: 'New Answer');
-        expect(copied.answer, 'New Answer');
-      });
+      final message = AssistantMessage.fromJson(json);
 
-      test('copies with new visionDescription', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'A',
-          createdAt: testTime,
-        );
-        final copied = message.copyWith(visionDescription: 'New Description');
-        expect(copied.visionDescription, 'New Description');
-      });
-
-      test('can set visionDescription to null', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'A',
-          createdAt: testTime,
-          visionDescription: 'Existing',
-        );
-        final copied = message.copyWith(visionDescription: null);
-        expect(copied.visionDescription, isNull);
-      });
+      expect(message.question, 'Q');
+      expect(message.answer, 'A');
+      expect(message.visionDescription, 'desc');
+      expect(message.createdAt.toUtc().year, 2023);
+      expect(message.reusedCachedDescription, isTrue);
     });
 
-    group('toJson', () {
-      test('serializes all properties', () {
-        final message = AssistantMessage(
-          question: 'What is it?',
-          answer: 'A note.',
-          createdAt: testTime,
-          visionDescription: 'A sketch',
-          reusedCachedDescription: true,
-        );
-        final json = message.toJson();
-        expect(json['question'], 'What is it?');
-        expect(json['answer'], 'A note.');
-        expect(json['vision_description'], 'A sketch');
-        expect(json['reused_cached_description'], true);
-        expect(json['created_at'], testTime.toIso8601String());
-      });
+    test('fromJson handles int timestamp', () {
+      final now = DateTime.utc(2023, 1, 1, 12, 0, 0);
+      final json = {
+        'created_at': now.millisecondsSinceEpoch,
+      };
 
-      test('serializes null visionDescription', () {
-        final message = AssistantMessage(
-          question: 'Q',
-          answer: 'A',
-          createdAt: testTime,
-        );
-        final json = message.toJson();
-        expect(json['vision_description'], isNull);
-      });
+      final message = AssistantMessage.fromJson(json);
+
+      // We compare milliseconds to avoid timezone issues, but ensure we check rough equality
+      expect(
+        message.createdAt.millisecondsSinceEpoch,
+        now.millisecondsSinceEpoch,
+      );
     });
 
-    group('fromJson', () {
-      test('deserializes all properties', () {
-        final json = <String, dynamic>{
-          'question': 'What is it?',
-          'answer': 'A note.',
-          'vision_description': 'A sketch',
-          'created_at': testTime.toIso8601String(),
-          'reused_cached_description': true,
-        };
-        final message = AssistantMessage.fromJson(json);
-        expect(message.question, 'What is it?');
-        expect(message.answer, 'A note.');
-        expect(message.visionDescription, 'A sketch');
-        expect(message.reusedCachedDescription, true);
-      });
+    test('fromJson handles int/boolean flexible types', () {
+      final json = {
+        'reused_cached_description': 1, // int treated as bool true
+      };
+      final message = AssistantMessage.fromJson(json);
+      expect(message.reusedCachedDescription, isTrue);
 
-      test('handles empty question', () {
-        final json = <String, dynamic>{
-          'question': '',
-          'answer': 'A',
-          'created_at': testTime.toIso8601String(),
-        };
-        final message = AssistantMessage.fromJson(json);
-        expect(message.question, '');
-      });
+      final json2 = {
+        'reused_cached_description': 0, // int treated as bool false
+      };
+      final message2 = AssistantMessage.fromJson(json2);
+      expect(message2.reusedCachedDescription, isFalse);
+    });
 
-      test('handles missing question', () {
-        final json = <String, dynamic>{
-          'answer': 'A',
-          'created_at': testTime.toIso8601String(),
-        };
-        final message = AssistantMessage.fromJson(json);
-        expect(message.question, '');
-      });
+    test('fromJson handles edge cases (empty strings, nulls)', () {
+      final json = {
+        'question': null,
+        'answer': '',
+        'vision_description': '   ',
+        'created_at': null,
+      };
 
-      test('handles empty vision_description as null', () {
-        final json = <String, dynamic>{
-          'question': 'Q',
-          'answer': 'A',
-          'vision_description': '   ',
-          'created_at': testTime.toIso8601String(),
-        };
-        final message = AssistantMessage.fromJson(json);
-        expect(message.visionDescription, isNull);
-      });
+      final message = AssistantMessage.fromJson(json);
 
-      test('handles created_at as int (milliseconds)', () {
-        final millis = testTime.toUtc().millisecondsSinceEpoch;
-        final json = <String, dynamic>{
-          'question': 'Q',
-          'answer': 'A',
-          'created_at': millis,
-        };
-        final message = AssistantMessage.fromJson(json);
-        expect(message.createdAt.millisecondsSinceEpoch, millis);
-      });
-
-      test('handles reused_cached_description as number', () {
-        final json = <String, dynamic>{
-          'question': 'Q',
-          'answer': 'A',
-          'created_at': testTime.toIso8601String(),
-          'reused_cached_description': 1,
-        };
-        final message = AssistantMessage.fromJson(json);
-        expect(message.reusedCachedDescription, true);
-      });
-
-      test('roundtrip preserves data', () {
-        final original = AssistantMessage(
-          question: 'Roundtrip Q',
-          answer: 'Roundtrip A',
-          createdAt: testTime,
-          visionDescription: 'Roundtrip Desc',
-          reusedCachedDescription: true,
-        );
-        final json = original.toJson();
-        final restored = AssistantMessage.fromJson(json);
-        expect(restored.question, original.question);
-        expect(restored.answer, original.answer);
-        expect(restored.visionDescription, original.visionDescription);
-        expect(
-            restored.reusedCachedDescription, original.reusedCachedDescription);
-      });
+      expect(message.question, isEmpty);
+      expect(message.answer, isEmpty);
+      expect(message.visionDescription, isNull);
+      // Defaults to now(), so we just check it's recent
+      expect(
+        message.createdAt.difference(DateTime.now()).inSeconds.abs(),
+        lessThan(5),
+      );
     });
   });
 }
