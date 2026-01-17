@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Ergebnis des Metadaten-Dialogs.
@@ -70,18 +71,22 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
     );
   }
 
+  String _getStyleLabel(BuildContext context, NotePaperStyle style) {
+    switch (style) {
+      case NotePaperStyle.plain:
+        return context.t.paper.plain;
+      case NotePaperStyle.lined:
+        return context.t.paper.lined;
+      case NotePaperStyle.grid:
+        return context.t.paper.grid;
+      case NotePaperStyle.dotted:
+        return context.t.paper.dotted;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final titleText = widget.isEditing ? context.t.notes.adjustTitlePaper : context.t.notes.newNote;
-    final segments = NotePaperStyle.values
-        .map(
-          (style) => ButtonSegment<NotePaperStyle>(
-            value: style,
-            icon: Icon(style.icon, size: 16),
-            label: Text(style.label),
-          ),
-        )
-        .toList(growable: false);
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -125,20 +130,29 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    'Paper style',
+                    context.t.notes.selectPaperStyle,
                     style: theme.textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 12),
-                  SegmentedButton<NotePaperStyle>(
-                    segments: segments,
-                    selected: <NotePaperStyle>{_selectedStyle},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (selection) {
-                      final next = selection.first;
-                      if (next != _selectedStyle) {
-                        setState(() => _selectedStyle = next);
+                  ListTile(
+                    title: Text(_getStyleLabel(context, _selectedStyle)),
+                    leading: Icon(_selectedStyle.icon),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () async {
+                      final result = await showDialog<NotePaperStyle>(
+                        context: context,
+                        builder: (context) => PaperStyleSelectionDialog(
+                          initialPaperStyle: _selectedStyle,
+                        ),
+                      );
+                      if (result != null && mounted) {
+                        setState(() => _selectedStyle = result);
                       }
                     },
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ],
               ),

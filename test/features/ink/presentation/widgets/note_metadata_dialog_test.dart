@@ -146,7 +146,7 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('opens paper style dialog to show options', (tester) async {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -170,11 +170,21 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
+      // Initially only the selected style (Blanko) should be visible
       expect(find.text('Blanko'), findsOneWidget);
-      expect(find.text('Liniert'), findsOneWidget);
-      expect(find.text('Kariert'), findsOneWidget);
-      expect(find.text('Punktiert'), findsOneWidget);
+      expect(find.text('Liniert'), findsNothing);
+
+      // Tap the style selection tile
+      await tester.tap(find.text('Blanko'));
+      await tester.pumpAndSettle();
+
+      // Now the selection dialog should be open and options visible
+      expect(find.text('Hintergrund wählen'), findsAtLeastNWidgets(1));
+      // We expect multiple because of preview, grid item, and the underlying dialog (if not fully covered/pumped)
+      expect(find.text('Blanko'), findsAtLeastNWidgets(2));
+      expect(find.text('Liniert'), findsAtLeastNWidgets(1));
+      expect(find.text('Kariert'), findsAtLeastNWidgets(1));
+      expect(find.text('Punktiert'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('can enter title text', (tester) async {
