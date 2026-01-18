@@ -93,6 +93,7 @@
     "neon": "Neon"
   },
   "paper": {
+    "title": "Select Background",
     "plain": "Plain",
     "lined": "Lined",
     "grid": "Grid",
