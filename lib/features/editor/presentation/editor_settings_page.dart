@@ -16,11 +16,12 @@ class EditorSettingsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.t.settings.editorSettings)),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: AnimatedBuilder(
-          animation: settings,
-          builder: (context, _) {
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: AnimatedBuilder(
+            animation: settings,
+            builder: (context, _) {
             final current = settings.sidebarSide;
             final bool simplifierEnabled = settings.lineSimplifierEnabled;
             final double simplifierStrength = settings.lineSimplifierStrength;
@@ -140,6 +141,6 @@ class EditorSettingsPage extends StatelessWidget {
           },
         ),
       ),
-    );
+    ));
   }
 }
