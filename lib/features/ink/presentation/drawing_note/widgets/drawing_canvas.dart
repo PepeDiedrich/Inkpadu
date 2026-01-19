@@ -914,6 +914,90 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   Widget build(BuildContext context) {
     final editorSettings = EditorSettingsScope.of(context);
     final bool showDebugOverlay = editorSettings.debugModeEnabled;
+
+    // Optimization: Pre-build static layers that don't change during drawing strokes.
+    // They are only rebuilt when DrawingCanvas rebuilds (e.g. version change or resize),
+    // not on every frame of the drag loop.
+
+    final finishedStrokesLayer = RepaintBoundary(
+      child: CustomPaint(
+        painter: FinishedStrokesPainter(
+          strokes: widget.drawingController.strokes,
+          version: widget.drawingController.strokesVersion,
+        ),
+      ),
+    );
+
+    final debugLayer = showDebugOverlay
+        ? Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: ConvexHullsPainter(
+                  hulls: _convexHulls,
+                  boundingBoxes: _boundingBoxes,
+                ),
+              ),
+            ),
+          )
+        : null;
+
+    final linkWidgets = widget.links.map((link) => Positioned(
+          left: link.position.dx,
+          top: link.position.dy,
+          child: GestureDetector(
+            onTap: () => widget.onLinkTap?.call(link),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withValues(alpha: 0.9),
+                border: Border.all(
+                  color:
+                      Theme.of(context).colorScheme.primary,
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.link,
+                    size: 14,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    link.label,
+                    style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )).toList();
+
     return ScrollConfiguration(
       behavior: const _DrawingScrollBehavior(),
       child: NotificationListener<ScrollNotification>(
@@ -959,14 +1043,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                     animation: widget.drawingController,
                     builder: (context, child) => Stack(
                       children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: FinishedStrokesPainter(
-                              strokes: widget.drawingController.strokes,
-                              version: widget.drawingController.strokesVersion,
-                            ),
-                          ),
-                        ),
+                        finishedStrokesLayer, // Captured from outer scope (static during drag)
                         RepaintBoundary(
                           child: CustomPaint(
                             painter: CurrentStrokePainter(
@@ -982,73 +1059,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                             ),
                           ),
                         ),
-                        if (showDebugOverlay)
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: CustomPaint(
-                                painter: ConvexHullsPainter(
-                                  hulls: _convexHulls,
-                                  boundingBoxes: _boundingBoxes,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ...widget.links.map((link) => Positioned(
-                              left: link.position.dx,
-                              top: link.position.dy,
-                              child: GestureDetector(
-                                onTap: () => widget.onLinkTap?.call(link),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surface
-                                        .withValues(alpha: 0.9),
-                                    border: Border.all(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      width: 1.5,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.link,
-                                        size: 14,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        link.label,
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            )),
+                        if (debugLayer != null) debugLayer, // Captured
+                        ...linkWidgets, // Captured
                       ],
                     ),
                   ),

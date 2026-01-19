@@ -1,6 +1,7 @@
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
@@ -139,6 +140,57 @@ void main() {
 
       expect(controller.currentStroke, isNull);
       expect(persistCalled, true);
+    });
+
+    testWidgets('verifiziert, dass FinishedStrokesPainter aktualisiert wird, wenn Strich beendet', (WidgetTester tester) async {
+      // Dieser Test ist kritisch für die Verifizierung der Optimierung.
+      // Er prüft, ob der FinishedStrokesPainter neue Striche anzeigt, nachdem DrawingCanvas rebuilt wurde.
+
+      await tester.pumpWidget(createTestWidget(
+        controller: controller,
+        currentTool: penTool,
+        resolveTool: resolveTool,
+        eraserRadiusFor: eraserRadiusFor,
+        onPersistDrawing: () {},
+        onTwoFingerUndo: () {},
+        onThreeFingerRedo: () {},
+      ));
+
+      // Initial sollte 0 Striche sein
+      expect(controller.strokes.length, 0);
+
+      // Zeichne einen Strich
+      final center = tester.getCenter(find.byType(DrawingCanvas));
+      final gesture = await tester.startGesture(center);
+      await tester.pump(); // Start
+      await gesture.moveBy(const Offset(10, 10));
+      await tester.pump(); // Move
+      await gesture.up();
+      await tester.pump(); // End -> Trigger setState in DrawingCanvas
+
+      // Erwarte 1 Strich im Controller
+      expect(controller.strokes.length, 1);
+
+      // Suche den FinishedStrokesPainter und prüfe, ob er den Strich hat
+      final finder = find.descendant(
+        of: find.byType(DrawingCanvas),
+        matching: find.byType(CustomPaint),
+      );
+
+      // Wir müssen den richtigen CustomPaint finden. Es gibt mehrere (CurrentStroke, FinishedStrokes, Debug).
+      // Wir suchen den, der FinishedStrokesPainter nutzt.
+      final customPaints = tester.widgetList<CustomPaint>(finder);
+      FinishedStrokesPainter? finishedPainter;
+
+      for (final cp in customPaints) {
+        if (cp.painter is FinishedStrokesPainter) {
+          finishedPainter = cp.painter as FinishedStrokesPainter;
+          break;
+        }
+      }
+
+      expect(finishedPainter, isNotNull);
+      expect(finishedPainter!.strokes.length, 1, reason: "FinishedStrokesPainter sollte 1 Strich haben");
     });
 
     testWidgets('handhabt Zwei-Finger-Tap für Undo', (WidgetTester tester) async {
