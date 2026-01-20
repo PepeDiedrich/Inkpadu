@@ -37,7 +37,8 @@ class AuthControllerInkNotesAuth implements InkNotesAuth {
   String? get email => _authController.email;
 
   @override
-  void addListener(VoidCallback listener) => _authController.addListener(listener);
+  void addListener(VoidCallback listener) =>
+      _authController.addListener(listener);
 
   @override
   void removeListener(VoidCallback listener) =>
