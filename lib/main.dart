@@ -20,6 +20,7 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_se
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/azure_assistant_api_service.dart';
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/background/sync_background.dart';
@@ -27,6 +28,9 @@ import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize localization with device locale
@@ -97,7 +101,13 @@ class _InkpaduAppState extends State<InkpaduApp> {
     }
   }
 
-  void _onAuthChanged() => setState(() {});
+  void _onAuthChanged() {
+    setState(() {});
+    // Clear cached AI token when user logs out to prevent token leakage
+    if (_authController.status == AuthStatus.unauthenticated) {
+      AzureAssistantApiService.clearCachedToken();
+    }
+  }
 
   @override
   void dispose() {

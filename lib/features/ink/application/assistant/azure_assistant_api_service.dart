@@ -42,6 +42,12 @@ class AzureAssistantApiService {
   // Fallback-Gültigkeit, falls keine Expiration vom Server kommt (5 Minuten)
   static const Duration _defaultTokenValidity = Duration(minutes: 5);
 
+  /// Löscht das gecachte Token (z.B. beim Logout).
+  static void clearCachedToken() {
+    _cachedAccessToken = null;
+    _cachedTokenExpiry = null;
+  }
+
   /// Baut die API-Payload auf und erzeugt eine Vorschau zur Anzeige im UI.
   AzureAssistantPreparedRequest prepareRequest(AzureAssistantRequest request) {
     final Map<String, dynamic> payload = _buildAzureRequest(request);
