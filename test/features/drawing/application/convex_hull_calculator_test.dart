@@ -237,25 +237,18 @@ void main() {
     });
 
     test('handles overlapping clusters correctly in background', () async {
-      // Two overlapping strokes (boxes overlap)
+       // Two overlapping strokes (boxes overlap)
       final strokeA = _strokeWithPoints(const [
-        Offset(0, 0),
-        Offset(20, 20),
-        Offset(0, 20),
-        Offset(20, 0),
+        Offset(0, 0), Offset(20, 20),
+        Offset(0, 20), Offset(20, 0),
       ], width: 2);
 
       final strokeB = _strokeWithPoints(const [
-        Offset(15, 15),
-        Offset(35, 35),
-        Offset(15, 35),
-        Offset(35, 15),
+        Offset(15, 15), Offset(35, 35),
+        Offset(15, 35), Offset(35, 15),
       ], width: 2);
 
-      final result = await ConvexHullCalculator.calculateOverlays([
-        strokeA,
-        strokeB,
-      ]);
+      final result = await ConvexHullCalculator.calculateOverlays([strokeA, strokeB]);
 
       // Should be merged into 1 cluster due to overlapping boxes
       expect(result.clusters, hasLength(1));

@@ -79,12 +79,14 @@ class InkNoteDto {
       resolvedStyle = NotePaperStyle.plain;
     }
 
-    final List<NotePage> effectivePages = pages.isEmpty
-        ? <NotePage>[NotePage(strokes: const <Stroke>[])]
+  final List<NotePage> effectivePages = pages.isEmpty
+    ? <NotePage>[NotePage(strokes: const <Stroke>[])]
         : pages;
-    final int normalizedIndex = effectivePages.isEmpty
-        ? 0
-        : lastOpenedPageIndex.clamp(0, effectivePages.length - 1).toInt();
+  final int normalizedIndex = effectivePages.isEmpty
+    ? 0
+    : lastOpenedPageIndex
+      .clamp(0, effectivePages.length - 1)
+      .toInt();
 
     return InkNote(
       id: id,
@@ -109,4 +111,5 @@ class InkNoteDto {
     'updated_at': updatedAt.toIso8601String(),
     'created_at': (createdAt ?? updatedAt).toIso8601String(),
   };
+
 }

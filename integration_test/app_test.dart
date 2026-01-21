@@ -14,9 +14,8 @@ class MockConnectivityPlatform extends ConnectivityPlatform {
       Stream.value([ConnectivityResult.wifi]);
 
   @override
-  Future<List<ConnectivityResult>> checkConnectivity() async => [
-    ConnectivityResult.wifi,
-  ];
+  Future<List<ConnectivityResult>> checkConnectivity() async =>
+      [ConnectivityResult.wifi];
 }
 
 void main() {

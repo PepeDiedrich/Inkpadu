@@ -50,9 +50,7 @@ class _EditorPageState extends State<EditorPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(
-        widget.isNew ? context.t.editor.newNote : context.t.editor.editNote,
-      ),
+      title: Text(widget.isNew ? context.t.editor.newNote : context.t.editor.editNote),
       actions: [
         TextButton(onPressed: _saveNote, child: Text(context.t.common.save)),
       ],

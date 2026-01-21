@@ -8,13 +8,10 @@ import 'package:flutter/material.dart';
 enum ShapeType {
   /// Eine gerade Linie.
   line,
-
   /// Ein Dreieck.
   triangle,
-
   /// Ein Rechteck (inkl. Quadrat).
   rectangle,
-
   /// Ein Kreis oder eine Ellipse.
   ellipse,
 }
@@ -35,7 +32,7 @@ class ShapeMatch {
 class LineMatch extends ShapeMatch {
   /// Erstellt ein [LineMatch].
   LineMatch({required List<DrawingPoint> points})
-    : super(type: ShapeType.line, correctedPoints: points);
+      : super(type: ShapeType.line, correctedPoints: points);
 }
 
 /// Ein erkanntes Dreieck.
@@ -44,15 +41,16 @@ class TriangleMatch extends ShapeMatch {
   final List<Offset> vertices;
 
   /// Erstellt ein [TriangleMatch].
-  TriangleMatch({required this.vertices, required super.correctedPoints})
-    : super(type: ShapeType.triangle);
+  TriangleMatch({
+    required this.vertices,
+    required super.correctedPoints,
+  }) : super(type: ShapeType.triangle);
 }
 
 /// Ein erkanntes Rechteck.
 class RectangleMatch extends ShapeMatch {
   /// Das zugrundeliegende Rechteck.
   final Rect rect;
-
   /// Der Rotationswinkel (Standard: 0.0).
   final double angle;
 
@@ -70,8 +68,10 @@ class EllipseMatch extends ShapeMatch {
   final Rect boundingBox;
 
   /// Erstellt ein [EllipseMatch].
-  EllipseMatch({required this.boundingBox, required super.correctedPoints})
-    : super(type: ShapeType.ellipse);
+  EllipseMatch({
+    required this.boundingBox,
+    required super.correctedPoints,
+  }) : super(type: ShapeType.ellipse);
 }
 
 /// Eine Hilfsklasse zur Erkennung von geometrischen Formen aus einer Liste von Punkten.
@@ -80,16 +80,13 @@ class ShapeRecognizer {
   ///
   /// [tolerance] gibt den maximal erlaubten durchschnittlichen oder absoluten Abstand
   /// der Punkte zur idealen Form an.
-  static ShapeMatch? recognizeShape(
-    List<DrawingPoint> points,
-    double tolerance,
-  ) {
+  static ShapeMatch? recognizeShape(List<DrawingPoint> points, double tolerance) {
     if (points.length < 3) {
       if (points.length == 2) {
-        // Maybe a line?
-        if (_isLine(points, tolerance)) {
-          return LineMatch(points: [points.first, points.last]);
-        }
+         // Maybe a line?
+         if (_isLine(points, tolerance)) {
+            return LineMatch(points: [points.first, points.last]);
+         }
       }
       return null;
     }
@@ -102,8 +99,7 @@ class ShapeRecognizer {
     }
 
     // Für geschlossene Formen prüfen wir, ob Start und Ende nah beieinander liegen.
-    final bool isClosed =
-        (points.first.position - points.last.position).distance < tolerance * 4;
+    final bool isClosed = (points.first.position - points.last.position).distance < tolerance * 4;
 
     // Vereinfachen der Punkte, um Ecken zu finden.
     // Wir nutzen hier eine etwas aggressive Toleranz für die Eckenerkennung.
@@ -191,12 +187,11 @@ class ShapeRecognizer {
       final avgError = totalError / points.length;
 
       // Wenn der Fehler klein genug ist -> Ellipse
-      if (avgError < 0.2) {
-        // Heuristik
-        return EllipseMatch(
-          boundingBox: rect,
-          correctedPoints: generateEllipsePoints(rect, points.first.pressure),
-        );
+      if (avgError < 0.2) { // Heuristik
+         return EllipseMatch(
+           boundingBox: rect,
+           correctedPoints: generateEllipsePoints(rect, points.first.pressure),
+         );
       }
     }
 
@@ -215,11 +210,7 @@ class ShapeRecognizer {
     double maxDistance = 0.0;
 
     for (final point in points) {
-      final double distance = _distanceToLineSegment(
-        point.position,
-        start,
-        end,
-      );
+      final double distance = _distanceToLineSegment(point.position, start, end);
       if (distance > maxDistance) {
         maxDistance = distance;
       }
@@ -232,8 +223,7 @@ class ShapeRecognizer {
     final double l2 = (b - a).distanceSquared;
     if (l2 == 0) return (p - a).distance;
 
-    final double t =
-        ((p.dx - a.dx) * (b.dx - a.dx) + (p.dy - a.dy) * (b.dy - a.dy)) / l2;
+    final double t = ((p.dx - a.dx) * (b.dx - a.dx) + (p.dy - a.dy) * (b.dy - a.dy)) / l2;
     final double tClamped = t.clamp(0.0, 1.0);
 
     final double projectionX = a.dx + tClamped * (b.dx - a.dx);
@@ -246,10 +236,7 @@ class ShapeRecognizer {
   }
 
   /// Generiert Punkte für ein Polygon aus den gegebenen [vertices].
-  static List<DrawingPoint> generatePolygonPoints(
-    List<Offset> vertices,
-    double pressure,
-  ) {
+  static List<DrawingPoint> generatePolygonPoints(List<Offset> vertices, double pressure) {
     if (vertices.isEmpty) return [];
     final points = <DrawingPoint>[];
     for (int i = 0; i < vertices.length; i++) {
@@ -262,12 +249,12 @@ class ShapeRecognizer {
 
   /// Generiert Punkte für ein Rechteck [rect].
   static List<DrawingPoint> generateRectPoints(Rect rect, double pressure) => [
-    DrawingPoint(position: rect.topLeft, pressure: pressure),
-    DrawingPoint(position: rect.topRight, pressure: pressure),
-    DrawingPoint(position: rect.bottomRight, pressure: pressure),
-    DrawingPoint(position: rect.bottomLeft, pressure: pressure),
-    DrawingPoint(position: rect.topLeft, pressure: pressure),
-  ];
+      DrawingPoint(position: rect.topLeft, pressure: pressure),
+      DrawingPoint(position: rect.topRight, pressure: pressure),
+      DrawingPoint(position: rect.bottomRight, pressure: pressure),
+      DrawingPoint(position: rect.bottomLeft, pressure: pressure),
+      DrawingPoint(position: rect.topLeft, pressure: pressure),
+    ];
 
   /// Generiert Punkte für eine Ellipse in [rect].
   static List<DrawingPoint> generateEllipsePoints(Rect rect, double pressure) {
@@ -281,12 +268,10 @@ class ShapeRecognizer {
       final double t = (i / steps) * 2 * math.pi;
       final double dx = a * math.cos(t);
       final double dy = b * math.sin(t);
-      points.add(
-        DrawingPoint(
-          position: Offset(center.dx + dx, center.dy + dy),
-          pressure: pressure,
-        ),
-      );
+      points.add(DrawingPoint(
+        position: Offset(center.dx + dx, center.dy + dy),
+        pressure: pressure,
+      ));
     }
     return points;
   }
