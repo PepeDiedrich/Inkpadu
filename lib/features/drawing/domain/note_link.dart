@@ -21,7 +21,11 @@ class NoteLink {
   final Offset position;
 
   /// Erstellt eine Kopie dieses Links mit den gegebenen Änderungen.
-  NoteLink copyWith({String? targetNoteId, String? label, Offset? position}) =>
+  NoteLink copyWith({
+    String? targetNoteId,
+    String? label,
+    Offset? position,
+  }) =>
       NoteLink(
         targetNoteId: targetNoteId ?? this.targetNoteId,
         label: label ?? this.label,
@@ -42,19 +46,19 @@ class NoteLink {
 
   /// Konvertiert diesen Link in eine JSON-Map.
   Map<String, dynamic> toJson() => <String, dynamic>{
-    'target_note_id': targetNoteId,
-    'label': label,
-    'position_dx': position.dx,
-    'position_dy': position.dy,
-  };
+        'target_note_id': targetNoteId,
+        'label': label,
+        'position_dx': position.dx,
+        'position_dy': position.dy,
+      };
 
   /// Erstellt einen Link aus einer JSON-Map.
   factory NoteLink.fromJson(Map<String, dynamic> json) => NoteLink(
-    targetNoteId: json['target_note_id'] as String,
-    label: json['label'] as String,
-    position: Offset(
-      (json['position_dx'] as num).toDouble(),
-      (json['position_dy'] as num).toDouble(),
-    ),
-  );
+        targetNoteId: json['target_note_id'] as String,
+        label: json['label'] as String,
+        position: Offset(
+          (json['position_dx'] as num).toDouble(),
+          (json['position_dy'] as num).toDouble(),
+        ),
+      );
 }
