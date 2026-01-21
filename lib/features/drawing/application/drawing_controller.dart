@@ -94,7 +94,8 @@ class DrawingController extends ChangeNotifier {
 
     if (_isLockedToShape && _lockedShapeType != null) {
       // Wenn gesperrt, aktualisieren wir nur den aktiven Vertex und generieren die Form neu.
-      if (_activeVertexIndex >= 0 && _activeVertexIndex < _lockedVertices.length) {
+      if (_activeVertexIndex >= 0 &&
+          _activeVertexIndex < _lockedVertices.length) {
         _lockedVertices[_activeVertexIndex] = point.position;
 
         List<DrawingPoint> newPoints = [];
@@ -110,21 +111,30 @@ class DrawingController extends ChangeNotifier {
             break;
 
           case ShapeType.triangle:
-             // Triangle: defined by 3 points. generatePolygonPoints handles it.
-             newPoints = ShapeRecognizer.generatePolygonPoints(_lockedVertices, pressure);
-             break;
+            // Triangle: defined by 3 points. generatePolygonPoints handles it.
+            newPoints = ShapeRecognizer.generatePolygonPoints(
+              _lockedVertices,
+              pressure,
+            );
+            break;
 
           case ShapeType.rectangle:
-             // Rect: defined by diagonal (2 points in _lockedVertices).
-             final rect = Rect.fromPoints(_lockedVertices[0], _lockedVertices[1]);
-             newPoints = ShapeRecognizer.generateRectPoints(rect, pressure);
-             break;
+            // Rect: defined by diagonal (2 points in _lockedVertices).
+            final rect = Rect.fromPoints(
+              _lockedVertices[0],
+              _lockedVertices[1],
+            );
+            newPoints = ShapeRecognizer.generateRectPoints(rect, pressure);
+            break;
 
           case ShapeType.ellipse:
-             // Ellipse: defined by diagonal (2 points in _lockedVertices).
-             final rect = Rect.fromPoints(_lockedVertices[0], _lockedVertices[1]);
-             newPoints = ShapeRecognizer.generateEllipsePoints(rect, pressure);
-             break;
+            // Ellipse: defined by diagonal (2 points in _lockedVertices).
+            final rect = Rect.fromPoints(
+              _lockedVertices[0],
+              _lockedVertices[1],
+            );
+            newPoints = ShapeRecognizer.generateEllipsePoints(rect, pressure);
+            break;
         }
 
         _currentStroke = _currentStroke!.copyWith(points: newPoints);
@@ -156,93 +166,107 @@ class DrawingController extends ChangeNotifier {
     );
 
     if (match != null) {
-      _currentStroke = _currentStroke!.copyWith(
-        points: match.correctedPoints,
-      );
+      _currentStroke = _currentStroke!.copyWith(points: match.correctedPoints);
       _isLockedToShape = true;
       _lockedShapeType = match.type;
 
       // Initialize locking state for resizing
       switch (match.type) {
         case ShapeType.line:
-           if (match is LineMatch) {
-             // For line, [start, end].
-             _lockedVertices = [match.correctedPoints.first.position, match.correctedPoints.last.position];
-             // Find closest vertex to user's finger (originalLastPoint)
-             final dStart = (_lockedVertices[0] - originalLastPoint).distanceSquared;
-             final dEnd = (_lockedVertices[1] - originalLastPoint).distanceSquared;
-             _activeVertexIndex = dStart < dEnd ? 0 : 1;
-           }
-           break;
+          if (match is LineMatch) {
+            // For line, [start, end].
+            _lockedVertices = [
+              match.correctedPoints.first.position,
+              match.correctedPoints.last.position,
+            ];
+            // Find closest vertex to user's finger (originalLastPoint)
+            final dStart =
+                (_lockedVertices[0] - originalLastPoint).distanceSquared;
+            final dEnd =
+                (_lockedVertices[1] - originalLastPoint).distanceSquared;
+            _activeVertexIndex = dStart < dEnd ? 0 : 1;
+          }
+          break;
 
         case ShapeType.triangle:
-           if (match is TriangleMatch) {
-             _lockedVertices = List.of(match.vertices);
+          if (match is TriangleMatch) {
+            _lockedVertices = List.of(match.vertices);
 
-             // Find vertex closest to user's position.
-             int bestIndex = 0;
-             double minD = double.infinity;
-             for(int i=0; i<_lockedVertices.length; i++) {
-               final d = (_lockedVertices[i] - originalLastPoint).distanceSquared;
-               if (d < minD) {
-                 minD = d;
-                 bestIndex = i;
-               }
-             }
-             _activeVertexIndex = bestIndex;
-           }
-           break;
+            // Find vertex closest to user's position.
+            int bestIndex = 0;
+            double minD = double.infinity;
+            for (int i = 0; i < _lockedVertices.length; i++) {
+              final d =
+                  (_lockedVertices[i] - originalLastPoint).distanceSquared;
+              if (d < minD) {
+                minD = d;
+                bestIndex = i;
+              }
+            }
+            _activeVertexIndex = bestIndex;
+          }
+          break;
 
         case ShapeType.rectangle:
-           if (match is RectangleMatch) {
-             final rect = match.rect;
-             // Define 4 corners
-             final corners = [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft];
+          if (match is RectangleMatch) {
+            final rect = match.rect;
+            // Define 4 corners
+            final corners = [
+              rect.topLeft,
+              rect.topRight,
+              rect.bottomRight,
+              rect.bottomLeft,
+            ];
 
-             // Find the corner closest to the user's finger.
-             int bestIndex = 0;
-             double minD = double.infinity;
-             for(int i=0; i<4; i++) {
-               final d = (corners[i] - originalLastPoint).distanceSquared;
-               if (d < minD) {
-                 minD = d;
-                 bestIndex = i;
-               }
-             }
+            // Find the corner closest to the user's finger.
+            int bestIndex = 0;
+            double minD = double.infinity;
+            for (int i = 0; i < 4; i++) {
+              final d = (corners[i] - originalLastPoint).distanceSquared;
+              if (d < minD) {
+                minD = d;
+                bestIndex = i;
+              }
+            }
 
-             // The closest corner is the "moving" one.
-             // The "fixed" corner is the opposite one (index + 2 % 4).
-             final movingCorner = corners[bestIndex];
-             final fixedCorner = corners[(bestIndex + 2) % 4];
+            // The closest corner is the "moving" one.
+            // The "fixed" corner is the opposite one (index + 2 % 4).
+            final movingCorner = corners[bestIndex];
+            final fixedCorner = corners[(bestIndex + 2) % 4];
 
-             // Store as [fixed, moving] so index 1 is always the moving one logic for rect/ellipse in updateStroke
-             _lockedVertices = [fixedCorner, movingCorner];
-             _activeVertexIndex = 1;
-           }
-           break;
+            // Store as [fixed, moving] so index 1 is always the moving one logic for rect/ellipse in updateStroke
+            _lockedVertices = [fixedCorner, movingCorner];
+            _activeVertexIndex = 1;
+          }
+          break;
 
         case ShapeType.ellipse:
-           if (match is EllipseMatch) {
-             final rect = match.boundingBox;
-             final corners = [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft];
+          if (match is EllipseMatch) {
+            final rect = match.boundingBox;
+            final corners = [
+              rect.topLeft,
+              rect.topRight,
+              rect.bottomRight,
+              rect.bottomLeft,
+            ];
 
-             int bestIndex = 0;
-             double minD = double.infinity;
-             for(int i=0; i<4; i++) {
-               final d = (corners[i] - originalLastPoint).distanceSquared;
-               if (d < minD) {
-                 minD = d;
-                 bestIndex = i;
-               }
-             }
+            int bestIndex = 0;
+            double minD = double.infinity;
+            for (int i = 0; i < 4; i++) {
+              final d = (corners[i] - originalLastPoint).distanceSquared;
+              if (d < minD) {
+                minD = d;
+                bestIndex = i;
+              }
+            }
 
-             final movingCorner = corners[bestIndex];
-             final fixedCorner = corners[(bestIndex + 2) % 4];
+            final movingCorner = corners[bestIndex];
+            final fixedCorner = corners[(bestIndex + 2) % 4];
 
-             _lockedVertices = [fixedCorner, movingCorner];
-             _activeVertexIndex = 1;
-           }
-           break;
+            _lockedVertices = [fixedCorner, movingCorner];
+            _activeVertexIndex = 1;
+          }
+          break;
       }
 
       notifyListeners();
@@ -279,10 +303,10 @@ class DrawingController extends ChangeNotifier {
       // Detaillierter Check: Segmente prüfen
       bool shouldRemove = false;
       if (stroke.points.length == 1) {
-         final point = stroke.points.first;
-         final double dx = point.position.dx - position.dx;
-         final double dy = point.position.dy - position.dy;
-         shouldRemove = (dx * dx + dy * dy) <= radiusSquared;
+        final point = stroke.points.first;
+        final double dx = point.position.dx - position.dx;
+        final double dy = point.position.dy - position.dy;
+        shouldRemove = (dx * dx + dy * dy) <= radiusSquared;
       } else {
         for (int i = 0; i < stroke.points.length - 1; i++) {
           final p1 = stroke.points[i].position;
@@ -317,7 +341,9 @@ class DrawingController extends ChangeNotifier {
     final double l2 = (p1 - p2).distanceSquared;
     if (l2 == 0) return (p - p1).distanceSquared;
 
-    final double t = ((p.dx - p1.dx) * (p2.dx - p1.dx) + (p.dy - p1.dy) * (p2.dy - p1.dy)) / l2;
+    final double t =
+        ((p.dx - p1.dx) * (p2.dx - p1.dx) + (p.dy - p1.dy) * (p2.dy - p1.dy)) /
+        l2;
 
     if (t < 0) return (p - p1).distanceSquared;
     if (t > 1) return (p - p2).distanceSquared;

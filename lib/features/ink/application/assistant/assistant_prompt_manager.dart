@@ -68,10 +68,7 @@ class AssistantPromptManager {
       });
     }
 
-    content.add({
-      'type': 'text',
-      'text': 'Frage: $prompt',
-    });
+    content.add({'type': 'text', 'text': 'Frage: $prompt'});
 
     return content;
   }

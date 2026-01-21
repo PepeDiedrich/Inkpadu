@@ -22,7 +22,9 @@ Future<void> resetTestDatabase() async {
     _currentDatabaseDir = null;
   }
 
-  final Directory tempDir = await Directory.systemTemp.createTemp('inkpadu_sqflite_test_');
+  final Directory tempDir = await Directory.systemTemp.createTemp(
+    'inkpadu_sqflite_test_',
+  );
   _currentDatabaseDir = tempDir;
   databaseFactoryFfi.setDatabasesPath(tempDir.path);
 }

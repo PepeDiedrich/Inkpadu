@@ -41,9 +41,7 @@ void callbackDispatcher() {
         // In background we should swallow errors and report success so platform can schedule again.
         // We log in debug mode to facilitate diagnosis.
         if (kDebugMode) {
-          debugPrint(
-            '[BackgroundSync] Error: $e',
-          );
+          debugPrint('[BackgroundSync] Error: $e');
         }
       }
     }
