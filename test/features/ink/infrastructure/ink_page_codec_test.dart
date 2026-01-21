@@ -60,19 +60,12 @@ void main() {
         expect(roundTripped.pressure, closeTo(original.pressure, 0.002));
       }
 
-      expect(
-        decodedPage.cachedVisionDescription,
-        equals('Eine kurze Beschreibung'),
-      );
+      expect(decodedPage.cachedVisionDescription, equals('Eine kurze Beschreibung'));
       expect(decodedPage.assistantHistory, hasLength(1));
-      final AssistantMessage decodedMessage =
-          decodedPage.assistantHistory.first;
+      final AssistantMessage decodedMessage = decodedPage.assistantHistory.first;
       expect(decodedMessage.question, equals(message.question));
       expect(decodedMessage.answer, equals(message.answer));
-      expect(
-        decodedMessage.visionDescription,
-        equals(message.visionDescription),
-      );
+      expect(decodedMessage.visionDescription, equals(message.visionDescription));
       expect(decodedMessage.reusedCachedDescription, isFalse);
       expect(
         decodedMessage.createdAt.toIso8601String(),

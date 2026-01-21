@@ -57,10 +57,16 @@ class FloatingToolWindow extends StatelessWidget {
             endIndent: 8,
             color: colorScheme.outlineVariant,
           )
-        : Container(height: 24, width: 1, color: colorScheme.outlineVariant);
+        : Container(
+            height: 24,
+            width: 1,
+            color: colorScheme.outlineVariant,
+          );
 
-    Widget gap() =>
-        SizedBox(width: isVertical ? 0 : 8, height: isVertical ? 8 : 0);
+    Widget gap() => SizedBox(
+          width: isVertical ? 0 : 8,
+          height: isVertical ? 8 : 0,
+        );
 
     final Widget content = Card(
       elevation: 8,
@@ -129,7 +135,10 @@ class FloatingToolWindow extends StatelessWidget {
     );
 
     if (isVertical) {
-      return SizedBox(width: 70, child: content);
+      return SizedBox(
+        width: 70,
+        child: content,
+      );
     }
 
     return content;

@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 /// Zeigt den Pfad der aktuellen Notiz in der Hierarchie an.
 class NoteBreadcrumbs extends StatelessWidget {
   /// Erstellt ein Breadcrumb-Widget.
-  const NoteBreadcrumbs({super.key, required this.currentNoteId});
+  const NoteBreadcrumbs({
+    super.key,
+    required this.currentNoteId,
+  });
 
   /// Die ID der aktuellen Notiz.
   final String currentNoteId;
@@ -78,9 +81,8 @@ class NoteBreadcrumbs extends StatelessWidget {
                           color: isLast
                               ? Theme.of(context).colorScheme.onSurface
                               : Theme.of(context).colorScheme.primary,
-                          fontWeight: isLast
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontWeight:
+                              isLast ? FontWeight.bold : FontWeight.normal,
                           fontSize: 13,
                         ),
                       ),
