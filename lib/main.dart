@@ -27,6 +27,9 @@ import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
+  if (kReleaseMode) {
+    debugPrint = (message, {wrapWidth}) {};
+  }
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize localization with device locale
