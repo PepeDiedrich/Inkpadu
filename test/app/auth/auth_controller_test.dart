@@ -13,105 +13,144 @@ void main() {
   late AuthController authController;
   late MockFlutterSecureStorage mockSecureStorage;
 
-  const MethodChannel channel = MethodChannel('plugins.flutter.io/path_provider');
+  const MethodChannel channel = MethodChannel(
+    'plugins.flutter.io/path_provider',
+  );
 
   setUp(() {
     // Mock path_provider which is used by Appwrite Client
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (MethodCall methodCall) async => '.',
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          channel,
+          (MethodCall methodCall) async => '.',
+        );
 
     mockSecureStorage = MockFlutterSecureStorage();
     SharedPreferences.setMockInitialValues({});
   });
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      null,
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
   });
 
-  test('initialize loads user from secure storage when appwrite fails', () async {
-    // Arrange
-    when(() => mockSecureStorage.read(key: 'inkpadu_cached_user_id'))
-        .thenAnswer((_) async => 'test_user_id');
-    when(() => mockSecureStorage.read(key: 'inkpadu_cached_email'))
-        .thenAnswer((_) async => 'test@example.com');
+  test(
+    'initialize loads user from secure storage when appwrite fails',
+    () async {
+      // Arrange
+      when(
+        () => mockSecureStorage.read(key: 'inkpadu_cached_user_id'),
+      ).thenAnswer((_) async => 'test_user_id');
+      when(
+        () => mockSecureStorage.read(key: 'inkpadu_cached_email'),
+      ).thenAnswer((_) async => 'test@example.com');
 
-    authController = AuthController(secureStorage: mockSecureStorage);
+      authController = AuthController(secureStorage: mockSecureStorage);
 
-    // Act
-    try {
-      await authController.initialize();
-    } catch (_) {
-      // Expected failure of Appwrite call
-    }
+      // Act
+      try {
+        await authController.initialize();
+      } catch (_) {
+        // Expected failure of Appwrite call
+      }
 
-    // Assert
-    verify(() => mockSecureStorage.read(key: 'inkpadu_cached_user_id')).called(1);
-    verify(() => mockSecureStorage.read(key: 'inkpadu_cached_email')).called(1);
-  });
+      // Assert
+      verify(
+        () => mockSecureStorage.read(key: 'inkpadu_cached_user_id'),
+      ).called(1);
+      verify(
+        () => mockSecureStorage.read(key: 'inkpadu_cached_email'),
+      ).called(1);
+    },
+  );
 
-  test('initialize migrates data from SharedPreferences to FlutterSecureStorage', () async {
-    // Arrange: Populate SharedPreferences with "legacy" insecure data
-    SharedPreferences.setMockInitialValues({
-      'inkpadu_cached_user_id': 'legacy_user_id',
-      'inkpadu_cached_email': 'legacy@example.com',
-    });
+  test(
+    'initialize migrates data from SharedPreferences to FlutterSecureStorage',
+    () async {
+      // Arrange: Populate SharedPreferences with "legacy" insecure data
+      SharedPreferences.setMockInitialValues({
+        'inkpadu_cached_user_id': 'legacy_user_id',
+        'inkpadu_cached_email': 'legacy@example.com',
+      });
 
-    when(() => mockSecureStorage.write(key: 'inkpadu_cached_user_id', value: 'legacy_user_id'))
-        .thenAnswer((_) async {});
-    when(() => mockSecureStorage.write(key: 'inkpadu_cached_email', value: 'legacy@example.com'))
-        .thenAnswer((_) async {});
+      when(
+        () => mockSecureStorage.write(
+          key: 'inkpadu_cached_user_id',
+          value: 'legacy_user_id',
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockSecureStorage.write(
+          key: 'inkpadu_cached_email',
+          value: 'legacy@example.com',
+        ),
+      ).thenAnswer((_) async {});
 
-    // Also mock read, because initialize() reads after migration if Appwrite fails
-    when(() => mockSecureStorage.read(key: 'inkpadu_cached_user_id'))
-        .thenAnswer((_) async => 'legacy_user_id');
-    when(() => mockSecureStorage.read(key: 'inkpadu_cached_email'))
-        .thenAnswer((_) async => 'legacy@example.com');
+      // Also mock read, because initialize() reads after migration if Appwrite fails
+      when(
+        () => mockSecureStorage.read(key: 'inkpadu_cached_user_id'),
+      ).thenAnswer((_) async => 'legacy_user_id');
+      when(
+        () => mockSecureStorage.read(key: 'inkpadu_cached_email'),
+      ).thenAnswer((_) async => 'legacy@example.com');
 
-    authController = AuthController(secureStorage: mockSecureStorage);
+      authController = AuthController(secureStorage: mockSecureStorage);
 
-    // Act
-    try {
-      await authController.initialize();
-    } catch (_) {
-      // Expected failure of Appwrite call
-    }
+      // Act
+      try {
+        await authController.initialize();
+      } catch (_) {
+        // Expected failure of Appwrite call
+      }
 
-    // Assert: Check migration writes
-    verify(() => mockSecureStorage.write(key: 'inkpadu_cached_user_id', value: 'legacy_user_id')).called(1);
-    verify(() => mockSecureStorage.write(key: 'inkpadu_cached_email', value: 'legacy@example.com')).called(1);
+      // Assert: Check migration writes
+      verify(
+        () => mockSecureStorage.write(
+          key: 'inkpadu_cached_user_id',
+          value: 'legacy_user_id',
+        ),
+      ).called(1);
+      verify(
+        () => mockSecureStorage.write(
+          key: 'inkpadu_cached_email',
+          value: 'legacy@example.com',
+        ),
+      ).called(1);
 
-    // Assert: Check SharedPreferences deletion
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.containsKey('inkpadu_cached_user_id'), isFalse);
-    expect(prefs.containsKey('inkpadu_cached_email'), isFalse);
-  });
+      // Assert: Check SharedPreferences deletion
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('inkpadu_cached_user_id'), isFalse);
+      expect(prefs.containsKey('inkpadu_cached_email'), isFalse);
+    },
+  );
 
   test('logout clears both secure storage and shared preferences', () async {
-     // Arrange
-     when(() => mockSecureStorage.delete(key: 'inkpadu_cached_user_id'))
-        .thenAnswer((_) async {});
-     when(() => mockSecureStorage.delete(key: 'inkpadu_cached_email'))
-        .thenAnswer((_) async {});
+    // Arrange
+    when(
+      () => mockSecureStorage.delete(key: 'inkpadu_cached_user_id'),
+    ).thenAnswer((_) async {});
+    when(
+      () => mockSecureStorage.delete(key: 'inkpadu_cached_email'),
+    ).thenAnswer((_) async {});
 
-     SharedPreferences.setMockInitialValues({
-       'inkpadu_cached_user_id': 'should_be_deleted',
-     });
+    SharedPreferences.setMockInitialValues({
+      'inkpadu_cached_user_id': 'should_be_deleted',
+    });
 
-     authController = AuthController(secureStorage: mockSecureStorage);
+    authController = AuthController(secureStorage: mockSecureStorage);
 
-     // Act
-     await authController.logout();
+    // Act
+    await authController.logout();
 
-     // Assert
-     verify(() => mockSecureStorage.delete(key: 'inkpadu_cached_user_id')).called(1);
-     verify(() => mockSecureStorage.delete(key: 'inkpadu_cached_email')).called(1);
+    // Assert
+    verify(
+      () => mockSecureStorage.delete(key: 'inkpadu_cached_user_id'),
+    ).called(1);
+    verify(
+      () => mockSecureStorage.delete(key: 'inkpadu_cached_email'),
+    ).called(1);
 
-     final prefs = await SharedPreferences.getInstance();
-     expect(prefs.containsKey('inkpadu_cached_user_id'), isFalse);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('inkpadu_cached_user_id'), isFalse);
   });
 }

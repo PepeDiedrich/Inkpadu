@@ -158,8 +158,9 @@ void main() {
     });
 
     test('palette contains highlighters', () {
-      final highlighters =
-          DrawingToolDefaults.palette.where((t) => t.isHighlighter);
+      final highlighters = DrawingToolDefaults.palette.where(
+        (t) => t.isHighlighter,
+      );
       expect(highlighters.length, greaterThanOrEqualTo(1));
     });
   });
