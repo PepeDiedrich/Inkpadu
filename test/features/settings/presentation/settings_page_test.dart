@@ -15,8 +15,8 @@ void main() {
   late PointerSettings pointerSettings;
   late EditorSettings editorSettings;
 
-  setUpAll(() {
-    LocaleSettings.setLocale(AppLocale.en);
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.en);
   });
 
   setUp(() {
