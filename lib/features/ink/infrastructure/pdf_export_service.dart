@@ -25,7 +25,9 @@ class PdfExportService {
 
     for (int i = 0; i < note.pages.length; i++) {
       final NotePage page = note.pages[i];
-      document.addPage(_buildPdfPage(page, note.paperStyle, i + 1));
+      document.addPage(
+        _buildPdfPage(page, note.paperStyle, i + 1),
+      );
     }
 
     final Uint8List pdfBytes = await document.save();
@@ -87,14 +89,7 @@ class PdfExportService {
           pw.CustomPaint(
             size: PdfPoint(pdfWidth, pdfHeight),
             painter: (PdfGraphics canvas, PdfPoint size) {
-              _paintStrokes(
-                canvas,
-                page.strokes,
-                scale,
-                offsetX,
-                offsetY,
-                pdfHeight,
-              );
+              _paintStrokes(canvas, page.strokes, scale, offsetX, offsetY, pdfHeight);
             },
           ),
         ],
@@ -111,7 +106,9 @@ class PdfExportService {
     return pw.Container(
       width: width,
       height: height,
-      decoration: pw.BoxDecoration(color: bgColor),
+      decoration: pw.BoxDecoration(
+        color: bgColor,
+      ),
       child: pw.CustomPaint(
         size: PdfPoint(width, height),
         painter: (PdfGraphics canvas, PdfPoint size) {
@@ -143,9 +140,7 @@ class PdfExportService {
     const double lineSpacing = 24;
     const double gridSize = 24;
     const double dotRadius = 1;
-    final PdfColor lineColor = PdfColor.fromInt(
-      Colors.grey.shade300.toARGB32(),
-    );
+    final PdfColor lineColor = PdfColor.fromInt(Colors.grey.shade300.toARGB32());
 
     switch (style) {
       case NotePaperStyle.plain:
@@ -199,9 +194,7 @@ class PdfExportService {
       }
 
       final PdfColor strokeColor = stroke.isHighlighter
-          ? PdfColor.fromInt(
-              stroke.color.withValues(alpha: stroke.color.a * 0.5).toARGB32(),
-            )
+          ? PdfColor.fromInt(stroke.color.withValues(alpha: stroke.color.a * 0.5).toARGB32())
           : PdfColor.fromInt(stroke.color.toARGB32());
 
       canvas.setStrokeColor(strokeColor);

@@ -83,7 +83,7 @@ class DrawingTool {
       fontPackage: json['iconFontPackage'] as String?,
       matchTextDirection: json['iconMatchTextDirection'] as bool? ?? false,
     ),
-    color: Color((json['color'] as int?) ?? Colors.black.toARGB32()),
+  color: Color((json['color'] as int?) ?? Colors.black.toARGB32()),
     baseWidth: (json['baseWidth'] as num?)?.toDouble() ?? 4.0,
     isHighlighter: json['isHighlighter'] as bool? ?? false,
     isEraser: json['isEraser'] as bool? ?? false,

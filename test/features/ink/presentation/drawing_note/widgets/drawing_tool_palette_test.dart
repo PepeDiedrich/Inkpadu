@@ -100,9 +100,8 @@ void main() {
       expect(deletedId, 'eraser');
     });
 
-    testWidgets('calls onToolEdit when selected tool is tapped again', (
-      tester,
-    ) async {
+    testWidgets('calls onToolEdit when selected tool is tapped again',
+        (tester) async {
       String? editedId;
       await tester.pumpWidget(
         MaterialApp(
