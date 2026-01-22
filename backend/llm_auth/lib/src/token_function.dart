@@ -28,18 +28,24 @@ Future<dynamic> handleRequest(dynamic context) async {
     stderr.writeln(
       'Azure Credentials fehlen: AZURE_TENANT_ID/CLIENT_ID/CLIENT_SECRET',
     );
-    return res.json({
-      'success': false,
-      'error': 'Server-side configuration error. Missing Azure credentials.',
-    }, statusCode: 500);
+    return res.json(
+      {
+        'success': false,
+        'error': 'Server-side configuration error. Missing Azure credentials.',
+      },
+      statusCode: 500,
+    );
   }
 
   final String? userId = req.headers['x-appwrite-user-id'] as String?;
   if (userId == null || userId.isEmpty) {
-    return res.json({
-      'success': false,
-      'error': 'User not authenticated.',
-    }, statusCode: 401);
+    return res.json(
+      {
+        'success': false,
+        'error': 'User not authenticated.',
+      },
+      statusCode: 401,
+    );
   }
 
   try {
@@ -49,7 +55,9 @@ Future<dynamic> handleRequest(dynamic context) async {
 
     final http.Response response = await http.post(
       tokenUrl,
-      headers: const {'Content-Type': 'application/x-www-form-urlencoded'},
+      headers: const {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       body: {
         'client_id': clientId,
         'scope': 'https://cognitiveservices.azure.com/.default',
@@ -65,34 +73,44 @@ Future<dynamic> handleRequest(dynamic context) async {
 
       if (accessToken == null || accessToken.isEmpty) {
         stderr.writeln('Azure-Response ohne access_token: ${response.body}');
-        return res.json({
-          'success': false,
-          'error': 'Azure response missing access_token.',
-        }, statusCode: 502);
+        return res.json(
+          {
+            'success': false,
+            'error': 'Azure response missing access_token.',
+          },
+          statusCode: 502,
+        );
       }
 
-      return res.json({
-        'success': true,
-        'accessToken': accessToken,
-        'expiresIn': body['expires_in'],
-        'tokenType': body['token_type'],
-      });
+      return res.json(
+        {
+          'success': true,
+          'accessToken': accessToken,
+          'expiresIn': body['expires_in'],
+          'tokenType': body['token_type'],
+        },
+      );
     }
 
     stderr.writeln(
-      'Azure Token-Fehler (${response.statusCode}): ${response.body}',
+        'Azure Token-Fehler (${response.statusCode}): ${response.body}');
+    return res.json(
+      {
+        'success': false,
+        'error': 'Failed to retrieve token from Azure.',
+        'details': response.body,
+      },
+      statusCode: response.statusCode,
     );
-    return res.json({
-      'success': false,
-      'error': 'Failed to retrieve token from Azure.',
-      'details': response.body,
-    }, statusCode: response.statusCode);
   } catch (e, st) {
     stderr.writeln('Unerwarteter Fehler bei Token-Anfrage: $e\n$st');
-    return res.json({
-      'success': false,
-      'error': 'An unexpected error occurred.',
-    }, statusCode: 500);
+    return res.json(
+      {
+        'success': false,
+        'error': 'An unexpected error occurred.',
+      },
+      statusCode: 500,
+    );
   }
 }
 
