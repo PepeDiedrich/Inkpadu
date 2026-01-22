@@ -402,8 +402,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                                   top: 16,
                                   left: 16,
                                   child: SafeArea(
-                                    child:
-                                        NoteBreadcrumbs(currentNoteId: noteId),
+                                    child: NoteBreadcrumbs(
+                                      currentNoteId: noteId,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -502,8 +503,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                       _openToolConfigurator(newTool);
                     },
                     onExportPdf: () => _exportNoteToPdf(controller),
-                    onBackPressed: () =>
-                        Navigator.of(context).popUntil((route) => route.isFirst),
+                    onBackPressed: () => Navigator.of(
+                      context,
+                    ).popUntil((route) => route.isFirst),
                     orientation: controller.toolbarOrientation,
                   ),
                 ),

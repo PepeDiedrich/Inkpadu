@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-  show StrokeBoundingBoxCluster, ConvexHullCalculator;
+    show StrokeBoundingBoxCluster, ConvexHullCalculator;
 
 import 'package:ai_handwriting_app/features/ink/application/assistant/cluster_shape_data.dart';
 

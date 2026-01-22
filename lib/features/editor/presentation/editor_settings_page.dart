@@ -29,7 +29,10 @@ class EditorSettingsPage extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.t.editor.assistPanel, style: textTheme.titleMedium),
+                Text(
+                  context.t.editor.assistPanel,
+                  style: textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 SegmentedButton<EditorSidebarSide>(
                   style: ButtonStyle(
@@ -67,7 +70,10 @@ class EditorSettingsPage extends StatelessWidget {
                   style: textTheme.bodySmall,
                 ),
                 const SizedBox(height: 32),
-                Text(context.t.editor.drawingArea, style: textTheme.titleMedium),
+                Text(
+                  context.t.editor.drawingArea,
+                  style: textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
@@ -96,7 +102,9 @@ class EditorSettingsPage extends StatelessWidget {
                       children: [
                         const SizedBox(height: 16),
                         Text(
-                          context.t.editor.smoothingIntensity(value: simplifierStrength.toStringAsFixed(2)),
+                          context.t.editor.smoothingIntensity(
+                            value: simplifierStrength.toStringAsFixed(2),
+                          ),
                           style: textTheme.bodyMedium,
                         ),
                         Slider.adaptive(
@@ -114,7 +122,9 @@ class EditorSettingsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          context.t.editor.minTolerance(value: simplifierMinTol.toStringAsFixed(2)),
+                          context.t.editor.minTolerance(
+                            value: simplifierMinTol.toStringAsFixed(2),
+                          ),
                           style: textTheme.bodyMedium,
                         ),
                         Slider.adaptive(

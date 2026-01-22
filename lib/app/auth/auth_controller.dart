@@ -36,7 +36,7 @@ class AuthController extends ChangeNotifier {
   ///
   /// Erlaubt das Injizieren von [secureStorage] für Tests.
   AuthController({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   /// Der aktuelle Authentifizierungsstatus.
   AuthStatus _status = AuthStatus.unknown;
@@ -222,8 +222,7 @@ class AuthController extends ChangeNotifier {
     if (_user == null) return;
     final prefs = await SharedPreferences.getInstance();
     _cachedUserId =
-        _user!
-            .$id; // ignore: invalid_use_of_visible_for_testing_member
+        _user!.$id; // ignore: invalid_use_of_visible_for_testing_member
     _cachedEmail = _user!.email;
 
     // WRITE TO SECURE STORAGE
@@ -321,8 +320,7 @@ class AuthController extends ChangeNotifier {
     final buffer = StringBuffer()
       ..write(
         endpoint.replace(
-          path:
-              '${endpoint.path}/account/tokens/oauth2/${provider.value}',
+          path: '${endpoint.path}/account/tokens/oauth2/${provider.value}',
         ),
       );
     final baseParams = <String, String>{

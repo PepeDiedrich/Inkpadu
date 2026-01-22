@@ -105,9 +105,10 @@ class SettingsPage extends StatelessWidget {
     context,
   ).push<void>(_PointerSettingsRoute(const EditorSettingsPage()));
 
-  static Future<void> _openPersonaSettings(BuildContext context) => Navigator.of(
-    context,
-  ).push<void>(_PointerSettingsRoute(const AssistantPersonaSettingsPage()));
+  static Future<void> _openPersonaSettings(BuildContext context) =>
+      Navigator.of(
+        context,
+      ).push<void>(_PointerSettingsRoute(const AssistantPersonaSettingsPage()));
 }
 
 class _LogoutSection extends StatelessWidget {
@@ -123,7 +124,9 @@ class _LogoutSection extends StatelessWidget {
       children: [
         Text(
           context.t.settings.account,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
         Material(
@@ -135,22 +138,26 @@ class _LogoutSection extends StatelessWidget {
               await auth.logout();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.t.common.loggedOut)), );
+                  SnackBar(content: Text(context.t.common.loggedOut)),
+                );
               }
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Row(
                 children: [
-                  Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
+                  Icon(
+                    Icons.logout,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       context.t.auth.logout,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                   const Icon(Icons.chevron_right),
