@@ -156,26 +156,25 @@ class _DraggableWobblyWindowState extends State<DraggableWobblyWindow> {
     }
 
     if (shouldBeVertical != isCurrentlyVertical) {
-      widget.onOrientationChanged?.call(
-        shouldBeVertical ? Axis.vertical : Axis.horizontal,
-      );
+      widget.onOrientationChanged
+          ?.call(shouldBeVertical ? Axis.vertical : Axis.horizontal);
     }
   }
 
   @override
   Widget build(BuildContext context) => Positioned(
-    bottom: 24 - _offset.dy,
-    left: _offset.dx,
-    right: -_offset.dx,
-    top: 0, // Fill vertical space to allow Align to work
-    child: Align(
-      alignment: Alignment.bottomCenter,
-      child: GestureDetector(
-        key: _childKey,
-        onPanUpdate: _handlePanUpdate,
-        onPanEnd: _handlePanEnd,
-        child: widget.child,
-      ),
-    ),
-  );
+        bottom: 24 - _offset.dy,
+        left: _offset.dx,
+        right: -_offset.dx,
+        top: 0, // Fill vertical space to allow Align to work
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: GestureDetector(
+            key: _childKey,
+            onPanUpdate: _handlePanUpdate,
+            onPanEnd: _handlePanEnd,
+            child: widget.child,
+          ),
+        ),
+      );
 }

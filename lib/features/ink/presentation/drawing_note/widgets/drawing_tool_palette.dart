@@ -95,10 +95,10 @@ class _ToolChipState extends State<_ToolChip> {
     final Color chipIconColor = highlight
         ? AppColors.onPrimary
         : (widget.tool.isHighlighter
-              ? iconColor.withValues(alpha: 0.8)
-              : widget.tool.isEraser
-              ? colorScheme.onSurfaceVariant
-              : iconColor);
+            ? iconColor.withValues(alpha: 0.8)
+            : widget.tool.isEraser
+                ? colorScheme.onSurfaceVariant
+                : iconColor);
 
     return Tooltip(
       message:
@@ -132,7 +132,11 @@ class _ToolChipState extends State<_ToolChip> {
                   : null,
             ),
             child: Center(
-              child: Icon(widget.tool.icon, size: 18, color: chipIconColor),
+              child: Icon(
+                widget.tool.icon,
+                size: 18,
+                color: chipIconColor,
+              ),
             ),
           ),
         ),

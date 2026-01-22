@@ -7,9 +7,7 @@ import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  testWidgets('NoteThumbnail renders correctly with strokes', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('NoteThumbnail renders correctly with strokes', (WidgetTester tester) async {
     // Create a dummy stroke
     final stroke = Stroke(
       points: [
