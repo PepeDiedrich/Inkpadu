@@ -25,26 +25,19 @@ void main() {
     editorSettings = EditorSettings();
   });
 
-  Widget createWidgetUnderTest() => TranslationProvider(
-    child: AuthScope(
-      controller: mockAuthController,
-      child: PointerSettingsScope(
-        settings: pointerSettings,
-        child: EditorSettingsScope(
-          settings: editorSettings,
-          child: const MaterialApp(home: SettingsPage()),
-        ),
-      ),
-    ),
-  );
-
   group('SettingsPage', () {
     testWidgets('renders all sections correctly', (tester) async {
       when(() => mockAuthController.isLoggedIn).thenReturn(false);
       tester.view.physicalSize = const Size(1080, 4000);
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpWidget(
+        _createWidgetUnderTest(
+          mockAuthController,
+          pointerSettings,
+          editorSettings,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Settings'), findsOneWidget);
@@ -67,7 +60,13 @@ void main() {
       tester.view.physicalSize = const Size(1080, 4000);
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpWidget(
+        _createWidgetUnderTest(
+          mockAuthController,
+          pointerSettings,
+          editorSettings,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Account'), findsOneWidget);
@@ -81,7 +80,13 @@ void main() {
       tester.view.physicalSize = const Size(1080, 4000);
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpWidget(
+        _createWidgetUnderTest(
+          mockAuthController,
+          pointerSettings,
+          editorSettings,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Account'), findsNothing);
@@ -94,7 +99,13 @@ void main() {
       tester.view.physicalSize = const Size(1080, 4000);
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpWidget(
+        _createWidgetUnderTest(
+          mockAuthController,
+          pointerSettings,
+          editorSettings,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Ensure visible
@@ -111,7 +122,13 @@ void main() {
       tester.view.physicalSize = const Size(1080, 4000);
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpWidget(
+        _createWidgetUnderTest(
+          mockAuthController,
+          pointerSettings,
+          editorSettings,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Input devices'));
@@ -126,7 +143,13 @@ void main() {
       tester.view.physicalSize = const Size(1080, 4000);
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpWidget(
+        _createWidgetUnderTest(
+          mockAuthController,
+          pointerSettings,
+          editorSettings,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Note editor'));
@@ -137,3 +160,20 @@ void main() {
     });
   });
 }
+
+Widget _createWidgetUnderTest(
+  MockAuthController mockAuthController,
+  PointerSettings pointerSettings,
+  EditorSettings editorSettings,
+) => TranslationProvider(
+  child: AuthScope(
+    controller: mockAuthController,
+    child: PointerSettingsScope(
+      settings: pointerSettings,
+      child: EditorSettingsScope(
+        settings: editorSettings,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    ),
+  ),
+);
