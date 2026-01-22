@@ -9,6 +9,9 @@ log_step() {
   printf '\n\033[1;34m==> %s\033[0m\n' "$message"
 }
 
+log_step "Flutter pub get"
+flutter pub get
+
 log_step "Flutter analyze"
 flutter analyze
 
