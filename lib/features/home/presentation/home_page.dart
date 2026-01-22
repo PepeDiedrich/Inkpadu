@@ -426,7 +426,9 @@ class _HomePageState extends State<HomePage> {
                     fillColor: Theme.of(
                       context,
                     ).colorScheme.surfaceContainerHighest,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                    ),
                   ),
                   onChanged: (value) => setState(() => _searchQuery = value),
                 ),
@@ -483,8 +485,7 @@ class _HomePageState extends State<HomePage> {
           key: ValueKey(note.id),
           note: note,
           childNotes: childNotes,
-          childBuilder:
-              buildNoteItem, // Pass the builder function for recursion
+          childBuilder: buildNoteItem, // Pass the builder function for recursion
           onTap: () => _open(note.id),
           onLongPress: () => _showNoteActions(note),
           onConfirmDelete: () => _confirmDelete(note.id, note.title),
@@ -649,13 +650,10 @@ class _HomePageState extends State<HomePage> {
 class ExpandableNoteCard extends StatefulWidget {
   /// Die anzuzeigende Notiz.
   final InkNote note;
-
   /// Die Liste der Unternotizen.
   final List<InkNote> childNotes;
-
   /// Builder für die Unternotizen.
   final Widget Function(InkNote) childBuilder;
-
   /// Callback beim Tippen auf die Notiz.
   final VoidCallback onTap;
 

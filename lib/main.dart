@@ -74,8 +74,8 @@ class _InkpaduAppState extends State<InkpaduApp> {
   late final AuthController _authController;
   late final InkNotesRepository _repository;
   late final InkNotesController _notesController;
-  final bool _isDesktop =
-      !kIsWeb && (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
+  final bool _isDesktop = !kIsWeb &&
+      (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
   // Globaler PageStorageBucket für persistente Scroll-Positionen
   final PageStorageBucket _pageStorageBucket = PageStorageBucket();
 
@@ -88,15 +88,9 @@ class _InkpaduAppState extends State<InkpaduApp> {
 
     final notesSyncService = InkNotesSyncService();
     final localStorage = InkNotesLocalStorage();
-    _repository = InkNotesRepository(
-      localStorage: localStorage,
-      syncService: notesSyncService,
-    );
+    _repository = InkNotesRepository(localStorage: localStorage, syncService: notesSyncService);
     final authBridge = AuthControllerInkNotesAuth(_authController);
-    _notesController = InkNotesController(
-      repository: _repository,
-      auth: authBridge,
-    );
+    _notesController = InkNotesController(repository: _repository, auth: authBridge);
 
     if (_isDesktop) {
       _notesController.startForegroundSync();
@@ -120,6 +114,7 @@ class _InkpaduAppState extends State<InkpaduApp> {
 
     // If user isn't authenticated (and no cached user), force onboarding/login.
 
+
     return AuthScope(
       controller: _authController,
       child: InkNotesScope(
@@ -139,19 +134,17 @@ class _InkpaduAppState extends State<InkpaduApp> {
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
               // Globaler PageStorage-Bucket, damit Scrollpositionen
               // auch nach Schließen/erneutem Öffnen einer Route erhalten bleiben.
-              builder: (context, child) =>
-                  PageStorage(bucket: _pageStorageBucket, child: child!),
+              builder: (context, child) => PageStorage(
+                bucket: _pageStorageBucket,
+                child: child!,
+              ),
               // Decide home based on current auth state or whether the user has ever logged in.
               // This ensures onboarding is skipped after a successful login even if session
               // needs to be restored later.
               home: Builder(
                 builder: (context) {
-                  final shouldShowOnboarding =
-                      !_authController.isLoggedIn &&
-                      !_authController.hasLoggedIn;
-                  return shouldShowOnboarding
-                      ? const OnboardingPage()
-                      : const AppShell();
+                  final shouldShowOnboarding = !_authController.isLoggedIn && !_authController.hasLoggedIn;
+                  return shouldShowOnboarding ? const OnboardingPage() : const AppShell();
                 },
               ),
               routes: {

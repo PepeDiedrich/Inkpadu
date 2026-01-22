@@ -202,9 +202,7 @@ void main() {
         expect(restored.answer, original.answer);
         expect(restored.visionDescription, original.visionDescription);
         expect(
-          restored.reusedCachedDescription,
-          original.reusedCachedDescription,
-        );
+            restored.reusedCachedDescription, original.reusedCachedDescription);
       });
     });
   });

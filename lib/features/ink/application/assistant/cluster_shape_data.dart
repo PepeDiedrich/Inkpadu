@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 /// Repräsentiert die grafische Form eines Stroke-Clusters.
 class ClusterShapeData {
   /// Erstellt Clustergeometrie aus konvexer Hülle und Bounding-Box.
-  const ClusterShapeData({required this.hull, required this.boundingCorners});
+  const ClusterShapeData({
+    required this.hull,
+    required this.boundingCorners,
+  });
 
   /// Punkte der konvexen Hülle im logischen Koordinatensystem.
   final List<Offset> hull;

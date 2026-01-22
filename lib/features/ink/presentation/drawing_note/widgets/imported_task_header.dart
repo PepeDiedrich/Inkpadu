@@ -21,7 +21,9 @@ class ImportedTaskHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

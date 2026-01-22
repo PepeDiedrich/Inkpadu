@@ -144,32 +144,32 @@ class NotePageContent extends StatelessWidget {
                 ImportedTaskHeader(taskText: pdfText),
               Expanded(
                 child: DrawingCanvas(
-                  drawingController: drawingController,
-                  currentTool: currentTool,
-                  resolveTool: resolveTool,
-                  eraserRadiusFor: eraserRadiusFor,
-                  onPersistDrawing: onPersistDrawing,
-                  onTwoFingerUndo: onTwoFingerUndo,
-                  onThreeFingerRedo: onThreeFingerRedo,
-                  paperStyle: paperStyle,
-                  onRequestParentScrollLock: onRequestParentScrollLock,
-                  scrollKey: PageStorageKey(
-                    'note_${noteId}_page_${currentPageIndex}_scroll',
-                  ),
-                  initScrollOffset: initScrollOffset,
-                  onScrollOffsetChanged: onScrollOffsetChanged,
-                  onStrokeClustersChanged: onStrokeClustersChanged,
+                    drawingController: drawingController,
+                    currentTool: currentTool,
+                    resolveTool: resolveTool,
+                    eraserRadiusFor: eraserRadiusFor,
+                    onPersistDrawing: onPersistDrawing,
+                    onTwoFingerUndo: onTwoFingerUndo,
+                    onThreeFingerRedo: onThreeFingerRedo,
+                    paperStyle: paperStyle,
+                    onRequestParentScrollLock: onRequestParentScrollLock,
+                    scrollKey: PageStorageKey(
+                      'note_${noteId}_page_${currentPageIndex}_scroll',
+                    ),
+                    initScrollOffset: initScrollOffset,
+                    onScrollOffsetChanged: onScrollOffsetChanged,
+                    onStrokeClustersChanged: onStrokeClustersChanged,
 
-                  // importedPdfText: pdfText, // Don't show text on canvas background
-                  isSubNote: isSubNote,
-                  onZoomOutExit: onZoomOutExit,
-                  links: page.links,
-                  onLinkTap: onLinkTap,
+                    // importedPdfText: pdfText, // Don't show text on canvas background
+                    isSubNote: isSubNote,
+                    onZoomOutExit: onZoomOutExit,
+                    links: page.links,
+                    onLinkTap: onLinkTap,
+                  ),
                 ),
-              ),
-            ],
-          );
-        }
+              ],
+            );
+          }
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 24),
           child: GestureDetector(
