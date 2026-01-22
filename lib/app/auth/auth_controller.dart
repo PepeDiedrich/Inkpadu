@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
+import 'package:ai_handwriting_app/features/ink/application/assistant/azure_assistant_api_service.dart';
 
 /// Enum für den Authentifizierungsstatus der App.
 enum AuthStatus {
@@ -208,6 +209,8 @@ class AuthController extends ChangeNotifier {
     } catch (_) {
       // Ignore network errors during logout, but proceed to clear local data
     } finally {
+      // Ensure any cached Azure tokens are cleared on logout
+      AzureAssistantApiService.clearCachedToken();
       _user = null;
       _status = AuthStatus.unauthenticated;
       await _clearCachedUser();
