@@ -59,44 +59,48 @@ void main() {
     double canvasBottomPadding = 600,
     String? importedPdfText,
   }) => MaterialApp(
-        home: Scaffold(
-          body: PointerSettingsScope(
-            settings: PointerSettings(),
-            child: EditorSettingsScope(
-              settings: EditorSettings(),
-              child: DrawingCanvas(
-                drawingController: controller,
-                currentTool: currentTool,
-                resolveTool: resolveTool,
-                eraserRadiusFor: eraserRadiusFor,
-                onPersistDrawing: onPersistDrawing,
-                onTwoFingerUndo: onTwoFingerUndo,
-                onThreeFingerRedo: onThreeFingerRedo,
-                paperStyle: paperStyle,
-                initialCanvasHeight: initialCanvasHeight,
-                canvasBottomPadding: canvasBottomPadding,
-                importedPdfText: importedPdfText,
-              ),
-            ),
+    home: Scaffold(
+      body: PointerSettingsScope(
+        settings: PointerSettings(),
+        child: EditorSettingsScope(
+          settings: EditorSettings(),
+          child: DrawingCanvas(
+            drawingController: controller,
+            currentTool: currentTool,
+            resolveTool: resolveTool,
+            eraserRadiusFor: eraserRadiusFor,
+            onPersistDrawing: onPersistDrawing,
+            onTwoFingerUndo: onTwoFingerUndo,
+            onThreeFingerRedo: onThreeFingerRedo,
+            paperStyle: paperStyle,
+            initialCanvasHeight: initialCanvasHeight,
+            canvasBottomPadding: canvasBottomPadding,
+            importedPdfText: importedPdfText,
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   group('DrawingCanvas', () {
-    testWidgets('rendert korrekt mit Standardparametern', (WidgetTester tester) async {
+    testWidgets('rendert korrekt mit Standardparametern', (
+      WidgetTester tester,
+    ) async {
       bool persistCalled = false;
       bool undoCalled = false;
       bool redoCalled = false;
 
-      await tester.pumpWidget(createTestWidget(
-        controller: controller,
-        currentTool: penTool,
-        resolveTool: resolveTool,
-        eraserRadiusFor: eraserRadiusFor,
-        onPersistDrawing: () => persistCalled = true,
-        onTwoFingerUndo: () => undoCalled = true,
-        onThreeFingerRedo: () => redoCalled = true,
-      ));
+      await tester.pumpWidget(
+        createTestWidget(
+          controller: controller,
+          currentTool: penTool,
+          resolveTool: resolveTool,
+          eraserRadiusFor: eraserRadiusFor,
+          onPersistDrawing: () => persistCalled = true,
+          onTwoFingerUndo: () => undoCalled = true,
+          onThreeFingerRedo: () => redoCalled = true,
+        ),
+      );
 
       expect(find.byType(DrawingCanvas), findsOneWidget);
       expect(find.byType(InteractiveViewer), findsOneWidget);
@@ -106,18 +110,22 @@ void main() {
       expect(redoCalled, false);
     });
 
-    testWidgets('zeichnet Strich bei Touch-Eingabe', (WidgetTester tester) async {
+    testWidgets('zeichnet Strich bei Touch-Eingabe', (
+      WidgetTester tester,
+    ) async {
       bool persistCalled = false;
 
-      await tester.pumpWidget(createTestWidget(
-        controller: controller,
-        currentTool: penTool,
-        resolveTool: resolveTool,
-        eraserRadiusFor: eraserRadiusFor,
-        onPersistDrawing: () => persistCalled = true,
-        onTwoFingerUndo: () {},
-        onThreeFingerRedo: () {},
-      ));
+      await tester.pumpWidget(
+        createTestWidget(
+          controller: controller,
+          currentTool: penTool,
+          resolveTool: resolveTool,
+          eraserRadiusFor: eraserRadiusFor,
+          onPersistDrawing: () => persistCalled = true,
+          onTwoFingerUndo: () {},
+          onThreeFingerRedo: () {},
+        ),
+      );
 
       // Simuliere Touch-Start
       final center = tester.getCenter(find.byType(DrawingCanvas));
@@ -141,18 +149,22 @@ void main() {
       expect(persistCalled, true);
     });
 
-    testWidgets('handhabt Zwei-Finger-Tap für Undo', (WidgetTester tester) async {
+    testWidgets('handhabt Zwei-Finger-Tap für Undo', (
+      WidgetTester tester,
+    ) async {
       bool undoCalled = false;
 
-      await tester.pumpWidget(createTestWidget(
-        controller: controller,
-        currentTool: penTool,
-        resolveTool: resolveTool,
-        eraserRadiusFor: eraserRadiusFor,
-        onPersistDrawing: () {},
-        onTwoFingerUndo: () => undoCalled = true,
-        onThreeFingerRedo: () {},
-      ));
+      await tester.pumpWidget(
+        createTestWidget(
+          controller: controller,
+          currentTool: penTool,
+          resolveTool: resolveTool,
+          eraserRadiusFor: eraserRadiusFor,
+          onPersistDrawing: () {},
+          onTwoFingerUndo: () => undoCalled = true,
+          onThreeFingerRedo: () {},
+        ),
+      );
 
       final center = tester.getCenter(find.byType(DrawingCanvas));
 
@@ -169,18 +181,22 @@ void main() {
       expect(undoCalled, true);
     });
 
-    testWidgets('handhabt Drei-Finger-Tap für Redo', (WidgetTester tester) async {
+    testWidgets('handhabt Drei-Finger-Tap für Redo', (
+      WidgetTester tester,
+    ) async {
       bool redoCalled = false;
 
-      await tester.pumpWidget(createTestWidget(
-        controller: controller,
-        currentTool: penTool,
-        resolveTool: resolveTool,
-        eraserRadiusFor: eraserRadiusFor,
-        onPersistDrawing: () {},
-        onTwoFingerUndo: () {},
-        onThreeFingerRedo: () => redoCalled = true,
-      ));
+      await tester.pumpWidget(
+        createTestWidget(
+          controller: controller,
+          currentTool: penTool,
+          resolveTool: resolveTool,
+          eraserRadiusFor: eraserRadiusFor,
+          onPersistDrawing: () {},
+          onTwoFingerUndo: () {},
+          onThreeFingerRedo: () => redoCalled = true,
+        ),
+      );
 
       final center = tester.getCenter(find.byType(DrawingCanvas));
 
@@ -200,41 +216,59 @@ void main() {
       expect(redoCalled, true);
     });
 
-    testWidgets('konfiguriert InteractiveViewer ohne Zoom', (WidgetTester tester) async {
-      await tester.pumpWidget(createTestWidget(
-        controller: controller,
-        currentTool: penTool,
-        resolveTool: resolveTool,
-        eraserRadiusFor: eraserRadiusFor,
-        onPersistDrawing: () {},
-        onTwoFingerUndo: () {},
-        onThreeFingerRedo: () {},
-      ));
+    testWidgets('konfiguriert InteractiveViewer ohne Zoom', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          controller: controller,
+          currentTool: penTool,
+          resolveTool: resolveTool,
+          eraserRadiusFor: eraserRadiusFor,
+          onPersistDrawing: () {},
+          onTwoFingerUndo: () {},
+          onThreeFingerRedo: () {},
+        ),
+      );
 
-      final interactiveViewer = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+      final interactiveViewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
       expect(interactiveViewer.scaleEnabled, isFalse);
       expect(interactiveViewer.panEnabled, isFalse);
-      expect(interactiveViewer.boundaryMargin, const EdgeInsets.symmetric(horizontal: 120, vertical: 120));
+      expect(
+        interactiveViewer.boundaryMargin,
+        const EdgeInsets.symmetric(horizontal: 120, vertical: 120),
+      );
       expect(interactiveViewer.alignment, Alignment.topCenter);
     });
 
-    testWidgets('scrollt automatisch bei tiefen Inhalten', (WidgetTester tester) async {
-      await tester.pumpWidget(createTestWidget(
-        controller: controller,
-        currentTool: penTool,
-        resolveTool: resolveTool,
-        eraserRadiusFor: eraserRadiusFor,
-        onPersistDrawing: () {},
-        onTwoFingerUndo: () {},
-        onThreeFingerRedo: () {},
-        initialCanvasHeight: 1000,
-      ));
+    testWidgets('scrollt automatisch bei tiefen Inhalten', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          controller: controller,
+          currentTool: penTool,
+          resolveTool: resolveTool,
+          eraserRadiusFor: eraserRadiusFor,
+          onPersistDrawing: () {},
+          onTwoFingerUndo: () {},
+          onThreeFingerRedo: () {},
+          initialCanvasHeight: 1000,
+        ),
+      );
 
       // Erstelle tiefe Striche
-      final deepStrokes = List.generate(10, (i) => Stroke(
-        points: [DrawingPoint(position: Offset(100, 2000 + i * 100), pressure: 1.0)],
-        baseWidth: 2.0,
-      ));
+      final deepStrokes = List.generate(
+        10,
+        (i) => Stroke(
+          points: [
+            DrawingPoint(position: Offset(100, 2000 + i * 100), pressure: 1.0),
+          ],
+          baseWidth: 2.0,
+        ),
+      );
 
       controller.initialize(deepStrokes);
       await tester.pump();

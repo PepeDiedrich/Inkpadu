@@ -17,27 +17,31 @@ void main() {
 
     group('promptTemplateFor', () {
       test('returns tip prompt for tip type', () {
-        final String prompt =
-            manager.promptTemplateFor(AssistantRequestType.tip);
+        final String prompt = manager.promptTemplateFor(
+          AssistantRequestType.tip,
+        );
         expect(prompt, contains('Tipp'));
         expect(prompt, contains('LaTeX'));
       });
 
       test('returns help prompt for help type', () {
-        final String prompt =
-            manager.promptTemplateFor(AssistantRequestType.help);
+        final String prompt = manager.promptTemplateFor(
+          AssistantRequestType.help,
+        );
         expect(prompt, contains('Hilfestellung'));
       });
 
       test('returns review prompt for review type', () {
-        final String prompt =
-            manager.promptTemplateFor(AssistantRequestType.review);
+        final String prompt = manager.promptTemplateFor(
+          AssistantRequestType.review,
+        );
         expect(prompt, contains('Fehler'));
       });
 
       test('returns pdf extract prompt for pdfExtract type', () {
-        final String prompt =
-            manager.promptTemplateFor(AssistantRequestType.pdfExtract);
+        final String prompt = manager.promptTemplateFor(
+          AssistantRequestType.pdfExtract,
+        );
         expect(prompt, contains('Extrahiere'));
         expect(prompt, contains('Text'));
       });
@@ -228,8 +232,9 @@ void main() {
           ),
         );
 
-        final List<AssistantMessage> selected =
-            manager.selectRecentHistory(history);
+        final List<AssistantMessage> selected = manager.selectRecentHistory(
+          history,
+        );
         expect(selected.length, equals(3));
       });
 
@@ -243,8 +248,9 @@ void main() {
           ),
         );
 
-        final List<AssistantMessage> selected =
-            manager.selectRecentHistory(history);
+        final List<AssistantMessage> selected = manager.selectRecentHistory(
+          history,
+        );
         expect(selected.length, equals(5));
         expect(selected.first.question, equals('Frage 5'));
         expect(selected.last.question, equals('Frage 9'));
@@ -253,8 +259,7 @@ void main() {
 
     group('summarizeHistory', () {
       test('returns null for empty history', () {
-        final String? summary =
-            manager.summarizeHistory(<AssistantMessage>[]);
+        final String? summary = manager.summarizeHistory(<AssistantMessage>[]);
         expect(summary, isNull);
       });
 

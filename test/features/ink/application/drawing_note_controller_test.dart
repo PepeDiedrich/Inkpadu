@@ -54,14 +54,18 @@ void main() {
     when(() => mockDrawingController.dispose()).thenReturn(null);
 
     // Mock preferences repository defaults
-    when(() => mockToolPreferencesRepository.load(any()))
-        .thenAnswer((_) async => []);
-    when(() => mockToolPreferencesRepository.loadSelectedToolId())
-        .thenAnswer((_) async => null);
-    when(() => mockToolPreferencesRepository.loadToolbarPosition())
-        .thenAnswer((_) async => null);
-    when(() => mockToolPreferencesRepository.loadToolbarOrientation())
-        .thenAnswer((_) async => Axis.horizontal);
+    when(
+      () => mockToolPreferencesRepository.load(any()),
+    ).thenAnswer((_) async => []);
+    when(
+      () => mockToolPreferencesRepository.loadSelectedToolId(),
+    ).thenAnswer((_) async => null);
+    when(
+      () => mockToolPreferencesRepository.loadToolbarPosition(),
+    ).thenAnswer((_) async => null);
+    when(
+      () => mockToolPreferencesRepository.loadToolbarOrientation(),
+    ).thenAnswer((_) async => Axis.horizontal);
     when(
       () => mockToolPreferencesRepository.saveSelectedToolId(
         any(),
@@ -156,10 +160,7 @@ void main() {
 
       controller.removeTool(toolToRemove.id);
 
-      expect(
-        controller.tools.any((t) => t.id == toolToRemove.id),
-        false,
-      );
+      expect(controller.tools.any((t) => t.id == toolToRemove.id), false);
       expect(controller.selectedToolId, isNot(toolToRemove.id));
     });
   });
@@ -181,28 +182,32 @@ void main() {
 
       // Simulate some strokes on the current page
       final strokes = [
-        Stroke(points: [DrawingPoint(position: Offset.zero)])
+        Stroke(points: [DrawingPoint(position: Offset.zero)]),
       ];
       when(() => mockDrawingController.strokes).thenReturn(strokes);
 
       controller.setCurrentPage(targetPageIndex);
 
       // Should have persisted the old page
-      verify(() => mockInkNotesController.upsert(
-            any(that: isA<InkNote>()),
-            changedPageIndices: {initialPageIndex},
-          )).called(1);
+      verify(
+        () => mockInkNotesController.upsert(
+          any(that: isA<InkNote>()),
+          changedPageIndices: {initialPageIndex},
+        ),
+      ).called(1);
 
       expect(controller.currentPageIndex, targetPageIndex);
       // Initializes drawing controller for new page
-      verify(() => mockDrawingController.initialize(any())).called(2); // Once at init, once now
+      verify(
+        () => mockDrawingController.initialize(any()),
+      ).called(2); // Once at init, once now
     });
 
     test('addPageAfterCurrent inserts page and switches to it', () {
-        // Mock current page having content so we can add a page
-       when(() => mockDrawingController.strokes).thenReturn([
-         Stroke(points: [DrawingPoint(position: Offset.zero)])
-       ]);
+      // Mock current page having content so we can add a page
+      when(() => mockDrawingController.strokes).thenReturn([
+        Stroke(points: [DrawingPoint(position: Offset.zero)]),
+      ]);
 
       final initialLength = controller.pages.length;
       final newPageIndex = controller.addPageAfterCurrent();
@@ -213,9 +218,9 @@ void main() {
     });
   });
 
-    group('Metadata Updates', () {
+  group('Metadata Updates', () {
     setUp(() async {
-       when(
+      when(
         () => mockInkNotesController.upsert(
           any(),
           changedPageIndices: any(named: 'changedPageIndices'),
@@ -232,13 +237,18 @@ void main() {
 
       expect(controller.note.title, newTitle);
       expect(controller.note.paperStyle, newStyle);
-      verify(() => mockInkNotesController.upsert(any(), changedPageIndices: any(named: 'changedPageIndices'))).called(1);
+      verify(
+        () => mockInkNotesController.upsert(
+          any(),
+          changedPageIndices: any(named: 'changedPageIndices'),
+        ),
+      ).called(1);
     });
   });
 
   group('Assistant Integration', () {
     setUp(() async {
-        when(
+      when(
         () => mockInkNotesController.upsert(
           any(),
           changedPageIndices: any(named: 'changedPageIndices'),
@@ -257,7 +267,12 @@ void main() {
       controller.appendAssistantMessage(message);
 
       expect(controller.currentAssistantHistory.contains(message), true);
-      verify(() => mockInkNotesController.upsert(any(), changedPageIndices: any(named: 'changedPageIndices'))).called(1);
+      verify(
+        () => mockInkNotesController.upsert(
+          any(),
+          changedPageIndices: any(named: 'changedPageIndices'),
+        ),
+      ).called(1);
     });
   });
 }
