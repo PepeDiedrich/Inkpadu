@@ -49,13 +49,12 @@ class PdfExtractionConfig {
     String? resourceName,
     String? apiVersion,
     int? maxCompletionTokens,
-  }) =>
-      PdfExtractionConfig(
-        deploymentName: deploymentName ?? this.deploymentName,
-        resourceName: resourceName ?? this.resourceName,
-        apiVersion: apiVersion ?? this.apiVersion,
-        maxCompletionTokens: maxCompletionTokens ?? this.maxCompletionTokens,
-      );
+  }) => PdfExtractionConfig(
+    deploymentName: deploymentName ?? this.deploymentName,
+    resourceName: resourceName ?? this.resourceName,
+    apiVersion: apiVersion ?? this.apiVersion,
+    maxCompletionTokens: maxCompletionTokens ?? this.maxCompletionTokens,
+  );
 }
 
 /// Update für die PDF-Hintergrundverarbeitung einer Notiz.
@@ -93,7 +92,8 @@ class PdfProcessingUpdate {
   final String? error;
 
   /// Prüft, ob die Verarbeitung abgeschlossen ist.
-  bool get isComplete => stage == PdfImportStage.parsingTasks && parsedTasks != null;
+  bool get isComplete =>
+      stage == PdfImportStage.parsingTasks && parsedTasks != null;
 
   /// Prüft, ob ein Fehler aufgetreten ist.
   bool get hasError => error != null;
@@ -142,7 +142,10 @@ class PdfImportProgress {
     if (stage == PdfImportStage.parsingTasks) {
       return 0.8 + 0.2; // 100% wenn parsingTasks erreicht
     }
-    return (pageProgress + stageOffset + (stage == PdfImportStage.extracting ? stageWeight : 0)) * 0.8;
+    return (pageProgress +
+            stageOffset +
+            (stage == PdfImportStage.extracting ? stageWeight : 0)) *
+        0.8;
   }
 }
 
@@ -170,13 +173,13 @@ class PdfImportService {
   PdfImportService({
     required Functions functions,
     PdfExtractionConfig config = const PdfExtractionConfig(),
-  })  : _config = config,
-        _azureService = AzureAssistantApiService(
-          functions: functions,
-          azureDeploymentName: config.deploymentName,
-          azureResourceName: config.resourceName,
-          azureApiVersion: config.apiVersion,
-        );
+  }) : _config = config,
+       _azureService = AzureAssistantApiService(
+         functions: functions,
+         azureDeploymentName: config.deploymentName,
+         azureResourceName: config.resourceName,
+         azureApiVersion: config.apiVersion,
+       );
 
   final AzureAssistantApiService _azureService;
   final PdfExtractionConfig _config;
@@ -252,11 +255,13 @@ Beispiel-Ausgabe:
         // 1. Render images for the batch (Sequentially to be safe with PDF plugin)
         final Map<int, Uint8List> batchImages = {};
         for (int pageNum = i; pageNum <= end; pageNum++) {
-          onProgress(PdfImportProgress(
-            currentPage: pageNum,
-            totalPages: pageCount,
-            stage: PdfImportStage.rendering,
-          ));
+          onProgress(
+            PdfImportProgress(
+              currentPage: pageNum,
+              totalPages: pageCount,
+              stage: PdfImportStage.rendering,
+            ),
+          );
 
           _log('[PdfImportService] Rendering page $pageNum...');
           batchImages[pageNum] = await _renderPage(document, pageNum);
@@ -266,15 +271,21 @@ Beispiel-Ausgabe:
         final List<Future<PdfPageExtractionResult>> extractionFutures = [];
         for (int pageNum = i; pageNum <= end; pageNum++) {
           extractionFutures.add(() async {
-            onProgress(PdfImportProgress(
-              currentPage: pageNum,
-              totalPages: pageCount,
-              stage: PdfImportStage.extracting,
-            ));
+            onProgress(
+              PdfImportProgress(
+                currentPage: pageNum,
+                totalPages: pageCount,
+                stage: PdfImportStage.extracting,
+              ),
+            );
 
             _log('[PdfImportService] Extracting text from page $pageNum...');
-            final String extractedText = await _extractTextFromImage(batchImages[pageNum]!);
-            _log('[PdfImportService] Extracted ${extractedText.length} chars from page $pageNum');
+            final String extractedText = await _extractTextFromImage(
+              batchImages[pageNum]!,
+            );
+            _log(
+              '[PdfImportService] Extracted ${extractedText.length} chars from page $pageNum',
+            );
 
             return PdfPageExtractionResult(
               pageNumber: pageNum,
@@ -284,7 +295,9 @@ Beispiel-Ausgabe:
         }
 
         // Wait for all extractions in this batch to complete
-        final List<PdfPageExtractionResult> batchResults = await Future.wait(extractionFutures);
+        final List<PdfPageExtractionResult> batchResults = await Future.wait(
+          extractionFutures,
+        );
         results.addAll(batchResults);
       }
     } finally {
@@ -292,7 +305,9 @@ Beispiel-Ausgabe:
       _log('[PdfImportService] PDF document closed');
     }
 
-    _log('[PdfImportService] Import complete: ${results.length} pages processed');
+    _log(
+      '[PdfImportService] Import complete: ${results.length} pages processed',
+    );
     return results;
   }
 
@@ -352,7 +367,9 @@ Beispiel-Ausgabe:
       },
     ];
 
-    _log('[PdfImportService] Creating Azure request with deployment: ${_config.deploymentName}');
+    _log(
+      '[PdfImportService] Creating Azure request with deployment: ${_config.deploymentName}',
+    );
     final AzureAssistantRequest request = AzureAssistantRequest(
       systemPrompt: defaultExtractionPrompt,
       userContent: userContent,
@@ -360,8 +377,8 @@ Beispiel-Ausgabe:
       reasoningEffort: 'low',
     );
 
-    final AzureAssistantPreparedRequest preparedRequest =
-        _azureService.prepareRequest(request);
+    final AzureAssistantPreparedRequest preparedRequest = _azureService
+        .prepareRequest(request);
 
     _log('[PdfImportService] Sending request to Azure...');
     try {
@@ -371,7 +388,9 @@ Beispiel-Ausgabe:
           // Optional: Log streaming progress
         },
       );
-      _log('[PdfImportService] Azure response received: ${result.answer.length} chars');
+      _log(
+        '[PdfImportService] Azure response received: ${result.answer.length} chars',
+      );
       return result.answer;
     } catch (e, stackTrace) {
       _log('[PdfImportService] Azure API ERROR: $e');
@@ -402,13 +421,16 @@ Beispiel-Ausgabe:
       return <String>[];
     }
 
-    _log('[PdfImportService] Extracting tasks from ${combinedText.length} chars...');
+    _log(
+      '[PdfImportService] Extracting tasks from ${combinedText.length} chars...',
+    );
 
     try {
       final List<Map<String, dynamic>> userContent = <Map<String, dynamic>>[
         {
           'type': 'text',
-          'text': 'Extrahiere alle Aufgaben aus dem folgenden Text und gib sie als JSON-Array zurück:\n\n$combinedText',
+          'text':
+              'Extrahiere alle Aufgaben aus dem folgenden Text und gib sie als JSON-Array zurück:\n\n$combinedText',
         },
       ];
 
@@ -419,15 +441,17 @@ Beispiel-Ausgabe:
         reasoningEffort: 'low',
       );
 
-      final AzureAssistantPreparedRequest preparedRequest =
-          _azureService.prepareRequest(request);
+      final AzureAssistantPreparedRequest preparedRequest = _azureService
+          .prepareRequest(request);
 
       final AzureAssistantResult result = await _azureService.streamCompletion(
         preparedRequest: preparedRequest,
         onStreamUpdate: (_) {},
       );
 
-      _log('[PdfImportService] Task extraction response: ${result.answer.length} chars');
+      _log(
+        '[PdfImportService] Task extraction response: ${result.answer.length} chars',
+      );
 
       // Parse JSON-Array aus der Antwort
       final List<String> tasks = _parseTasksFromJson(result.answer);
@@ -510,9 +534,9 @@ Beispiel-Ausgabe:
       r'(?:^|\n)' // Zeilenanfang
       r'\s*'
       r'(?:'
-        r'(?:Aufgabe|Exercise|Problem|Übung|Frage|Question|Task)\s*[:\.]?\s*\d*[:\.]?\s*' // Keyword
-        r'|'
-        r'\d+\s*[.):]\s+' // Nummerierung
+      r'(?:Aufgabe|Exercise|Problem|Übung|Frage|Question|Task)\s*[:\.]?\s*\d*[:\.]?\s*' // Keyword
+      r'|'
+      r'\d+\s*[.):]\s+' // Nummerierung
       r')',
       multiLine: true,
       caseSensitive: false,
@@ -525,7 +549,9 @@ Beispiel-Ausgabe:
       // Keine Aufgaben-Marker gefunden - gesamten Text als eine Aufgabe zurückgeben
       final String trimmed = text.trim();
       if (trimmed.isNotEmpty) {
-        _log('[PdfImportService] No task markers found, returning full text as single task');
+        _log(
+          '[PdfImportService] No task markers found, returning full text as single task',
+        );
         return <String>[trimmed];
       }
       return <String>[];

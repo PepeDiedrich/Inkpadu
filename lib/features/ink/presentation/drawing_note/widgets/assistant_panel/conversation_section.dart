@@ -29,20 +29,28 @@ class AssistantConversationSliver extends StatelessWidget {
 
   /// Optionale Statusmeldung oberhalb der Historie.
   final String? statusMessage;
+
   /// Zeigt an, ob gerade eine Anfrage gesendet wird.
   final bool isLoading;
+
   /// Historie der bereits beantworteten Fragen.
   final List<AssistantMessage> messages;
+
   /// Ob der Debug-Modus aktiv ist (steuert die Beschreibung).
   final bool debugModeEnabled;
+
   /// Optionale ausstehende Nachricht, die ggf. noch generiert wird.
   final AssistantMessage? pendingMessage;
+
   /// Ob gerade eine Antwort gestreamt wird.
   final bool isStreaming;
+
   /// Live-Antwort, die während des Streamings aktualisiert wird.
   final ValueListenable<String>? streamingAnswerListenable;
+
   /// Importierter PDF-Text für diese Seite (wird als Kontext angezeigt).
   final String? importedPdfText;
+
   /// ID der aktuellen Notiz (für Sub-Notes).
   final String? currentNoteId;
 
@@ -58,10 +66,9 @@ class AssistantConversationSliver extends StatelessWidget {
 
     if (statusMessage != null) {
       if (items.isNotEmpty) items.add(const SizedBox(height: 12));
-      items.add(_AssistantStatusBanner(
-        message: statusMessage!,
-        isLoading: isLoading,
-      ));
+      items.add(
+        _AssistantStatusBanner(message: statusMessage!, isLoading: isLoading),
+      );
     }
 
     if (messages.isEmpty) {
@@ -82,32 +89,29 @@ class AssistantConversationSliver extends StatelessWidget {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (BuildContext context, int index) {
-          final Object item = items[index];
-          if (item is Widget) {
-            return item;
-          }
-          if (item is AssistantMessage) {
-            return _AssistantMessageGroup(
-              message: item,
-              debugModeEnabled: debugModeEnabled,
-              currentNoteId: currentNoteId,
-            );
-          }
-          if (item is _PendingMessageWrapper) {
-            return _AssistantMessageGroup(
-              message: item.message,
-              debugModeEnabled: debugModeEnabled,
-              isPending: isStreaming,
-              streamingAnswerListenable: streamingAnswerListenable,
-              currentNoteId: currentNoteId,
-            );
-          }
-          return const SizedBox.shrink();
-        },
-        childCount: items.length,
-      ),
+      delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
+        final Object item = items[index];
+        if (item is Widget) {
+          return item;
+        }
+        if (item is AssistantMessage) {
+          return _AssistantMessageGroup(
+            message: item,
+            debugModeEnabled: debugModeEnabled,
+            currentNoteId: currentNoteId,
+          );
+        }
+        if (item is _PendingMessageWrapper) {
+          return _AssistantMessageGroup(
+            message: item.message,
+            debugModeEnabled: debugModeEnabled,
+            isPending: isStreaming,
+            streamingAnswerListenable: streamingAnswerListenable,
+            currentNoteId: currentNoteId,
+          );
+        }
+        return const SizedBox.shrink();
+      }, childCount: items.length),
     );
   }
 }
@@ -150,9 +154,7 @@ class _PdfContextBannerState extends State<_PdfContextBanner> {
       decoration: BoxDecoration(
         color: colorScheme.tertiaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.tertiary.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: colorScheme.tertiary.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,18 +188,19 @@ class _PdfContextBannerState extends State<_PdfContextBanner> {
                         Text(
                           charLabel,
                           style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onTertiaryContainer
-                                .withValues(alpha: 0.7),
+                            color: colorScheme.onTertiaryContainer.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    _isExpanded
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    color: colorScheme.onTertiaryContainer.withValues(alpha: 0.7),
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: colorScheme.onTertiaryContainer.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                 ],
               ),
@@ -313,16 +316,14 @@ class _AssistantMessageGroup extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
     final TextTheme textTheme = theme.textTheme;
-    final MaterialLocalizations localizations =
-        MaterialLocalizations.of(context);
+    final MaterialLocalizations localizations = MaterialLocalizations.of(
+      context,
+    );
 
     final TimeOfDay timeOfDay = TimeOfDay.fromDateTime(message.createdAt);
     final String timestamp =
         '${localizations.formatMediumDate(message.createdAt)} · '
-        '${localizations.formatTimeOfDay(
-          timeOfDay,
-          alwaysUse24HourFormat: true,
-        )}';
+        '${localizations.formatTimeOfDay(timeOfDay, alwaysUse24HourFormat: true)}';
     final String displayTimestamp = isPending
         ? 'Antwort wird gerade generiert…'
         : timestamp;
@@ -335,10 +336,12 @@ class _AssistantMessageGroup extends StatelessWidget {
     final String? description = message.visionDescription;
     final bool showDescription =
         debugModeEnabled && (description?.isNotEmpty ?? false);
-    final Brightness accentBrightness =
-        ThemeData.estimateBrightnessForColor(AppColors.primaryAccent);
-    final Color questionForeground =
-        accentBrightness == Brightness.dark ? Colors.white : Colors.black87;
+    final Brightness accentBrightness = ThemeData.estimateBrightnessForColor(
+      AppColors.primaryAccent,
+    );
+    final Color questionForeground = accentBrightness == Brightness.dark
+        ? Colors.white
+        : Colors.black87;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,15 +375,14 @@ class _AssistantMessageGroup extends StatelessWidget {
           child: streamingAnswerListenable != null
               ? ValueListenableBuilder<String>(
                   valueListenable: streamingAnswerListenable!,
-                  builder:
-                      (BuildContext context, String streamedAnswer, _) {
+                  builder: (BuildContext context, String streamedAnswer, _) {
                     final String trimmedStream = streamedAnswer.trim();
                     final bool hasStreamContent = trimmedStream.isNotEmpty;
                     final String effectiveAnswer = hasStreamContent
                         ? streamedAnswer
                         : (answerIsEmpty && isPending
-                            ? 'Antwort wird generiert…'
-                            : message.answer);
+                              ? 'Antwort wird generiert…'
+                              : message.answer);
 
                     return _AssistantBubble(
                       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -490,7 +492,8 @@ class _AssistantBubble extends StatelessWidget {
                           orElse: () => notesController.createEmpty(
                             title: cleanedTitle,
                             parentId: currentNoteId,
-                            paperStyle: parentNote?.paperStyle ?? NotePaperStyle.plain,
+                            paperStyle:
+                                parentNote?.paperStyle ?? NotePaperStyle.plain,
                           ),
                         );
                         Navigator.of(context).push(
@@ -520,7 +523,8 @@ class _AssistantBubble extends StatelessWidget {
                           orElse: () => notesController.createEmpty(
                             title: cleanedTitle,
                             parentId: currentNoteId,
-                            paperStyle: parentNote?.paperStyle ?? NotePaperStyle.plain,
+                            paperStyle:
+                                parentNote?.paperStyle ?? NotePaperStyle.plain,
                           ),
                         );
                         Navigator.of(context).push(
@@ -549,7 +553,9 @@ class _AssistantBubble extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        foregroundColor,
+                      ),
                     ),
                   ),
                 ),

@@ -158,7 +158,7 @@ void main() {
       // Editor settings page has "Assist panel" text
       expect(find.text('Assist panel'), findsOneWidget);
     });
-  }, skip: 'Disabled to debug CI');
+  });
 }
 
 Widget _createWidgetUnderTest(
