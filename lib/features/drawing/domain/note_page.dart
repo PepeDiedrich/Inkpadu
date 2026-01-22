@@ -12,10 +12,10 @@ class NotePage {
     this.cachedVisionDescription,
     this.cachedVisionSignature,
     this.importedPdfText,
-  })  : assistantHistory = List<AssistantMessage>.unmodifiable(
-          assistantHistory ?? const <AssistantMessage>[],
-        ),
-        links = List<NoteLink>.unmodifiable(links ?? const <NoteLink>[]);
+  }) : assistantHistory = List<AssistantMessage>.unmodifiable(
+         assistantHistory ?? const <AssistantMessage>[],
+       ),
+       links = List<NoteLink>.unmodifiable(links ?? const <NoteLink>[]);
 
   /// Die Liste aller Striche auf dieser Seite.
   final List<Stroke> strokes;
@@ -44,26 +44,26 @@ class NotePage {
     Object? cachedVisionDescription = _sentinel,
     Object? cachedVisionSignature = _sentinel,
     Object? importedPdfText = _sentinel,
-  }) =>
-      NotePage(
-        strokes: strokes ?? this.strokes,
-        assistantHistory: assistantHistory ?? this.assistantHistory,
-        cachedVisionDescription: cachedVisionDescription == _sentinel
-            ? this.cachedVisionDescription
-            : cachedVisionDescription as String?,
-        cachedVisionSignature: cachedVisionSignature == _sentinel
-            ? this.cachedVisionSignature
-            : cachedVisionSignature as String?,
-        importedPdfText: importedPdfText == _sentinel
-            ? this.importedPdfText
-            : importedPdfText as String?,
-      );
+  }) => NotePage(
+    strokes: strokes ?? this.strokes,
+    assistantHistory: assistantHistory ?? this.assistantHistory,
+    cachedVisionDescription: cachedVisionDescription == _sentinel
+        ? this.cachedVisionDescription
+        : cachedVisionDescription as String?,
+    cachedVisionSignature: cachedVisionSignature == _sentinel
+        ? this.cachedVisionSignature
+        : cachedVisionSignature as String?,
+    importedPdfText: importedPdfText == _sentinel
+        ? this.importedPdfText
+        : importedPdfText as String?,
+  );
 
   /// Wandelt das Objekt in eine JSON-Map um.
   Map<String, dynamic> toJson() => {
-        'strokes': strokes.map((s) => s.toJson()).toList(),
-        'assistant_history':
-            assistantHistory.map((m) => m.toJson()).toList(growable: false),
+    'strokes': strokes.map((s) => s.toJson()).toList(),
+    'assistant_history': assistantHistory
+        .map((m) => m.toJson())
+        .toList(growable: false),
     'cached_vision_description': cachedVisionDescription,
     'cached_vision_signature': cachedVisionSignature,
     'imported_pdf_text': importedPdfText,
@@ -74,17 +74,17 @@ class NotePage {
     final Object? rawStrokes = json['strokes'];
     final List<Stroke> decodedStrokes = rawStrokes is List
         ? rawStrokes
-            .whereType<Map<String, dynamic>>()
-            .map(Stroke.fromJson)
-            .toList(growable: false)
+              .whereType<Map<String, dynamic>>()
+              .map(Stroke.fromJson)
+              .toList(growable: false)
         : const <Stroke>[];
 
     final Object? rawHistory = json['assistant_history'];
     final List<AssistantMessage> history = rawHistory is List
         ? rawHistory
-            .whereType<Map<String, dynamic>>()
-            .map(AssistantMessage.fromJson)
-            .toList(growable: false)
+              .whereType<Map<String, dynamic>>()
+              .map(AssistantMessage.fromJson)
+              .toList(growable: false)
         : const <AssistantMessage>[];
 
     final Object? rawDescription = json['cached_vision_description'];

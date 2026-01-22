@@ -49,7 +49,8 @@ class _MathRichTextState extends State<MathRichText> {
     }
     _recognizers.clear();
 
-    final TextStyle baseStyle = widget.style ??
+    final TextStyle baseStyle =
+        widget.style ??
         Theme.of(context).textTheme.bodyMedium ??
         const TextStyle(fontSize: 14);
 
@@ -64,10 +65,7 @@ class _MathRichTextState extends State<MathRichText> {
 
     return SelectionArea(
       child: RichText(
-        text: TextSpan(
-          style: baseStyle,
-          children: spans,
-        ),
+        text: TextSpan(style: baseStyle, children: spans),
       ),
     );
   }
@@ -95,8 +93,10 @@ class _MathSpanBuilder {
 
     final List<InlineSpan> spans = <InlineSpan>[];
     // Matches $$...$$, $...$, or **...**
-    final RegExp pattern =
-        RegExp(r'(\$\$.*?\$\$|\$[^$]+\$|\*\*.*?\*\*)', dotAll: true);
+    final RegExp pattern = RegExp(
+      r'(\$\$.*?\$\$|\$[^$]+\$|\*\*.*?\*\*)',
+      dotAll: true,
+    );
     int cursor = 0;
 
     for (final RegExpMatch match in pattern.allMatches(input)) {
@@ -109,10 +109,9 @@ class _MathSpanBuilder {
       if (matchText.startsWith(r'$')) {
         // Math segment
         final bool isBlock = matchText.startsWith(r'$$');
-        final String mathContent = matchText.substring(
-          isBlock ? 2 : 1,
-          matchText.length - (isBlock ? 2 : 1),
-        ).trim();
+        final String mathContent = matchText
+            .substring(isBlock ? 2 : 1, matchText.length - (isBlock ? 2 : 1))
+            .trim();
 
         if (mathContent.isNotEmpty) {
           Widget mathWidget = Math.tex(
@@ -131,10 +130,9 @@ class _MathSpanBuilder {
                 onTap: () => onMathTap!(mathContent),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -196,10 +194,12 @@ class _MathSpanBuilder {
                 fontWeight: FontWeight.bold,
                 color: onTermTap != null ? primaryColor : null,
                 decoration: onTermTap != null ? TextDecoration.underline : null,
-                decorationColor:
-                    onTermTap != null ? primaryColor.withValues(alpha: 0.5) : null,
-                decorationStyle:
-                    onTermTap != null ? TextDecorationStyle.dashed : null,
+                decorationColor: onTermTap != null
+                    ? primaryColor.withValues(alpha: 0.5)
+                    : null,
+                decorationStyle: onTermTap != null
+                    ? TextDecorationStyle.dashed
+                    : null,
               ),
               recognizer: recognizer,
             ),
