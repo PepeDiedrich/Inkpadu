@@ -11,43 +11,42 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const MethodChannel channel = MethodChannel(
-    'plugins.it_nomads.com/flutter_secure_storage',
-  );
+  const MethodChannel channel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
   final List<MethodCall> log = <MethodCall>[];
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-          log.add(methodCall);
-          if (methodCall.method == 'read') {
-            final args = methodCall.arguments as Map;
-            if (args['key'] == 'inkpadu_cached_user_id') {
-              return 'user_123';
-            }
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (MethodCall methodCall) async {
+        log.add(methodCall);
+        if (methodCall.method == 'read') {
+          final args = methodCall.arguments as Map;
+          if (args['key'] == 'inkpadu_cached_user_id') {
+            return 'user_123';
           }
-          return null;
-        });
+        }
+        return null;
+      },
+    );
     log.clear();
   });
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      null,
+    );
   });
 
-  test(
-    'FlutterSecureStorage reads inkpadu_cached_user_id correctly via channel',
-    () async {
-      const storage = FlutterSecureStorage();
+  test('FlutterSecureStorage reads inkpadu_cached_user_id correctly via channel', () async {
+    const storage = FlutterSecureStorage();
 
-      // Simulate what happens in the background task
-      final cachedUserId = await storage.read(key: 'inkpadu_cached_user_id');
+    // Simulate what happens in the background task
+    final cachedUserId = await storage.read(key: 'inkpadu_cached_user_id');
 
-      expect(cachedUserId, 'user_123');
-      expect(log, hasLength(1));
-      expect(log.first.method, 'read');
-      expect(log.first.arguments['key'], 'inkpadu_cached_user_id');
-    },
-  );
+    expect(cachedUserId, 'user_123');
+    expect(log, hasLength(1));
+    expect(log.first.method, 'read');
+    expect(log.first.arguments['key'], 'inkpadu_cached_user_id');
+  });
 }

@@ -49,14 +49,14 @@ void main() {
 
     test('paint calls canvas.drawPath for optimized strokes', () {
       final canvas = MockCanvas();
-      final painter = FinishedStrokesPainter(
-        strokes: [stroke1, stroke2],
-        version: 1,
-      );
+      final painter = FinishedStrokesPainter(strokes: [stroke1, stroke2], version: 1);
 
       painter.paint(canvas, const Size(100, 100));
 
-      verify(() => canvas.drawPath(any(), any())).called(2);
+      verify(() => canvas.drawPath(
+            any(),
+            any(),
+          )).called(2);
     });
 
     test('paint handles empty strokes gracefully', () {
@@ -66,10 +66,7 @@ void main() {
         // color default is black, removed redundant
         baseWidth: 2.0,
       );
-      final painter = FinishedStrokesPainter(
-        strokes: [emptyStroke],
-        version: 1,
-      );
+      final painter = FinishedStrokesPainter(strokes: [emptyStroke], version: 1);
 
       painter.paint(canvas, const Size(100, 100));
 
@@ -88,51 +85,36 @@ void main() {
     );
 
     test('shouldRepaint returns true when currentStroke changes', () {
-      final painter1 = CurrentStrokePainter(
-        currentStroke: stroke,
-        pointCount: 2,
-      );
+      final painter1 = CurrentStrokePainter(currentStroke: stroke, pointCount: 2);
       final painter2 = CurrentStrokePainter(currentStroke: null, pointCount: 0);
 
       expect(painter2.shouldRepaint(painter1), isTrue);
     });
 
     test('shouldRepaint returns true when pointCount changes', () {
-      final painter1 = CurrentStrokePainter(
-        currentStroke: stroke,
-        pointCount: 2,
-      );
-      final painter2 = CurrentStrokePainter(
-        currentStroke: stroke,
-        pointCount: 3,
-      );
+      final painter1 = CurrentStrokePainter(currentStroke: stroke, pointCount: 2);
+      final painter2 = CurrentStrokePainter(currentStroke: stroke, pointCount: 3);
 
       expect(painter2.shouldRepaint(painter1), isTrue);
     });
 
     test('shouldRepaint returns false when unchanged', () {
-      final painter1 = CurrentStrokePainter(
-        currentStroke: stroke,
-        pointCount: 2,
-      );
-      final painter2 = CurrentStrokePainter(
-        currentStroke: stroke,
-        pointCount: 2,
-      );
+      final painter1 = CurrentStrokePainter(currentStroke: stroke, pointCount: 2);
+      final painter2 = CurrentStrokePainter(currentStroke: stroke, pointCount: 2);
 
       expect(painter2.shouldRepaint(painter1), isFalse);
     });
 
     test('paint calls canvas.drawPath', () {
       final canvas = MockCanvas();
-      final painter = CurrentStrokePainter(
-        currentStroke: stroke,
-        pointCount: 2,
-      );
+      final painter = CurrentStrokePainter(currentStroke: stroke, pointCount: 2);
 
       painter.paint(canvas, const Size(100, 100));
 
-      verify(() => canvas.drawPath(any(), any())).called(1);
+      verify(() => canvas.drawPath(
+            any(),
+            any(),
+          )).called(1);
     });
 
     test('paint does nothing if currentStroke is null', () {
@@ -148,12 +130,7 @@ void main() {
   group('ConvexHullsPainter', () {
     final hull = [const Offset(0, 0), const Offset(10, 0), const Offset(0, 10)];
     final box = RotatedBoundingBox(
-      corners: const [
-        Offset(0, 0),
-        Offset(10, 0),
-        Offset(10, 10),
-        Offset(0, 10),
-      ],
+      corners: const [Offset(0, 0), Offset(10, 0), Offset(10, 10), Offset(0, 10)],
       angle: 0,
       width: 10,
       height: 10,
@@ -194,28 +171,25 @@ void main() {
     });
 
     test('paint handles zero size boxes', () {
-      final canvas = MockCanvas();
-      // Hull with < 2 points is invalid
-      final invalidHull = [const Offset(0, 0)];
+       final canvas = MockCanvas();
+       // Hull with < 2 points is invalid
+       final invalidHull = [const Offset(0, 0)];
 
-      final zeroBox = RotatedBoundingBox(
-        corners: const [Offset.zero, Offset.zero, Offset.zero, Offset.zero],
-        angle: 0,
-        width: 0,
-        height: 0,
-      );
+       final zeroBox = RotatedBoundingBox(
+         corners: const [Offset.zero, Offset.zero, Offset.zero, Offset.zero],
+         angle: 0,
+         width: 0,
+         height: 0,
+       );
 
-      final painter = ConvexHullsPainter(
-        hulls: [invalidHull],
-        boundingBoxes: [zeroBox],
-      );
+       final painter = ConvexHullsPainter(hulls: [invalidHull], boundingBoxes: [zeroBox]);
 
-      painter.paint(canvas, const Size(100, 100));
+       painter.paint(canvas, const Size(100, 100));
 
-      // Hull is skipped (<2 points)
-      // Box is drawn but not filled because width/height <= 0
-      // So we expect 1 drawPath call (stroke only)
-      verify(() => canvas.drawPath(any(), any())).called(1);
+       // Hull is skipped (<2 points)
+       // Box is drawn but not filled because width/height <= 0
+       // So we expect 1 drawPath call (stroke only)
+       verify(() => canvas.drawPath(any(), any())).called(1);
     });
   });
 }

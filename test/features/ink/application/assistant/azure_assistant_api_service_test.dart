@@ -73,10 +73,10 @@ void main() {
 
       final AzureAssistantPreparedRequest preparedRequest =
           const AzureAssistantPreparedRequest(
-            request: originalRequest,
-            payload: <String, dynamic>{'messages': <dynamic>[]},
-            payloadPreview: '{}',
-          );
+        request: originalRequest,
+        payload: <String, dynamic>{'messages': <dynamic>[]},
+        payloadPreview: '{}',
+      );
 
       expect(preparedRequest.request.pdfContext, equals('PDF context'));
     });
