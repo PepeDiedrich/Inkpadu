@@ -133,8 +133,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   bool _didEraseDuringDrag = false;
   int _lastObservedVersion = 0;
   DateTime? _threeFingerTapStart;
-  final Map<int, Offset> _threeFingerTapInitialPositions =
-      <int, Offset>{};
+  final Map<int, Offset> _threeFingerTapInitialPositions = <int, Offset>{};
   Timer? _hullDebounceTimer;
   Timer? _holdToSnapTimer;
   Offset? _lastHoldPosition;
@@ -320,11 +319,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
     var maxY = 0.0;
     for (final stroke in strokes) {
-      for (final point in stroke.points) {
-        final y = point.position.dy;
-        if (y > maxY) {
-          maxY = y;
-        }
+      if (stroke.points.isEmpty) {
+        continue;
+      }
+      // OPTIMIZATION: Use cached boundingBox (O(1)) instead of iterating all points (O(P)).
+      // This reduces complexity from O(TotalPoints) to O(Strokes), avoiding UI jank.
+      final y = stroke.boundingBox.bottom;
+      if (y > maxY) {
+        maxY = y;
       }
     }
     return math.max(
@@ -683,7 +685,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           final double currentDistance = _computePinchDistance();
           if (currentDistance > 0 && _initialPinchDistance! > 0) {
             final double scale = currentDistance / _initialPinchDistance!;
-            if (scale < 0.7) { // Threshold for zoom-out
+            if (scale < 0.7) {
+              // Threshold for zoom-out
               widget.onZoomOutExit?.call();
               _initialPinchDistance = null; // Prevent multiple calls
               return;
@@ -786,8 +789,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           twoFingerCandidate && _isTwoFingerTapWithinTimeWindow();
 
       final bool threeFingerCandidate = _threeFingerTapStart != null;
-      final bool threeWithinMovement = threeFingerCandidate &&
-          _isThreeFingerTapMovementWithinThreshold();
+      final bool threeWithinMovement =
+          threeFingerCandidate && _isThreeFingerTapMovementWithinThreshold();
       final bool threeWithinTime =
           threeFingerCandidate && _isThreeFingerTapWithinTimeWindow();
 
@@ -993,62 +996,65 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                               ),
                             ),
                           ),
-                        ...widget.links.map((link) => Positioned(
-                              left: link.position.dx,
-                              top: link.position.dy,
-                              child: GestureDetector(
-                                onTap: () => widget.onLinkTap?.call(link),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                        ...widget.links.map(
+                          (link) => Positioned(
+                            left: link.position.dx,
+                            top: link.position.dy,
+                            child: GestureDetector(
+                              onTap: () => widget.onLinkTap?.call(link),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surface.withValues(alpha: 0.9),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    width: 1.5,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surface
-                                        .withValues(alpha: 0.9),
-                                    border: Border.all(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      width: 1.5,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.link,
+                                      size: 14,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      link.label,
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
                                       ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.link,
-                                        size: 14,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        link.label,
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            )),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

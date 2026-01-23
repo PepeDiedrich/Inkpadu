@@ -37,7 +37,6 @@ class FakeInkNotesAuth extends ChangeNotifier implements InkNotesAuth {
     _loggedIn = userId != null;
     notifyListeners();
   }
-
 }
 
 class FakeInkNotesLocalStorage extends InkNotesLocalStorage {
@@ -70,11 +69,7 @@ class FakeInkNotesLocalStorage extends InkNotesLocalStorage {
   }) async {
     _notes[note.id] = _StoredNote(note: note, status: status);
     if (status != LocalSyncStatus.synced) {
-      await _enqueue(
-        note.id,
-        'UPSERT',
-        changedPageIndices: changedPageIndices,
-      );
+      await _enqueue(note.id, 'UPSERT', changedPageIndices: changedPageIndices);
     }
   }
 
@@ -95,14 +90,22 @@ class FakeInkNotesLocalStorage extends InkNotesLocalStorage {
   Future<void> markSynced(String id, {DateTime? remoteUpdatedAt}) async {
     final stored = _notes[id];
     if (stored != null) {
-      _notes[id] = _StoredNote(note: stored.note, status: LocalSyncStatus.synced);
+      _notes[id] = _StoredNote(
+        note: stored.note,
+        status: LocalSyncStatus.synced,
+      );
     }
-    _queue.removeWhere((row) => row['note_id'] == id && row['operation'] == 'UPSERT');
+    _queue.removeWhere(
+      (row) => row['note_id'] == id && row['operation'] == 'UPSERT',
+    );
   }
 
   @override
   Future<List<Map<String, Object?>>> fetchQueueItems({int limit = 100}) async =>
-      _queue.take(limit).map((row) => Map<String, Object?>.from(row)).toList(growable: false);
+      _queue
+          .take(limit)
+          .map((row) => Map<String, Object?>.from(row))
+          .toList(growable: false);
 
   @override
   Future<void> deleteQueueItemById(int id) async {
@@ -110,10 +113,16 @@ class FakeInkNotesLocalStorage extends InkNotesLocalStorage {
   }
 
   @override
-  Future<void> updateQueueItem(int id, {int? retryCount, String? lastError}) async {
-  final Map<String, Object?> row =
-    _queue.firstWhere((element) => element['id'] == id, orElse: () => <String, Object?>{});
-  if (row.isEmpty) {
+  Future<void> updateQueueItem(
+    int id, {
+    int? retryCount,
+    String? lastError,
+  }) async {
+    final Map<String, Object?> row = _queue.firstWhere(
+      (element) => element['id'] == id,
+      orElse: () => <String, Object?>{},
+    );
+    if (row.isEmpty) {
       return;
     }
     if (retryCount != null) {
@@ -190,11 +199,12 @@ class FakeInkNotesSync implements InkNotesSync {
   }) async {
     final list = uploadedNotes.putIfAbsent(userId, () => <InkNote>[]);
     list.add(note);
-    final changes = uploadedPageChanges.putIfAbsent(userId, () => <Set<int>?>[]);
+    final changes = uploadedPageChanges.putIfAbsent(
+      userId,
+      () => <Set<int>?>[],
+    );
     changes.add(
-      changedPageIndices == null
-          ? null
-          : Set<int>.from(changedPageIndices),
+      changedPageIndices == null ? null : Set<int>.from(changedPageIndices),
     );
   }
 
@@ -209,8 +219,10 @@ class FakeInkNotesSync implements InkNotesSync {
     required String userId,
     required void Function(InkNotesRemoteEvent event) onEvent,
   }) {
-    final controller =
-        _controllers.putIfAbsent(userId, () => StreamController.broadcast());
+    final controller = _controllers.putIfAbsent(
+      userId,
+      () => StreamController.broadcast(),
+    );
     final subscription = controller.stream.listen(onEvent);
     return InkNotesRealtimeSubscription(null, subscription);
   }
@@ -245,7 +257,10 @@ void main() {
       sync = FakeInkNotesSync();
       localStorage = FakeInkNotesLocalStorage();
       controller = InkNotesController(
-        repository: InkNotesRepository(localStorage: localStorage, syncService: sync),
+        repository: InkNotesRepository(
+          localStorage: localStorage,
+          syncService: sync,
+        ),
         syncService: sync,
         auth: auth,
         debounceDuration: const Duration(milliseconds: 100),
@@ -326,7 +341,9 @@ void main() {
         changedPageIndices: {0},
       );
       controller.upsert(
-        base.copyWith(updatedAt: DateTime.now().add(const Duration(milliseconds: 1))),
+        base.copyWith(
+          updatedAt: DateTime.now().add(const Duration(milliseconds: 1)),
+        ),
         changedPageIndices: const <int>{},
       );
 
