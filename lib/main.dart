@@ -58,6 +58,12 @@ Future<void> main() async {
       DeviceOrientation.landscapeRight,
     ]);
   }
+
+  // Prevent logging in release mode to avoid leaking sensitive data
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   runApp(TranslationProvider(child: const InkpaduApp()));
 }
 

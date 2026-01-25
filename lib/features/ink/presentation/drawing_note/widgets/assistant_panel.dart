@@ -19,6 +19,7 @@ import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_servi
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/conversation_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/assistant_panel/debug_section.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/sidebar_resize_handle.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 
@@ -114,16 +115,22 @@ class _AssistantPanelState extends State<AssistantPanel>
       _inkNotesController?.removeListener(_onInkNotesChanged);
       _inkNotesController = newController;
       _inkNotesController?.addListener(_onInkNotesChanged);
-      debugPrint('[AssistantPanel] InkNotes listener updated');
+      if (kDebugMode) {
+        debugPrint('[AssistantPanel] InkNotes listener updated');
+      }
     }
   }
 
   void _onInkNotesChanged() {
-    debugPrint('[AssistantPanel] InkNotes changed, checking for updates...');
+    if (kDebugMode) {
+      debugPrint('[AssistantPanel] InkNotes changed, checking for updates...');
+    }
     // Versuche, die Notiz im Controller zu aktualisieren
     if (widget.controller.isInitialized) {
       final bool updated = widget.controller.refreshFromSource();
-      debugPrint('[AssistantPanel] Controller refresh result: $updated');
+      if (kDebugMode) {
+        debugPrint('[AssistantPanel] Controller refresh result: $updated');
+      }
       if (updated && mounted) {
         setState(() {
           // UI neu aufbauen um den aktualisierten PDF-Text anzuzeigen
@@ -157,7 +164,11 @@ class _AssistantPanelState extends State<AssistantPanel>
     try {
       await _assistantService.getAccessToken();
     } catch (error, stackTrace) {
-      debugPrint('[AssistantPanel] Token prewarm failed: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint(
+          '[AssistantPanel] Token prewarm failed: $error\n$stackTrace',
+        );
+      }
     }
   }
 
