@@ -156,6 +156,7 @@ class _TranslationsNotesEn extends TranslationsNotesDe {
 	@override String get adjustTitlePaper => 'Adjust title & paper';
 	@override String get emptyNote => 'Empty note';
 	@override String get emptyNoteSubtitle => 'Start with a blank page';
+	@override String get choosePaperStyle => 'Choose paper style';
 }
 
 // Path: drawing
@@ -456,6 +457,7 @@ extension on TranslationsEn {
 			'notes.adjustTitlePaper' => 'Adjust title & paper',
 			'notes.emptyNote' => 'Empty note',
 			'notes.emptyNoteSubtitle' => 'Start with a blank page',
+			'notes.choosePaperStyle' => 'Choose paper style',
 			'drawing.pen' => 'Pen',
 			'drawing.pencil' => 'Pencil',
 			'drawing.highlighter' => 'Highlighter',

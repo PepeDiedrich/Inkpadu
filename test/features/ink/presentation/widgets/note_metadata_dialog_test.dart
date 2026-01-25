@@ -1,5 +1,6 @@
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -146,7 +147,8 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('shows selected paper style and opens selection dialog',
+        (tester) async {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -170,8 +172,20 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
+      // Selected paper style label should be visible
       expect(find.text('Blanko'), findsOneWidget);
+      // Other styles should NOT be visible yet
+      expect(find.text('Liniert'), findsNothing);
+
+      // Tap on the paper style tile
+      await tester.tap(find.text('Papierstil wählen'));
+      await tester.pumpAndSettle();
+
+      // Now the selection dialog should be open
+      expect(find.byType(PaperStyleSelectionDialog), findsOneWidget);
+
+      // All paper style labels should be visible in the dialog
+      expect(find.text('Blanko'), findsAtLeastNWidgets(1));
       expect(find.text('Liniert'), findsOneWidget);
       expect(find.text('Kariert'), findsOneWidget);
       expect(find.text('Punktiert'), findsOneWidget);

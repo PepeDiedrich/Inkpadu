@@ -71,7 +71,8 @@
     "undo": "Rückgängig",
     "searchNotes": "Notizen durchsuchen...",
     "pagesCount(count)": "${count} Seite(n)",
-    "strokesCount(count)": "${count} Strich(e)"
+    "strokesCount(count)": "${count} Strich(e)",
+    "choosePaperStyle": "Papierstil wählen"
   },
   "drawing": {
     "pen": "Stift",

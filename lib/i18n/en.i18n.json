@@ -65,7 +65,8 @@
     "openNote": "Open note",
     "adjustTitlePaper": "Adjust title & paper",
     "emptyNote": "Empty note",
-    "emptyNoteSubtitle": "Start with a blank page"
+    "emptyNoteSubtitle": "Start with a blank page",
+    "choosePaperStyle": "Choose paper style"
   },
   "drawing": {
     "pen": "Pen",

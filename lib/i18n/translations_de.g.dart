@@ -291,6 +291,9 @@ class TranslationsNotesDe {
 
 	/// de: '${count} Strich(e)'
 	String strokesCount({required Object count}) => '${count} Strich(e)';
+
+	/// de: 'Papierstil wählen'
+	String get choosePaperStyle => 'Papierstil wählen';
 }
 
 // Path: drawing
@@ -899,6 +902,7 @@ extension on Translations {
 			'notes.searchNotes' => 'Notizen durchsuchen...',
 			'notes.pagesCount' => ({required Object count}) => '${count} Seite(n)',
 			'notes.strokesCount' => ({required Object count}) => '${count} Strich(e)',
+			'notes.choosePaperStyle' => 'Papierstil wählen',
 			'drawing.pen' => 'Stift',
 			'drawing.pencil' => 'Bleistift',
 			'drawing.highlighter' => 'Textmarker',
