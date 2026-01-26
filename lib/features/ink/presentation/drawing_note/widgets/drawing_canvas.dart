@@ -9,6 +9,7 @@ import 'package:ai_handwriting_app/features/drawing/domain/note_link.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_layers.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
@@ -955,102 +956,82 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                   onPointerMove: _update,
                   onPointerUp: _end,
                   onPointerCancel: _cancel,
-                  child: AnimatedBuilder(
-                    animation: widget.drawingController,
-                    builder: (context, child) => Stack(
-                      children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: FinishedStrokesPainter(
-                              strokes: widget.drawingController.strokes,
-                              version: widget.drawingController.strokesVersion,
-                            ),
-                          ),
-                        ),
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: CurrentStrokePainter(
-                              currentStroke:
-                                  widget.drawingController.currentStroke,
-                              pointCount:
-                                  widget
-                                      .drawingController
-                                      .currentStroke
-                                      ?.points
-                                      .length ??
-                                  0,
-                            ),
-                          ),
-                        ),
-                        if (showDebugOverlay)
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: CustomPaint(
-                                painter: ConvexHullsPainter(
-                                  hulls: _convexHulls,
-                                  boundingBoxes: _boundingBoxes,
-                                ),
+                  child: Stack(
+                    children: [
+                      FinishedStrokesLayer(
+                        controller: widget.drawingController,
+                      ),
+                      CurrentStrokeLayer(
+                        controller: widget.drawingController,
+                      ),
+                      if (showDebugOverlay)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: ConvexHullsPainter(
+                                hulls: _convexHulls,
+                                boundingBoxes: _boundingBoxes,
                               ),
                             ),
                           ),
-                        ...widget.links.map((link) => Positioned(
-                              left: link.position.dx,
-                              top: link.position.dy,
-                              child: GestureDetector(
-                                onTap: () => widget.onLinkTap?.call(link),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                        ),
+                      ...widget.links.map((link) => Positioned(
+                            left: link.position.dx,
+                            top: link.position.dy,
+                            child: GestureDetector(
+                              onTap: () => widget.onLinkTap?.call(link),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surface
+                                      .withValues(alpha: 0.9),
+                                  border: Border.all(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    width: 1.5,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surface
-                                        .withValues(alpha: 0.9),
-                                    border: Border.all(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
                                       color:
-                                          Theme.of(context).colorScheme.primary,
-                                      width: 1.5,
+                                          Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.link,
-                                        size: 14,
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.link,
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      link.label,
+                                      style: TextStyle(
                                         color: Theme.of(context)
                                             .colorScheme
                                             .primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        link.label,
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            )),
-                      ],
-                    ),
+                            ),
+                          )),
+                    ],
                   ),
                 ),
               ),
