@@ -38,6 +38,11 @@ Future<void> main() async {
     return '${dir.path}/pdfrx_cache';
   };
 
+  // 🛡️ SENTINEL: Disable logging in release mode to prevent information leakage.
+  if (kReleaseMode) {
+    debugPrint = (message, {wrapWidth}) {};
+  }
+
   if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
