@@ -64,9 +64,9 @@ class CombinedSnapshot {
 
   /// Effektive Bildgröße in Pixeln.
   Size get pixelSize => Size(
-        logicalSize.width * scale * pixelRatio,
-        logicalSize.height * scale * pixelRatio,
-      );
+    logicalSize.width * scale * pixelRatio,
+    logicalSize.height * scale * pixelRatio,
+  );
 }
 
 /// Erstellt Bildausschnitte für Stroke-Cluster, um sie an ein LLM zu senden.
@@ -117,13 +117,15 @@ class DrawingSnapshotService {
 
       final ui.Picture picture = recorder.endRecording();
       final int targetWidth = math.max(1, (logicalWidth * pixelRatio).round());
-      final int targetHeight =
-          math.max(1, (logicalHeight * pixelRatio).round());
+      final int targetHeight = math.max(
+        1,
+        (logicalHeight * pixelRatio).round(),
+      );
 
-      final ui.Image image =
-          await picture.toImage(targetWidth, targetHeight);
-      final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final ui.Image image = await picture.toImage(targetWidth, targetHeight);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       if (byteData == null) {
         continue;
       }
@@ -144,9 +146,9 @@ class DrawingSnapshotService {
   /// kompakt ohne ursprüngliche Abstände angeordnet werden.
   Future<CombinedSnapshot?> captureCombinedSnapshot(
     List<StrokeBoundingBoxCluster> clusters, {
-  double outerPadding = 8,
-  double clusterPadding = 4,
-  double gap = 4,
+    double outerPadding = 8,
+    double clusterPadding = 4,
+    double gap = 4,
     double clusterScale = 1.25,
     double maxDimension = 896,
     double pixelRatio = 1.0,
@@ -162,24 +164,26 @@ class DrawingSnapshotService {
 
     clusterScale = clusterScale.clamp(0.1, 10.0);
 
-    final List<_ClusterLayoutEntry> entries = viableClusters.map((cluster) {
-      final Rect bounds = _axisAlignedBounds(cluster.boundingBox);
-      final double baseWidth = math.max(bounds.width, 1);
-      final double baseHeight = math.max(bounds.height, 1);
-      final double scaledWidth = baseWidth * clusterScale;
-      final double scaledHeight = baseHeight * clusterScale;
-      final double paddedWidth = scaledWidth + clusterPadding * 2;
-      final double paddedHeight = scaledHeight + clusterPadding * 2;
-      return _ClusterLayoutEntry(
-        cluster: cluster,
-        bounds: bounds,
-        scale: clusterScale,
-        scaledWidth: scaledWidth,
-        scaledHeight: scaledHeight,
-        paddedWidth: paddedWidth,
-        paddedHeight: paddedHeight,
-      );
-    }).toList(growable: false);
+    final List<_ClusterLayoutEntry> entries = viableClusters
+        .map((cluster) {
+          final Rect bounds = _axisAlignedBounds(cluster.boundingBox);
+          final double baseWidth = math.max(bounds.width, 1);
+          final double baseHeight = math.max(bounds.height, 1);
+          final double scaledWidth = baseWidth * clusterScale;
+          final double scaledHeight = baseHeight * clusterScale;
+          final double paddedWidth = scaledWidth + clusterPadding * 2;
+          final double paddedHeight = scaledHeight + clusterPadding * 2;
+          return _ClusterLayoutEntry(
+            cluster: cluster,
+            bounds: bounds,
+            scale: clusterScale,
+            scaledWidth: scaledWidth,
+            scaledHeight: scaledHeight,
+            paddedWidth: paddedWidth,
+            paddedHeight: paddedHeight,
+          );
+        })
+        .toList(growable: false);
 
     if (entries.length == 1) {
       final _ClusterLayoutEntry entry = entries.first;
@@ -223,8 +227,9 @@ class DrawingSnapshotService {
         math.max(1, (scaledWidth * pixelRatio).round()),
         math.max(1, (scaledHeight * pixelRatio).round()),
       );
-      final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       if (byteData == null) {
         return null;
       }
@@ -273,10 +278,7 @@ class DrawingSnapshotService {
       final Rect bounds = placement.entry.bounds;
       final Offset offset = placement.offset;
       canvas.save();
-      canvas.translate(
-        offset.dx + clusterPadding,
-        offset.dy + clusterPadding,
-      );
+      canvas.translate(offset.dx + clusterPadding, offset.dy + clusterPadding);
       canvas.scale(placement.entry.scale);
       canvas.translate(-bounds.left, -bounds.top);
       for (final Stroke stroke in placement.entry.cluster.strokes) {
@@ -292,8 +294,9 @@ class DrawingSnapshotService {
       math.max(1, (scaledWidth * pixelRatio).round()),
       math.max(1, (scaledHeight * pixelRatio).round()),
     );
-    final ByteData? byteData =
-        await image.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? byteData = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     if (byteData == null) {
       return null;
     }
@@ -314,7 +317,10 @@ class DrawingSnapshotService {
     required double gap,
   }) {
     if (entries.isEmpty) {
-      return const _LayoutPlan(size: Size.zero, placements: <_ClusterPlacement>[]);
+      return const _LayoutPlan(
+        size: Size.zero,
+        placements: <_ClusterPlacement>[],
+      );
     }
 
     final List<_ClusterLayoutEntry> orderedEntries =
@@ -322,18 +328,18 @@ class DrawingSnapshotService {
     final List<_ClusterPlacement> placements = <_ClusterPlacement>[];
 
     if (axis == Axis.vertical) {
-      orderedEntries.sort(
-        (a, b) => a.bounds.top.compareTo(b.bounds.top),
-      );
+      orderedEntries.sort((a, b) => a.bounds.top.compareTo(b.bounds.top));
 
       final double contentWidth = orderedEntries.fold<double>(
         0,
         (value, entry) => math.max(value, entry.paddedWidth),
       );
-      final double contentHeight = orderedEntries.fold<double>(
-        0,
-        (value, entry) => value + entry.paddedHeight,
-      ) + (orderedEntries.length > 1 ? gap * (orderedEntries.length - 1) : 0);
+      final double contentHeight =
+          orderedEntries.fold<double>(
+            0,
+            (value, entry) => value + entry.paddedHeight,
+          ) +
+          (orderedEntries.length > 1 ? gap * (orderedEntries.length - 1) : 0);
 
       final double totalWidth = contentWidth + outerPadding * 2;
       final double totalHeight = contentHeight + outerPadding * 2;
@@ -341,13 +347,10 @@ class DrawingSnapshotService {
       double cursor = outerPadding;
       for (int i = 0; i < orderedEntries.length; i++) {
         final _ClusterLayoutEntry entry = orderedEntries[i];
-        final double offsetX = outerPadding +
-            (contentWidth - entry.paddedWidth) * 0.5;
+        final double offsetX =
+            outerPadding + (contentWidth - entry.paddedWidth) * 0.5;
         placements.add(
-          _ClusterPlacement(
-            entry: entry,
-            offset: Offset(offsetX, cursor),
-          ),
+          _ClusterPlacement(entry: entry, offset: Offset(offsetX, cursor)),
         );
         cursor += entry.paddedHeight;
         if (i < orderedEntries.length - 1) {
@@ -361,18 +364,18 @@ class DrawingSnapshotService {
       );
     }
 
-    orderedEntries.sort(
-      (a, b) => a.bounds.left.compareTo(b.bounds.left),
-    );
+    orderedEntries.sort((a, b) => a.bounds.left.compareTo(b.bounds.left));
 
     final double contentHeight = orderedEntries.fold<double>(
       0,
       (value, entry) => math.max(value, entry.paddedHeight),
     );
-    final double contentWidth = orderedEntries.fold<double>(
-      0,
-      (value, entry) => value + entry.paddedWidth,
-    ) + (orderedEntries.length > 1 ? gap * (orderedEntries.length - 1) : 0);
+    final double contentWidth =
+        orderedEntries.fold<double>(
+          0,
+          (value, entry) => value + entry.paddedWidth,
+        ) +
+        (orderedEntries.length > 1 ? gap * (orderedEntries.length - 1) : 0);
 
     final double totalWidth = contentWidth + outerPadding * 2;
     final double totalHeight = contentHeight + outerPadding * 2;
@@ -380,13 +383,10 @@ class DrawingSnapshotService {
     double cursor = outerPadding;
     for (int i = 0; i < orderedEntries.length; i++) {
       final _ClusterLayoutEntry entry = orderedEntries[i];
-      final double offsetY = outerPadding +
-          (contentHeight - entry.paddedHeight) * 0.5;
+      final double offsetY =
+          outerPadding + (contentHeight - entry.paddedHeight) * 0.5;
       placements.add(
-        _ClusterPlacement(
-          entry: entry,
-          offset: Offset(cursor, offsetY),
-        ),
+        _ClusterPlacement(entry: entry, offset: Offset(cursor, offsetY)),
       );
       cursor += entry.paddedWidth;
       if (i < orderedEntries.length - 1) {
@@ -465,20 +465,14 @@ class _ClusterLayoutEntry {
 }
 
 class _ClusterPlacement {
-  const _ClusterPlacement({
-    required this.entry,
-    required this.offset,
-  });
+  const _ClusterPlacement({required this.entry, required this.offset});
 
   final _ClusterLayoutEntry entry;
   final Offset offset;
 }
 
 class _LayoutPlan {
-  const _LayoutPlan({
-    required this.size,
-    required this.placements,
-  });
+  const _LayoutPlan({required this.size, required this.placements});
 
   final Size size;
   final List<_ClusterPlacement> placements;

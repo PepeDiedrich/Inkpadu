@@ -35,9 +35,7 @@ class NoteThumbnail extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(7),
@@ -93,15 +91,14 @@ class NoteThumbnail extends StatelessWidget {
   }
 
   Widget _buildEmptyPreview(BuildContext context) => Center(
-        child: Icon(
-          Icons.draw_outlined,
-          size: size * 0.4,
-          color: Theme.of(context)
-              .colorScheme
-              .onSurfaceVariant
-              .withValues(alpha: 0.5),
-        ),
-      );
+    child: Icon(
+      Icons.draw_outlined,
+      size: size * 0.4,
+      color: Theme.of(
+        context,
+      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    ),
+  );
 }
 
 /// Custom painter that renders scaled strokes for the thumbnail.
