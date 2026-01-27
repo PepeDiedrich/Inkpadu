@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
     show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_snapshot_service.dart';
@@ -114,16 +115,22 @@ class _AssistantPanelState extends State<AssistantPanel>
       _inkNotesController?.removeListener(_onInkNotesChanged);
       _inkNotesController = newController;
       _inkNotesController?.addListener(_onInkNotesChanged);
-      debugPrint('[AssistantPanel] InkNotes listener updated');
+      if (kDebugMode) {
+        debugPrint('[AssistantPanel] InkNotes listener updated');
+      }
     }
   }
 
   void _onInkNotesChanged() {
-    debugPrint('[AssistantPanel] InkNotes changed, checking for updates...');
+    if (kDebugMode) {
+      debugPrint('[AssistantPanel] InkNotes changed, checking for updates...');
+    }
     // Versuche, die Notiz im Controller zu aktualisieren
     if (widget.controller.isInitialized) {
       final bool updated = widget.controller.refreshFromSource();
-      debugPrint('[AssistantPanel] Controller refresh result: $updated');
+      if (kDebugMode) {
+        debugPrint('[AssistantPanel] Controller refresh result: $updated');
+      }
       if (updated && mounted) {
         setState(() {
           // UI neu aufbauen um den aktualisierten PDF-Text anzuzeigen
@@ -157,7 +164,11 @@ class _AssistantPanelState extends State<AssistantPanel>
     try {
       await _assistantService.getAccessToken();
     } catch (error, stackTrace) {
-      debugPrint('[AssistantPanel] Token prewarm failed: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint(
+          '[AssistantPanel] Token prewarm failed: $error\n$stackTrace',
+        );
+      }
     }
   }
 

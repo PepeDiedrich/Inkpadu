@@ -156,9 +156,13 @@ class DrawingNoteController extends ChangeNotifier {
       return false;
     }
 
-    debugPrint('[DrawingNoteController] Refreshing note from source');
-    debugPrint('[DrawingNoteController] Old updatedAt: ${_note.updatedAt}');
-    debugPrint('[DrawingNoteController] New updatedAt: ${sourceNote.updatedAt}');
+    if (kDebugMode) {
+      debugPrint('[DrawingNoteController] Refreshing note from source');
+      debugPrint('[DrawingNoteController] Old updatedAt: ${_note.updatedAt}');
+      debugPrint(
+        '[DrawingNoteController] New updatedAt: ${sourceNote.updatedAt}',
+      );
+    }
 
     // Aktualisiere die Notiz, aber behalte die aktuellen Striche der aktiven Seite
     final List<NotePage> mergedPages = <NotePage>[];
@@ -180,8 +184,10 @@ class DrawingNoteController extends ChangeNotifier {
     
     _rebuildPageContentHistory(_note.pages);
     notifyListeners();
-    
-    debugPrint('[DrawingNoteController] Note refreshed successfully');
+
+    if (kDebugMode) {
+      debugPrint('[DrawingNoteController] Note refreshed successfully');
+    }
     return true;
   }
 
