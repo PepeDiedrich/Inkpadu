@@ -31,7 +31,11 @@ Future<void> main() async {
   
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
-  
+
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   // Initialize pdfrx cache directory
   Pdfrx.getCacheDirectory = () async {
     final dir = await getApplicationCacheDirectory();
