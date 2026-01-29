@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/enums.dart' as appwrite_enums;
 import 'package:appwrite/models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// Verwaltet Authentifizierung, Request-Aufbau und Streaming gegen Azure OpenAI.
@@ -41,6 +42,18 @@ class AzureAssistantApiService {
   static const Duration _tokenSafetyBuffer = Duration(seconds: 30);
   // Fallback-Gültigkeit, falls keine Expiration vom Server kommt (5 Minuten)
   static const Duration _defaultTokenValidity = Duration(minutes: 5);
+
+  /// Setzt das gecachte Access-Token und dessen Ablaufzeit zurück.
+  ///
+  /// Sollte beim Ausloggen aufgerufen werden.
+  static void clearCachedToken() {
+    _cachedAccessToken = null;
+    _cachedTokenExpiry = null;
+  }
+
+  /// Gibt das aktuelle Cached Access-Token für Testzwecke zurück.
+  @visibleForTesting
+  static String? get cachedAccessToken => _cachedAccessToken;
 
   /// Baut die API-Payload auf und erzeugt eine Vorschau zur Anzeige im UI.
   AzureAssistantPreparedRequest prepareRequest(AzureAssistantRequest request) {
