@@ -11,8 +11,6 @@ import 'package:appwrite/enums.dart' as enums;
 
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
-class MockAccount extends Mock implements Account {}
-
 class MockFunctions extends Mock implements Functions {}
 
 void main() {
