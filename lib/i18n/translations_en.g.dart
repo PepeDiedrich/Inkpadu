@@ -201,6 +201,8 @@ class _TranslationsPaperEn extends TranslationsPaperDe {
 	@override String get lined => 'Lined';
 	@override String get grid => 'Grid';
 	@override String get dotted => 'Dotted';
+	@override String get style => 'Paper style';
+	@override String get chooseStyle => 'Choose paper style';
 }
 
 // Path: ai
@@ -483,6 +485,8 @@ extension on TranslationsEn {
 			'paper.lined' => 'Lined',
 			'paper.grid' => 'Grid',
 			'paper.dotted' => 'Dotted',
+			'paper.style' => 'Paper style',
+			'paper.chooseStyle' => 'Choose paper style',
 			'ai.title' => 'AI Features',
 			'ai.assistant' => 'AI Assistant',
 			'ai.recognize' => 'Recognize text',

@@ -102,7 +102,9 @@
     "plain": "Blanko",
     "lined": "Liniert",
     "grid": "Kariert",
-    "dotted": "Punktiert"
+    "dotted": "Punktiert",
+    "style": "Papierstil",
+    "chooseStyle": "Papierstil wählen"
   },
   "ai": {
     "title": "KI-Funktionen",
