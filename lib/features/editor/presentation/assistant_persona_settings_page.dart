@@ -142,9 +142,7 @@ class _AssistantPersonaSettingsPageState
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colorScheme.primaryContainer,
-                  ),
+                  border: Border.all(color: colorScheme.primaryContainer),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,7 +259,9 @@ class _PersonaOption extends StatelessWidget {
                       subtitle,
                       style: textTheme.bodySmall?.copyWith(
                         color: isSelected
-                            ? colorScheme.onPrimaryContainer.withValues(alpha: 0.8)
+                            ? colorScheme.onPrimaryContainer.withValues(
+                                alpha: 0.8,
+                              )
                             : colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -269,10 +269,7 @@ class _PersonaOption extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  color: colorScheme.primary,
-                ),
+                Icon(Icons.check_circle, color: colorScheme.primary),
             ],
           ),
         ),

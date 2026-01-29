@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:appwrite/enums.dart' as enums;
 
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
+
 class MockAccount extends Mock implements Account {}
+
 class MockFunctions extends Mock implements Functions {}
 
 void main() {
@@ -21,13 +23,16 @@ void main() {
   late MockFunctions mockFunctions;
 
   // Needed for path_provider
-  const MethodChannel channel = MethodChannel('plugins.flutter.io/path_provider');
+  const MethodChannel channel = MethodChannel(
+    'plugins.flutter.io/path_provider',
+  );
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (MethodCall methodCall) async => '.',
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          channel,
+          (MethodCall methodCall) async => '.',
+        );
 
     mockSecureStorage = MockFlutterSecureStorage();
     SharedPreferences.setMockInitialValues({});
@@ -36,7 +41,6 @@ void main() {
     // We need to inject a mock service or just rely on static state.
     // Since we are testing integration with AuthController calling static method,
     // we can use a helper service instance to populate the cache.
-    final apiService = AzureAssistantApiService(functions: mockFunctions);
 
     authController = AuthController(secureStorage: mockSecureStorage);
 
@@ -45,10 +49,8 @@ void main() {
   });
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      null,
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
     AzureAssistantApiService.clearCachedToken();
   });
 
@@ -62,38 +64,42 @@ void main() {
     const token = 'secret-token-123';
 
     // Mock the execution response to return a token
-     final execution = Execution(
-        $id: 'exec1',
-        $createdAt: '',
-        $updatedAt: '',
-        $permissions: [],
-        deploymentId: 'dep-1',
-        functionId: 'llm_auth',
-        trigger: enums.ExecutionTrigger.http,
-        status: enums.ExecutionStatus.completed,
-        requestMethod: 'POST',
-        requestPath: '/',
-        requestHeaders: [],
-        responseStatusCode: 200,
-        responseBody: '{"success": true, "accessToken": "$token", "expiresIn": 3600}',
-        responseHeaders: [],
-        logs: '',
-        errors: '',
-        duration: 0.1,
-      );
+    final execution = Execution(
+      $id: 'exec1',
+      $createdAt: '',
+      $updatedAt: '',
+      $permissions: [],
+      deploymentId: 'dep-1',
+      functionId: 'llm_auth',
+      trigger: enums.ExecutionTrigger.http,
+      status: enums.ExecutionStatus.completed,
+      requestMethod: 'POST',
+      requestPath: '/',
+      requestHeaders: [],
+      responseStatusCode: 200,
+      responseBody:
+          '{"success": true, "accessToken": "$token", "expiresIn": 3600}',
+      responseHeaders: [],
+      logs: '',
+      errors: '',
+      duration: 0.1,
+    );
 
-    when(() => mockFunctions.createExecution(
+    when(
+      () => mockFunctions.createExecution(
         functionId: any(named: 'functionId'),
         xasync: any(named: 'xasync'),
-    )).thenAnswer((_) async => execution);
+      ),
+    ).thenAnswer((_) async => execution);
 
     // Populate cache
     await apiService.getAccessToken();
     expect(AzureAssistantApiService.cachedAccessToken, equals(token));
 
     // Arrange: Mock Secure Storage calls for logout
-    when(() => mockSecureStorage.delete(key: any(named: 'key')))
-        .thenAnswer((_) async {});
+    when(
+      () => mockSecureStorage.delete(key: any(named: 'key')),
+    ).thenAnswer((_) async {});
 
     // Act: Logout
     await authController.logout();

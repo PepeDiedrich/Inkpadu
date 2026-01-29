@@ -102,7 +102,7 @@ void main() {
     });
 
     test('handles NaN tolerance as 0', () {
-       final points = [
+      final points = [
         DrawingPoint(position: const Offset(0, 0)),
         DrawingPoint(position: const Offset(5, 0.1)),
         DrawingPoint(position: const Offset(10, 0)),
