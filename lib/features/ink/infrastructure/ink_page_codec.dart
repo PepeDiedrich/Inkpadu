@@ -41,10 +41,12 @@ class InkNotePageCodec {
   static final GZipDecoder _gzipDecoder = const GZipDecoder();
 
   /// Kodiert eine Liste von Seiten nach Base64 (gzip-komprimiertes JSON).
-  static String encode(List<NotePage> pages, {int lastOpenedPageIndex = 0}) {
-    final List<NotePage> normalizedPages = pages.isEmpty
-        ? <NotePage>[NotePage(strokes: const <Stroke>[])]
-        : pages;
+  static String encode(
+    List<NotePage> pages, {
+    int lastOpenedPageIndex = 0,
+  }) {
+    final List<NotePage> normalizedPages =
+        pages.isEmpty ? <NotePage>[NotePage(strokes: const <Stroke>[])] : pages;
     final int clampedIndex = normalizedPages.isEmpty
         ? 0
         : lastOpenedPageIndex.clamp(0, normalizedPages.length - 1);
@@ -80,9 +82,9 @@ class InkNotePageCodec {
   static InkNotePageBundle decode(String data) {
     if (data.isEmpty) {
       return InkNotePageBundle(
-        pages: List<NotePage>.unmodifiable(<NotePage>[
-          NotePage(strokes: const <Stroke>[]),
-        ]),
+        pages: List<NotePage>.unmodifiable(
+          <NotePage>[NotePage(strokes: const <Stroke>[])],
+        ),
         lastOpenedPageIndex: 0,
       );
     }
@@ -105,26 +107,24 @@ class InkNotePageCodec {
         );
       }
 
-      final List<NotePage> pages =
-          (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
-              .whereType<Map<String, dynamic>>()
-              .map((pageData) => _decodePage(pageData, version: version))
-              .toList(growable: false);
+    final List<NotePage> pages =
+      (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map((pageData) => _decodePage(pageData, version: version))
+        .toList(growable: false);
       final meta = decoded['meta'];
-      final lastPageRaw = meta is Map<String, dynamic>
-          ? meta['lastPage']
-          : null;
+      final lastPageRaw =
+          meta is Map<String, dynamic> ? meta['lastPage'] : null;
       final int normalizedIndex = _parsePageIndex(
         lastPageRaw,
         pages.isEmpty ? 0 : pages.length - 1,
       );
 
-      final List<NotePage> ensuredPages = pages.isEmpty
-          ? <NotePage>[NotePage(strokes: const <Stroke>[])]
-          : pages;
-      final List<NotePage> immutablePages = List<NotePage>.unmodifiable(
-        ensuredPages,
-      );
+    final List<NotePage> ensuredPages = pages.isEmpty
+      ? <NotePage>[NotePage(strokes: const <Stroke>[])]
+      : pages;
+    final List<NotePage> immutablePages =
+      List<NotePage>.unmodifiable(ensuredPages);
       final int clampedIndex = ensuredPages.isEmpty
           ? 0
           : normalizedIndex.clamp(0, ensuredPages.length - 1);
@@ -138,9 +138,9 @@ class InkNotePageCodec {
       final legacy = jsonDecode(data);
       if (legacy is Map<String, dynamic>) {
         return InkNotePageBundle(
-          pages: List<NotePage>.unmodifiable(<NotePage>[
-            NotePage.fromJson(legacy),
-          ]),
+          pages: List<NotePage>.unmodifiable(
+            <NotePage>[NotePage.fromJson(legacy)],
+          ),
           lastOpenedPageIndex: 0,
         );
       }
@@ -149,9 +149,9 @@ class InkNotePageCodec {
       final legacy = jsonDecode(data);
       if (legacy is Map<String, dynamic>) {
         return InkNotePageBundle(
-          pages: List<NotePage>.unmodifiable(<NotePage>[
-            NotePage.fromJson(legacy),
-          ]),
+          pages: List<NotePage>.unmodifiable(
+            <NotePage>[NotePage.fromJson(legacy)],
+          ),
           lastOpenedPageIndex: 0,
         );
       }
@@ -160,9 +160,8 @@ class InkNotePageCodec {
   }
 
   static Map<String, dynamic> _encodePage(NotePage page) {
-    final List<Map<String, dynamic>> encodedStrokes = page.strokes
-        .map(_encodeStroke)
-        .toList(growable: false);
+    final List<Map<String, dynamic>> encodedStrokes =
+        page.strokes.map(_encodeStroke).toList(growable: false);
 
     final Map<String, dynamic>? context = _encodeContext(page);
 
@@ -176,7 +175,8 @@ class InkNotePageCodec {
     final bool hasDescription =
         (page.cachedVisionDescription?.trim().isNotEmpty ?? false);
     final bool hasHistory = page.assistantHistory.isNotEmpty;
-    final bool hasPdfText = (page.importedPdfText?.trim().isNotEmpty ?? false);
+    final bool hasPdfText =
+        (page.importedPdfText?.trim().isNotEmpty ?? false);
     final bool hasLinks = page.links.isNotEmpty;
 
     if (!hasDescription && !hasHistory && !hasPdfText && !hasLinks) {
@@ -191,16 +191,12 @@ class InkNotePageCodec {
             .toList(growable: false),
       if (hasPdfText) 'pdfText': page.importedPdfText,
       if (hasLinks)
-        'links': page.links
-            .map((link) => link.toJson())
-            .toList(growable: false),
+        'links':
+            page.links.map((link) => link.toJson()).toList(growable: false),
     };
   }
 
-  static NotePage _decodePage(
-    Map<String, dynamic> data, {
-    required int version,
-  }) {
+  static NotePage _decodePage(Map<String, dynamic> data, {required int version}) {
     final strokes = (data['s'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_decodeStroke)
@@ -215,9 +211,7 @@ class InkNotePageCodec {
       return NotePage(strokes: strokes);
     }
 
-    final List<AssistantMessage> history = _decodeHistory(
-      rawContext['history'],
-    );
+    final List<AssistantMessage> history = _decodeHistory(rawContext['history']);
     final String? description = _decodeVisionDescription(rawContext['vision']);
     final String? pdfText = _decodePdfText(rawContext['pdfText']);
     final List<NoteLink> links = _decodeLinks(rawContext['links']);

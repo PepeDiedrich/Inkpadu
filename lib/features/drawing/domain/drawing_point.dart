@@ -25,6 +25,9 @@ class DrawingPoint {
     final double rawPressure = (json['p'] as num?)?.toDouble() ?? 0.5;
     final double clampedPressure = rawPressure.clamp(0.0, 1.0).toDouble();
 
-    return DrawingPoint(position: Offset(x, y), pressure: clampedPressure);
+    return DrawingPoint(
+      position: Offset(x, y),
+      pressure: clampedPressure,
+    );
   }
 }

@@ -59,7 +59,7 @@ class AssistantPanel extends StatefulWidget {
 }
 
 class _AssistantPanelState extends State<AssistantPanel>
-    with WidgetsBindingObserver {
+  with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _isStreaming = false;
   String? _statusMessage = 'Hier erscheinen KI-Antworten zu deiner Notiz.';
@@ -506,9 +506,7 @@ class _AssistantPanelState extends State<AssistantPanel>
                   });
                 },
                 icon: Icon(
-                  _showDebugPanel
-                      ? Icons.bug_report
-                      : Icons.bug_report_outlined,
+                  _showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined,
                 ),
                 label: Text(
                   _showDebugPanel ? 'Debug ausblenden' : 'Debug anzeigen',

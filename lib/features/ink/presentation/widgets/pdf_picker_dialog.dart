@@ -103,13 +103,11 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
       // Kurz warten, dann automatisch bestätigen
       await Future<void>.delayed(const Duration(milliseconds: 300));
       if (mounted && _state == _PickerState.ready) {
-        Navigator.of(context).pop(
-          PdfPickerResult(
-            pdfBytes: bytes,
-            pageCount: pageCount,
-            fileName: file.name,
-          ),
-        );
+        Navigator.of(context).pop(PdfPickerResult(
+          pdfBytes: bytes,
+          pageCount: pageCount,
+          fileName: file.name,
+        ));
       }
     } catch (e) {
       if (!mounted) return;
@@ -138,10 +136,18 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
                 : colorScheme.primary,
           ),
           const SizedBox(width: 12),
-          Expanded(child: Text(_getTitle(), style: theme.textTheme.titleLarge)),
+          Expanded(
+            child: Text(
+              _getTitle(),
+              style: theme.textTheme.titleLarge,
+            ),
+          ),
         ],
       ),
-      content: SizedBox(width: 300, child: _buildContent(theme, colorScheme)),
+      content: SizedBox(
+        width: 300,
+        child: _buildContent(theme, colorScheme),
+      ),
       actions: _buildActions(),
     );
   }
@@ -202,7 +208,11 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, color: colorScheme.primary, size: 48),
+            Icon(
+              Icons.check_circle,
+              color: colorScheme.primary,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               context.t.pdfDialog.pagesFound(count: '${_pageCount ?? 0}'),
@@ -222,7 +232,11 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, color: colorScheme.error, size: 48),
+            Icon(
+              Icons.error_outline,
+              color: colorScheme.error,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               _errorMessage ?? context.t.errors.unknownError,
@@ -269,4 +283,9 @@ class _PdfPickerDialogState extends State<PdfPickerDialog> {
   }
 }
 
-enum _PickerState { picking, analyzing, ready, error }
+enum _PickerState {
+  picking,
+  analyzing,
+  ready,
+  error,
+}

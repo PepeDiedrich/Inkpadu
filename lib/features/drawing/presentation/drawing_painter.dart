@@ -113,7 +113,10 @@ class CurrentStrokePainter extends CustomPainter {
 /// Zeichnet konvexe Hüllen als Debug-Overlay.
 class ConvexHullsPainter extends CustomPainter {
   /// Erstellt einen Painter zur Visualisierung konvexer Hüllen.
-  const ConvexHullsPainter({required this.hulls, required this.boundingBoxes});
+  const ConvexHullsPainter({
+    required this.hulls,
+    required this.boundingBoxes,
+  });
 
   /// Liste konvexer Hüllen (jede Hülle ist eine geschlossene Polygonkette).
   final List<List<Offset>> hulls;
@@ -170,5 +173,6 @@ class ConvexHullsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ConvexHullsPainter oldDelegate) =>
-      oldDelegate.hulls != hulls || oldDelegate.boundingBoxes != boundingBoxes;
+      oldDelegate.hulls != hulls ||
+      oldDelegate.boundingBoxes != boundingBoxes;
 }

@@ -26,8 +26,7 @@ void main() {
     test('getAccessToken populates static cache', () async {
       // Arrange
       const token = 'test-token-123';
-      const responseBody =
-          '{"success": true, "accessToken": "$token", "expiresIn": 3600}';
+      const responseBody = '{"success": true, "accessToken": "$token", "expiresIn": 3600}';
 
       final execution = Execution(
         $id: 'exec1',
@@ -49,12 +48,10 @@ void main() {
         duration: 0.1,
       );
 
-      when(
-        () => mockFunctions.createExecution(
-          functionId: any(named: 'functionId'),
-          xasync: any(named: 'xasync'),
-        ),
-      ).thenAnswer((_) async => execution);
+      when(() => mockFunctions.createExecution(
+            functionId: any(named: 'functionId'),
+            xasync: any(named: 'xasync'),
+          )).thenAnswer((_) async => execution);
 
       // Act
       final result = await apiService.getAccessToken();
@@ -67,8 +64,7 @@ void main() {
     test('clearCachedToken clears the static cache', () async {
       // Arrange: Populate cache first
       const token = 'test-token-to-clear';
-      const responseBody =
-          '{"success": true, "accessToken": "$token", "expiresIn": 3600}';
+      const responseBody = '{"success": true, "accessToken": "$token", "expiresIn": 3600}';
 
       final execution = Execution(
         $id: 'exec2',
@@ -90,12 +86,10 @@ void main() {
         duration: 0.1,
       );
 
-      when(
-        () => mockFunctions.createExecution(
-          functionId: any(named: 'functionId'),
-          xasync: any(named: 'xasync'),
-        ),
-      ).thenAnswer((_) async => execution);
+      when(() => mockFunctions.createExecution(
+            functionId: any(named: 'functionId'),
+            xasync: any(named: 'xasync'),
+          )).thenAnswer((_) async => execution);
 
       await apiService.getAccessToken();
       expect(AzureAssistantApiService.cachedAccessToken, equals(token));

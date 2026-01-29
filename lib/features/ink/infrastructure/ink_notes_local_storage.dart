@@ -11,18 +11,14 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/ink_page_codec.da
 enum LocalSyncStatus {
   /// Notiz ist synchronisiert.
   synced,
-
   /// Notiz wartet auf Synchronisation.
   pending,
-
   /// Notiz wird gerade synchronisiert.
   syncing,
-
   /// Konflikt bei der Synchronisation.
   conflict,
-
   /// Fehler bei der Synchronisation.
-  error,
+  error
 }
 
 /// Lokaler Speicher für handschriftliche Notizen mit SQLite-Datenbank.
@@ -118,12 +114,7 @@ class InkNotesLocalStorage {
   /// Gibt die Notiz mit der gegebenen ID zurück, falls vorhanden.
   Future<InkNote?> getNoteById(String id) async {
     await init();
-    final rows = await _db!.query(
-      _notesTable,
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
+    final rows = await _db!.query(_notesTable, where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return _rowToInkNote(rows.first);
   }
@@ -137,9 +128,7 @@ class InkNotesLocalStorage {
   }) async {
     await init();
     final dto = InkNoteDto.fromDomain(note, userId: userId ?? '');
-    final createdAt = (dto.createdAt ?? dto.updatedAt)
-        .toUtc()
-        .millisecondsSinceEpoch;
+    final createdAt = (dto.createdAt ?? dto.updatedAt).toUtc().millisecondsSinceEpoch;
     final map = <String, Object?>{
       'id': dto.id,
       'user_id': dto.userId,
@@ -154,14 +143,14 @@ class InkNotesLocalStorage {
       'created_at': createdAt,
     };
 
-    await _db!.insert(
-      _notesTable,
-      map,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db!.insert(_notesTable, map, conflictAlgorithm: ConflictAlgorithm.replace);
     // Enqueue sync operation nur, wenn die Notiz noch synchronisiert werden muss.
     if (status != LocalSyncStatus.synced) {
-      await _enqueue(note.id, 'UPSERT', changedPageIndices: changedPageIndices);
+      await _enqueue(
+        note.id,
+        'UPSERT',
+        changedPageIndices: changedPageIndices,
+      );
     }
   }
 
@@ -171,9 +160,7 @@ class InkNotesLocalStorage {
   Future<void> saveNoteLocalOnly(InkNote note, {String? userId}) async {
     await init();
     final dto = InkNoteDto.fromDomain(note, userId: userId ?? '');
-    final createdAt = (dto.createdAt ?? dto.updatedAt)
-        .toUtc()
-        .millisecondsSinceEpoch;
+    final createdAt = (dto.createdAt ?? dto.updatedAt).toUtc().millisecondsSinceEpoch;
     final map = <String, Object?>{
       'id': dto.id,
       'user_id': dto.userId,
@@ -187,11 +174,7 @@ class InkNotesLocalStorage {
       'remote_updated_at': null,
       'created_at': createdAt,
     };
-    await _db!.insert(
-      _notesTable,
-      map,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db!.insert(_notesTable, map, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Löscht eine Notiz lokal und markiert sie für Synchronisation.
@@ -208,9 +191,7 @@ class InkNotesLocalStorage {
       'sync_status': LocalSyncStatus.synced.name,
     };
     if (remoteUpdatedAt != null) {
-      values['remote_updated_at'] = remoteUpdatedAt
-          .toUtc()
-          .millisecondsSinceEpoch;
+      values['remote_updated_at'] = remoteUpdatedAt.toUtc().millisecondsSinceEpoch;
     }
     await _db!.update(_notesTable, values, where: 'id = ?', whereArgs: [id]);
   }
@@ -225,9 +206,7 @@ class InkNotesLocalStorage {
       final updatedAtMs = row['updated_at'] as int? ?? 0;
       final lastOpenedPageRaw = row['last_opened_page'];
 
-      final updatedAt = DateTime.fromMillisecondsSinceEpoch(
-        updatedAtMs,
-      ).toLocal();
+      final updatedAt = DateTime.fromMillisecondsSinceEpoch(updatedAtMs).toLocal();
       final createdAtMs = row['created_at'] as int?;
       final createdAt = createdAtMs == null
           ? null
@@ -303,11 +282,7 @@ class InkNotesLocalStorage {
   /// Gibt die nächsten Queue-Items für die Synchronisation zurück.
   Future<List<Map<String, Object?>>> fetchQueueItems({int limit = 100}) async {
     await init();
-    final rows = await _db!.query(
-      _queueTable,
-      orderBy: 'created_at ASC',
-      limit: limit,
-    );
+    final rows = await _db!.query(_queueTable, orderBy: 'created_at ASC', limit: limit);
     return rows;
   }
 
@@ -318,11 +293,7 @@ class InkNotesLocalStorage {
   }
 
   /// Aktualisiert ein Queue-Item mit neuen Werten.
-  Future<void> updateQueueItem(
-    int id, {
-    int? retryCount,
-    String? lastError,
-  }) async {
+  Future<void> updateQueueItem(int id, {int? retryCount, String? lastError}) async {
     await init();
     final Map<String, Object?> values = {};
     if (retryCount != null) values['retry_count'] = retryCount;

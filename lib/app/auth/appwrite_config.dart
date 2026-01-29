@@ -33,8 +33,7 @@ class AppwriteConfig {
   static const String callbackPath = '/auth-desktop';
 
   /// Vollständige Callback-URL für OAuth-Redirects auf Desktop.
-  static const String callbackUrl =
-      '$callbackScheme://$callbackHost:$callbackPort$callbackPath';
+  static const String callbackUrl = '$callbackScheme://$callbackHost:$callbackPort$callbackPath';
 
   static final Client _client = Client()
     // TODO: Passe Endpoint & Projekt-ID an.
