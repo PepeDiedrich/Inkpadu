@@ -9,3 +9,9 @@
 **Learning:** `List.unmodifiable(list)` always creates a NEW list (and iterates the source), which is an O(N) operation. Using this inside a getter that is called frequently (e.g., inside a `build` method or `paint` loop) causes massive garbage generation and CPU overhead.
 
 **Action:** Cache the unmodifiable view in the state object (Controller/Model) and invalidate it only when the underlying data changes. Avoid calling `List.unmodifiable` in hot loops or getters.
+
+## 2024-05-24 - CI Infrastructure Limits
+
+**Learning:** GitHub Actions CI may fail due to billing/spending limits on the account. This manifests as "job was not started" annotations.
+
+**Action:** When CI fails with infrastructure errors (billing, outages), rely on rigorous local verification (`scripts/quality/run_checks.sh` and `flutter test`) to ensure code quality before submission.
