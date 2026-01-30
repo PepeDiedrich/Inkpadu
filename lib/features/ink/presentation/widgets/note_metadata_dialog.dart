@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Ergebnis des Metadaten-Dialogs.
@@ -70,18 +71,28 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
     );
   }
 
+  Future<void> _pickPaperStyle() async {
+    final result = await showPaperStyleSelectionDialog(
+      context,
+      initialStyle: _selectedStyle,
+    );
+    if (result != null) {
+      setState(() => _selectedStyle = result);
+    }
+  }
+
+  String _getLocalizedLabel(NotePaperStyle style) => switch (style) {
+        NotePaperStyle.plain => context.t.paper.plain,
+        NotePaperStyle.lined => context.t.paper.lined,
+        NotePaperStyle.grid => context.t.paper.grid,
+        NotePaperStyle.dotted => context.t.paper.dotted,
+      };
+
   @override
   Widget build(BuildContext context) {
-    final titleText = widget.isEditing ? context.t.notes.adjustTitlePaper : context.t.notes.newNote;
-    final segments = NotePaperStyle.values
-        .map(
-          (style) => ButtonSegment<NotePaperStyle>(
-            value: style,
-            icon: Icon(style.icon, size: 16),
-            label: Text(style.label),
-          ),
-        )
-        .toList(growable: false);
+    final titleText = widget.isEditing
+        ? context.t.notes.adjustTitlePaper
+        : context.t.notes.newNote;
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -126,19 +137,20 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
                   const SizedBox(height: 32),
                   Text(
                     'Paper style',
-                    style: theme.textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 12),
-                  SegmentedButton<NotePaperStyle>(
-                    segments: segments,
-                    selected: <NotePaperStyle>{_selectedStyle},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (selection) {
-                      final next = selection.first;
-                      if (next != _selectedStyle) {
-                        setState(() => _selectedStyle = next);
-                      }
-                    },
+                  ListTile(
+                    title: Text(_getLocalizedLabel(_selectedStyle)),
+                    leading: Icon(_selectedStyle.icon),
+                    trailing: const Icon(Icons.chevron_right),
+                    tileColor: colorScheme.surfaceContainerLow,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    onTap: _pickPaperStyle,
                   ),
                 ],
               ),
