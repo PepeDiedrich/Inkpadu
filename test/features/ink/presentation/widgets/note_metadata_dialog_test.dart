@@ -185,8 +185,8 @@ void main() {
       // Selection dialog should be open (it contains 'Liniert')
       expect(find.text('Liniert'), findsOneWidget);
 
-      // We cannot verify "Übernehmen" because of obscure test environment issues with nested dialogs overlaying actions,
-      // but 'paper_style_selection_dialog_test.dart' fully verifies the selection dialog in isolation.
+      // We verifying opening the dialog here. Full interaction logic is covered
+      // in paper_style_selection_dialog_test.dart to avoid nested dialog test complexity.
     });
 
     testWidgets('can enter title text', (tester) async {
