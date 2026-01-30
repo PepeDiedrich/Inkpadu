@@ -268,9 +268,6 @@ class TranslationsNotesDe {
 	/// de: 'Titel & Papier anpassen'
 	String get adjustTitlePaper => 'Titel & Papier anpassen';
 
-	/// de: 'Papierstil'
-	String get paperStyle => 'Papierstil';
-
 	/// de: 'Leere Notiz'
 	String get emptyNote => 'Leere Notiz';
 
@@ -894,7 +891,6 @@ extension on Translations {
 			'notes.duplicate' => 'Duplizieren',
 			'notes.openNote' => 'Notiz öffnen',
 			'notes.adjustTitlePaper' => 'Titel & Papier anpassen',
-			'notes.paperStyle' => 'Papierstil',
 			'notes.emptyNote' => 'Leere Notiz',
 			'notes.emptyNoteSubtitle' => 'Starte mit einer leeren Seite',
 			'notes.swipeToDelete' => 'Zum Löschen wischen',

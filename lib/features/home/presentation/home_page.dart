@@ -554,12 +554,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        switch (n.paperStyle) {
-                          NotePaperStyle.plain => context.t.paper.plain,
-                          NotePaperStyle.lined => context.t.paper.lined,
-                          NotePaperStyle.grid => context.t.paper.grid,
-                          NotePaperStyle.dotted => context.t.paper.dotted,
-                        },
+                        n.paperStyle.label,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.primary,
                         ),

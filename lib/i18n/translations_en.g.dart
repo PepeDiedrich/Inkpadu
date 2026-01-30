@@ -154,7 +154,6 @@ class _TranslationsNotesEn extends TranslationsNotesDe {
 	@override String get duplicate => 'Duplicate';
 	@override String get openNote => 'Open note';
 	@override String get adjustTitlePaper => 'Adjust title & paper';
-	@override String get paperStyle => 'Paper style';
 	@override String get emptyNote => 'Empty note';
 	@override String get emptyNoteSubtitle => 'Start with a blank page';
 }
@@ -455,7 +454,6 @@ extension on TranslationsEn {
 			'notes.duplicate' => 'Duplicate',
 			'notes.openNote' => 'Open note',
 			'notes.adjustTitlePaper' => 'Adjust title & paper',
-			'notes.paperStyle' => 'Paper style',
 			'notes.emptyNote' => 'Empty note',
 			'notes.emptyNoteSubtitle' => 'Start with a blank page',
 			'drawing.pen' => 'Pen',

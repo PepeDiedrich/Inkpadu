@@ -14,6 +14,14 @@ enum NotePaperStyle {
   /// Gepunktetes Papier.
   dotted;
 
+  /// Lokalisierter Anzeigename für den Stil.
+  String get label => switch (this) {
+    NotePaperStyle.plain => 'Blanko',
+    NotePaperStyle.lined => 'Liniert',
+    NotePaperStyle.grid => 'Kariert',
+    NotePaperStyle.dotted => 'Punktiert',
+  };
+
   /// Symbol, das den Stil in der UI repräsentiert.
   IconData get icon => switch (this) {
     NotePaperStyle.plain => Icons.crop_square,
