@@ -146,7 +146,7 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('allows changing paper style', (tester) async {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -170,11 +170,30 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
+      // Only 'Blanko' should be visible initially
       expect(find.text('Blanko'), findsOneWidget);
+      expect(find.text('Liniert'), findsNothing);
+
+      // Tap the list tile to open selection dialog
+      await tester.tap(find.text('Blanko'));
+      await tester.pumpAndSettle();
+
+      // All paper style labels should be visible in the selection dialog
       expect(find.text('Liniert'), findsOneWidget);
       expect(find.text('Kariert'), findsOneWidget);
       expect(find.text('Punktiert'), findsOneWidget);
+
+      // Select 'Liniert'
+      await tester.tap(find.text('Liniert'));
+      await tester.pump();
+
+      // Tap Apply (Übernehmen)
+      await tester.tap(find.text('Übernehmen'));
+      await tester.pumpAndSettle();
+
+      // Selection dialog closed, main dialog shows new selection
+      expect(find.text('Liniert'), findsOneWidget);
+      expect(find.text('Blanko'), findsNothing);
     });
 
     testWidgets('can enter title text', (tester) async {
