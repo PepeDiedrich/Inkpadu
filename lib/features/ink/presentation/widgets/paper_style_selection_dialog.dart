@@ -52,7 +52,6 @@ class _PaperStyleSelectionDialogState extends State<PaperStyleSelectionDialog> {
     final colorScheme = theme.colorScheme;
 
     return AlertDialog(
-      scrollable: true,
       title: Text(context.t.notes.adjustTitlePaper),
       content: SizedBox(
         width: double.maxFinite,

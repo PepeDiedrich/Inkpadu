@@ -1,5 +1,5 @@
 // ...existing code...
-- [x] Feature: Paper Style Selection Dialog & Preview
+- [ ] Feature: Paper Style Selection Dialog & Preview
   - **Kontext:** Beim Erstellen einer neuen Notiz oder Ändern des Hintergrunds soll die Auswahl des Papierstils (Liniert, Kariert, Blanko, etc.) isoliert werden.
   - **Anforderungen:**
     1. **UI Komponente:** Erstelle einen dedizierten Dialog (oder ModalBottomSheet) für die Auswahl.
