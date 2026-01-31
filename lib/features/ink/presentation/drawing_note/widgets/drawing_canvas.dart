@@ -218,6 +218,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           }
         });
       }
+    } else {
+      setState(() {});
     }
     _notifyDrawingActivity();
   }
@@ -318,8 +320,11 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   double _requiredCanvasHeightForStrokes(List<Stroke> strokes) {
     var maxY = 0.0;
     for (final stroke in strokes) {
-      if (stroke.boundingBox.bottom > maxY) {
-        maxY = stroke.boundingBox.bottom;
+      for (final point in stroke.points) {
+        final y = point.position.dy;
+        if (y > maxY) {
+          maxY = y;
+        }
       }
     }
     return math.max(
