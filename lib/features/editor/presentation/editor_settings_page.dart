@@ -16,7 +16,7 @@ class EditorSettingsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.t.settings.editorSettings)),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: AnimatedBuilder(
           animation: settings,
