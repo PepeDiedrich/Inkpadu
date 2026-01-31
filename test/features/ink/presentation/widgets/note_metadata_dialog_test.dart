@@ -1,5 +1,6 @@
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -146,7 +147,12 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('shows paper style selection dialog on tap', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -170,11 +176,63 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
+      // "Hintergrund wählen" header should be visible
+      expect(find.text('Hintergrund wählen'), findsOneWidget);
+
+      // "Blanko" should be visible (as it's the selected style)
       expect(find.text('Blanko'), findsOneWidget);
+
+      // Tap "Blanko" to open selection dialog
+      await tester.tap(find.text('Blanko'));
+      await tester.pumpAndSettle();
+
+      // Selection dialog should be open
+      expect(find.byType(PaperStyleSelectionDialog), findsOneWidget);
       expect(find.text('Liniert'), findsOneWidget);
       expect(find.text('Kariert'), findsOneWidget);
-      expect(find.text('Punktiert'), findsOneWidget);
+    });
+
+    testWidgets('updates selected style after selection', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            locale: LocaleSettings.currentLocale.flutterLocale,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // Open selection
+      await tester.tap(find.text('Blanko'));
+      await tester.pumpAndSettle();
+
+      // Select "Kariert"
+      await tester.tap(find.text('Kariert'));
+      await tester.pump();
+      await tester.tap(find.text('Übernehmen'));
+      await tester.pumpAndSettle();
+
+      // Dialog closed, now "Kariert" should be visible in main dialog
+      expect(find.text('Kariert'), findsOneWidget);
     });
 
     testWidgets('can enter title text', (tester) async {

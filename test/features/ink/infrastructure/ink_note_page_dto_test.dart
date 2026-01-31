@@ -44,7 +44,10 @@ void main() {
     final AssistantMessage restoredMessage = restored.assistantHistory.single;
     expect(restoredMessage.question, equals(message.question));
     expect(restoredMessage.answer, equals(message.answer));
-    expect(restoredMessage.visionDescription, equals(message.visionDescription));
+    expect(
+      restoredMessage.visionDescription,
+      equals(message.visionDescription),
+    );
     expect(restoredMessage.reusedCachedDescription, isTrue);
     expect(
       restoredMessage.createdAt.toIso8601String(),

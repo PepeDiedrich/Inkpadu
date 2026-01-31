@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Ergebnis des Metadaten-Dialogs.
@@ -70,21 +71,32 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
     );
   }
 
+  Future<void> _pickPaperStyle() async {
+    final result = await showDialog<NotePaperStyle>(
+      context: context,
+      builder: (context) =>
+          PaperStyleSelectionDialog(initialStyle: _selectedStyle),
+    );
+    if (result != null && mounted) {
+      setState(() => _selectedStyle = result);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final titleText = widget.isEditing ? context.t.notes.adjustTitlePaper : context.t.notes.newNote;
-    final segments = NotePaperStyle.values
-        .map(
-          (style) => ButtonSegment<NotePaperStyle>(
-            value: style,
-            icon: Icon(style.icon, size: 16),
-            label: Text(style.label),
-          ),
-        )
-        .toList(growable: false);
+    final titleText = widget.isEditing
+        ? context.t.notes.adjustTitlePaper
+        : context.t.notes.newNote;
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    final styleLabel = switch (_selectedStyle) {
+      NotePaperStyle.plain => context.t.paper.plain,
+      NotePaperStyle.lined => context.t.paper.lined,
+      NotePaperStyle.grid => context.t.paper.grid,
+      NotePaperStyle.dotted => context.t.paper.dotted,
+    };
 
     return Scaffold(
       appBar: AppBar(
@@ -97,7 +109,9 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
         actions: [
           TextButton(
             onPressed: _submit,
-            child: Text(widget.isEditing ? context.t.common.save : context.t.common.next),
+            child: Text(
+              widget.isEditing ? context.t.common.save : context.t.common.next,
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -119,26 +133,31 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
                       labelText: context.t.editor.title,
-                      hintText: '${context.t.editor.title} (${context.t.common.no})',
+                      hintText:
+                          '${context.t.editor.title} (${context.t.common.no})',
                       border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    'Paper style',
-                    style: theme.textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    context.t.notes.chooseBackground,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  SegmentedButton<NotePaperStyle>(
-                    segments: segments,
-                    selected: <NotePaperStyle>{_selectedStyle},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (selection) {
-                      final next = selection.first;
-                      if (next != _selectedStyle) {
-                        setState(() => _selectedStyle = next);
-                      }
-                    },
+                  ListTile(
+                    title: Text(styleLabel),
+                    leading: Icon(_selectedStyle.icon),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _pickPaperStyle,
+                    tileColor: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.3,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
                   ),
                 ],
               ),
@@ -161,7 +180,11 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
             Expanded(
               child: FilledButton(
                 onPressed: _submit,
-                child: Text(widget.isEditing ? context.t.common.save : context.t.common.next),
+                child: Text(
+                  widget.isEditing
+                      ? context.t.common.save
+                      : context.t.common.next,
+                ),
               ),
             ),
           ],
