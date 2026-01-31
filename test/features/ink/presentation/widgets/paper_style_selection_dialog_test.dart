@@ -53,6 +53,7 @@ void main() {
     });
 
     testWidgets('returns selected style on apply', (tester) async {
+      // Set physical size to avoid RenderFlex overflow in dialog tests
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.resetPhysicalSize);
