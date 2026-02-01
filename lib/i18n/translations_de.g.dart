@@ -147,6 +147,9 @@ class TranslationsCommonDe {
 
 	/// de: 'Gestern'
 	String get yesterday => 'Gestern';
+
+	/// de: 'Vorschau'
+	String get preview => 'Vorschau';
 }
 
 // Path: auth
@@ -291,6 +294,9 @@ class TranslationsNotesDe {
 
 	/// de: '${count} Strich(e)'
 	String strokesCount({required Object count}) => '${count} Strich(e)';
+
+	/// de: 'Papierstil wählen'
+	String get selectPaperStyle => 'Papierstil wählen';
 }
 
 // Path: drawing
@@ -860,6 +866,7 @@ extension on Translations {
 			'common.minutesAgo' => ({required Object count}) => 'vor ${count} Minute(n)',
 			'common.hoursAgo' => ({required Object count}) => 'vor ${count} Stunde(n)',
 			'common.yesterday' => 'Gestern',
+			'common.preview' => 'Vorschau',
 			'auth.login' => 'Anmelden',
 			'auth.logout' => 'Abmelden',
 			'auth.register' => 'Registrieren',
@@ -899,6 +906,7 @@ extension on Translations {
 			'notes.searchNotes' => 'Notizen durchsuchen...',
 			'notes.pagesCount' => ({required Object count}) => '${count} Seite(n)',
 			'notes.strokesCount' => ({required Object count}) => '${count} Strich(e)',
+			'notes.selectPaperStyle' => 'Papierstil wählen',
 			'drawing.pen' => 'Stift',
 			'drawing.pencil' => 'Bleistift',
 			'drawing.highlighter' => 'Textmarker',

@@ -26,7 +26,8 @@
     "justNow": "Gerade eben",
     "minutesAgo(count)": "vor ${count} Minute(n)",
     "hoursAgo(count)": "vor ${count} Stunde(n)",
-    "yesterday": "Gestern"
+    "yesterday": "Gestern",
+    "preview": "Vorschau"
   },
   "auth": {
     "login": "Anmelden",
@@ -71,7 +72,8 @@
     "undo": "Rückgängig",
     "searchNotes": "Notizen durchsuchen...",
     "pagesCount(count)": "${count} Seite(n)",
-    "strokesCount(count)": "${count} Strich(e)"
+    "strokesCount(count)": "${count} Strich(e)",
+    "selectPaperStyle": "Papierstil wählen"
   },
   "drawing": {
     "pen": "Stift",

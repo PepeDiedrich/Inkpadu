@@ -96,6 +96,7 @@ class _TranslationsCommonEn extends TranslationsCommonDe {
 	@override String minutesAgo({required Object count}) => '${count} minute(s) ago';
 	@override String hoursAgo({required Object count}) => '${count} hour(s) ago';
 	@override String get yesterday => 'Yesterday';
+	@override String get preview => 'Preview';
 }
 
 // Path: auth
@@ -156,6 +157,7 @@ class _TranslationsNotesEn extends TranslationsNotesDe {
 	@override String get adjustTitlePaper => 'Adjust title & paper';
 	@override String get emptyNote => 'Empty note';
 	@override String get emptyNoteSubtitle => 'Start with a blank page';
+	@override String get selectPaperStyle => 'Select paper style';
 }
 
 // Path: drawing
@@ -423,6 +425,7 @@ extension on TranslationsEn {
 			'common.minutesAgo' => ({required Object count}) => '${count} minute(s) ago',
 			'common.hoursAgo' => ({required Object count}) => '${count} hour(s) ago',
 			'common.yesterday' => 'Yesterday',
+			'common.preview' => 'Preview',
 			'auth.login' => 'Log in',
 			'auth.logout' => 'Log out',
 			'auth.register' => 'Register',
@@ -456,6 +459,7 @@ extension on TranslationsEn {
 			'notes.adjustTitlePaper' => 'Adjust title & paper',
 			'notes.emptyNote' => 'Empty note',
 			'notes.emptyNoteSubtitle' => 'Start with a blank page',
+			'notes.selectPaperStyle' => 'Select paper style',
 			'drawing.pen' => 'Pen',
 			'drawing.pencil' => 'Pencil',
 			'drawing.highlighter' => 'Highlighter',
