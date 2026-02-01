@@ -955,102 +955,82 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                   onPointerMove: _update,
                   onPointerUp: _end,
                   onPointerCancel: _cancel,
-                  child: AnimatedBuilder(
-                    animation: widget.drawingController,
-                    builder: (context, child) => Stack(
-                      children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: FinishedStrokesPainter(
-                              strokes: widget.drawingController.strokes,
-                              version: widget.drawingController.strokesVersion,
-                            ),
-                          ),
-                        ),
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: CurrentStrokePainter(
-                              currentStroke:
-                                  widget.drawingController.currentStroke,
-                              pointCount:
-                                  widget
-                                      .drawingController
-                                      .currentStroke
-                                      ?.points
-                                      .length ??
-                                  0,
-                            ),
-                          ),
-                        ),
-                        if (showDebugOverlay)
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: CustomPaint(
-                                painter: ConvexHullsPainter(
-                                  hulls: _convexHulls,
-                                  boundingBoxes: _boundingBoxes,
-                                ),
+                  child: Stack(
+                    children: [
+                      // Layer for finished strokes: Only rebuilds when strokesVersion changes.
+                      _FinishedStrokesLayer(
+                        controller: widget.drawingController,
+                      ),
+                      // Layer for the current stroke: Rebuilds on every controller update (active drag).
+                      _CurrentStrokeLayer(controller: widget.drawingController),
+                      if (showDebugOverlay)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: ConvexHullsPainter(
+                                hulls: _convexHulls,
+                                boundingBoxes: _boundingBoxes,
                               ),
                             ),
                           ),
-                        ...widget.links.map((link) => Positioned(
-                              left: link.position.dx,
-                              top: link.position.dy,
-                              child: GestureDetector(
-                                onTap: () => widget.onLinkTap?.call(link),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                        ),
+                      ...widget.links.map((link) => Positioned(
+                            left: link.position.dx,
+                            top: link.position.dy,
+                            child: GestureDetector(
+                              onTap: () => widget.onLinkTap?.call(link),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surface
+                                      .withValues(alpha: 0.9),
+                                  border: Border.all(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    width: 1.5,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surface
-                                        .withValues(alpha: 0.9),
-                                    border: Border.all(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
                                       color:
-                                          Theme.of(context).colorScheme.primary,
-                                      width: 1.5,
+                                          Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.link,
-                                        size: 14,
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.link,
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      link.label,
+                                      style: TextStyle(
                                         color: Theme.of(context)
                                             .colorScheme
                                             .primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        link.label,
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            )),
-                      ],
-                    ),
+                            ),
+                          )),
+                    ],
                   ),
                 ),
               ),
@@ -1070,4 +1050,87 @@ class _DrawingScrollBehavior extends MaterialScrollBehavior {
     PointerDeviceKind.mouse,
     PointerDeviceKind.unknown,
   };
+}
+
+/// A layer that paints finished strokes.
+///
+/// This widget listens to the [DrawingController] but only rebuilds when the
+/// [DrawingController.strokesVersion] changes. This prevents unnecessary
+/// rebuilds during active drawing (dragging), where only the current stroke
+/// changes.
+class _FinishedStrokesLayer extends StatefulWidget {
+  const _FinishedStrokesLayer({required this.controller});
+
+  final DrawingController controller;
+
+  @override
+  State<_FinishedStrokesLayer> createState() => _FinishedStrokesLayerState();
+}
+
+class _FinishedStrokesLayerState extends State<_FinishedStrokesLayer> {
+  int _lastVersion = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastVersion = widget.controller.strokesVersion;
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _FinishedStrokesLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
+      _lastVersion = widget.controller.strokesVersion;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    if (widget.controller.strokesVersion != _lastVersion) {
+      setState(() {
+        _lastVersion = widget.controller.strokesVersion;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+        child: CustomPaint(
+          painter: FinishedStrokesPainter(
+            strokes: widget.controller.strokes,
+            version: widget.controller.strokesVersion,
+          ),
+        ),
+      );
+}
+
+/// A layer that paints the current (active) stroke.
+///
+/// This widget rebuilds on every notification from [DrawingController], ensuring
+/// the active stroke is updated smoothly during drag.
+class _CurrentStrokeLayer extends StatelessWidget {
+  const _CurrentStrokeLayer({required this.controller});
+
+  final DrawingController controller;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) => RepaintBoundary(
+          child: CustomPaint(
+            painter: CurrentStrokePainter(
+              currentStroke: controller.currentStroke,
+              pointCount: controller.currentStroke?.points.length ?? 0,
+            ),
+          ),
+        ),
+      );
 }

@@ -9,3 +9,7 @@
 **Learning:** `List.unmodifiable(list)` always creates a NEW list (and iterates the source), which is an O(N) operation. Using this inside a getter that is called frequently (e.g., inside a `build` method or `paint` loop) causes massive garbage generation and CPU overhead.
 
 **Action:** Cache the unmodifiable view in the state object (Controller/Model) and invalidate it only when the underlying data changes. Avoid calling `List.unmodifiable` in hot loops or getters.
+
+## 2026-02-01 - Split DrawingCanvas Layers
+**Learning:** `AnimatedBuilder` rebuilds everything in its subtree on every tick. For drawing apps, separating the "static" (finished strokes) layer from the "dynamic" (current stroke) layer is crucial. Using a custom listener that checks for version changes prevents thousands of unnecessary widget rebuilds during a simple drag.
+**Action:** Always check if `AnimatedBuilder` is wrapping too much. Isolate high-frequency updates (60fps) to the smallest possible widget subtree.
