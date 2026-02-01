@@ -184,10 +184,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check if dialog is open.
-      // NOTE: 'Papierstil wählen' appears twice: once as the label in NoteMetadataDialog
-      // and once as the title in PaperStyleSelectionDialog.
-      // We check that at least one is visible, or specifically target the Dialog title.
-      expect(find.text('Papierstil wählen'), findsAtLeastNWidgets(1));
+      // 'Papierstil wählen' appears twice: label in NoteMetadataDialog and title in PaperStyleSelectionDialog.
+      expect(find.text('Papierstil wählen'), findsNWidgets(2));
       expect(find.text('Liniert'), findsOneWidget);
 
       // Select 'Liniert'
@@ -199,7 +197,6 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog closed, metadata dialog updated
-      // 'Papierstil wählen' should still be visible as the label in NoteMetadataDialog
       expect(find.text('Papierstil wählen'), findsOneWidget);
       expect(find.text('Liniert'), findsOneWidget); // Metadata updated
       expect(find.text('Blanko'), findsNothing);
