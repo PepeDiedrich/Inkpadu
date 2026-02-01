@@ -28,7 +28,12 @@ import 'package:ai_handwriting_app/i18n/translations.g.dart';
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // SENTINEL: Disable logging in Release mode to prevent PII leakage.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
   
