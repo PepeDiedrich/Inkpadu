@@ -480,6 +480,17 @@ class InkNotesController extends ChangeNotifier {
   }
 
   Future<void> _synchronizeWithRemote(String userId) async {
+    // Wenn wir offline sind, überspringen wir den Remote-Sync-Versuch,
+    // um unnötige Fehler/Timeouts zu vermeiden (wichtig für Tests/Offline-Modus).
+    if (_connectivityService != null) {
+      final bool isOnline = await _connectivityService!.checkOnline();
+      if (!isOnline) {
+        // Trotzdem lokal laden, falls noch nicht geschehen
+        await _loadLocalNotes();
+        return;
+      }
+    }
+
     // Initialize repository and try a full sync
     await _repository.init();
 

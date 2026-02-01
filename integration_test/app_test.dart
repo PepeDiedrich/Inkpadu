@@ -11,11 +11,11 @@ import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_
 class MockConnectivityPlatform extends ConnectivityPlatform {
   @override
   Stream<List<ConnectivityResult>> get onConnectivityChanged =>
-      Stream.value([ConnectivityResult.wifi]);
+      Stream.value([ConnectivityResult.none]);
 
   @override
   Future<List<ConnectivityResult>> checkConnectivity() async =>
-      [ConnectivityResult.wifi];
+      [ConnectivityResult.none];
 }
 
 void main() {

@@ -43,4 +43,10 @@ class ConnectivityService {
     await _sub?.cancel();
     await _controller.close();
   }
+
+  /// Prüft den aktuellen Verbindungsstatus einmalig ab.
+  Future<bool> checkOnline() async {
+    final results = await _connectivity.checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
+  }
 }
