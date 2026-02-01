@@ -10,7 +10,7 @@ class AppwriteConfig {
   /// Standardwert ist der Prod-Endpoint, kann via --dart-define=APPWRITE_ENDPOINT=... überschrieben werden.
   static const String endpoint = String.fromEnvironment(
     'APPWRITE_ENDPOINT',
-    defaultValue: 'https://appwrite.nebulium.info/v1',
+    defaultValue: 'https://appwrite.nebulium.info:443/v1',
   );
 
   /// Globale Projekt-ID für Appwrite.
