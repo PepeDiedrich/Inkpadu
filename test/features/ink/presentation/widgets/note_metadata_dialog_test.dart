@@ -50,6 +50,8 @@ void main() {
       expect(find.text('Neue Notiz'), findsOneWidget);
       // Initial title should be in text field
       expect(find.text('Initial Title'), findsOneWidget);
+      // Selected style should be shown
+      expect(find.text('Liniert'), findsOneWidget);
     });
 
     testWidgets('shows editing title when isEditing is true', (tester) async {
@@ -146,7 +148,11 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('can change paper style via dialog', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -170,11 +176,33 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
+      // Initially plain
       expect(find.text('Blanko'), findsOneWidget);
+
+      // Open selection dialog
+      await tester.tap(find.byType(ListTile));
+      await tester.pumpAndSettle();
+
+      // Check if dialog is open.
+      // NOTE: 'Papierstil wählen' appears twice: once as the label in NoteMetadataDialog
+      // and once as the title in PaperStyleSelectionDialog.
+      // We check that at least one is visible, or specifically target the Dialog title.
+      expect(find.text('Papierstil wählen'), findsAtLeastNWidgets(1));
       expect(find.text('Liniert'), findsOneWidget);
-      expect(find.text('Kariert'), findsOneWidget);
-      expect(find.text('Punktiert'), findsOneWidget);
+
+      // Select 'Liniert'
+      await tester.tap(find.text('Liniert'));
+      await tester.pumpAndSettle();
+
+      // Apply
+      await tester.tap(find.text('Übernehmen'));
+      await tester.pumpAndSettle();
+
+      // Dialog closed, metadata dialog updated
+      // 'Papierstil wählen' should still be visible as the label in NoteMetadataDialog
+      expect(find.text('Papierstil wählen'), findsOneWidget);
+      expect(find.text('Liniert'), findsOneWidget); // Metadata updated
+      expect(find.text('Blanko'), findsNothing);
     });
 
     testWidgets('can enter title text', (tester) async {
