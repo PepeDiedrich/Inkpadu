@@ -74,25 +74,39 @@ class DrawingTool {
   };
 
   /// Erstellt ein Werkzeug aus einer JSON-Repräsentation.
-  factory DrawingTool.fromJson(Map<String, dynamic> json) => DrawingTool(
-    id: json['id'] as String,
-    label: json['label'] as String,
-    icon: IconData(
-      json['icon'] as int,
-      fontFamily: json['iconFontFamily'] as String?,
-      fontPackage: json['iconFontPackage'] as String?,
-      matchTextDirection: json['iconMatchTextDirection'] as bool? ?? false,
-    ),
-  color: Color((json['color'] as int?) ?? Colors.black.toARGB32()),
-    baseWidth: (json['baseWidth'] as num?)?.toDouble() ?? 4.0,
-    isHighlighter: json['isHighlighter'] as bool? ?? false,
-    isEraser: json['isEraser'] as bool? ?? false,
-    usePressure: json['usePressure'] as bool? ?? true,
-  );
+  factory DrawingTool.fromJson(Map<String, dynamic> json) {
+    final int codePoint = json['icon'] as int;
+    // Fallback auf Map-Lookup, um non-constant IconData constructor zu vermeiden,
+    // was Tree-Shaking beim Build brechen würde.
+    final IconData icon =
+        DrawingToolDefaults.supportedIcons[codePoint] ?? Icons.edit;
+
+    return DrawingTool(
+      id: json['id'] as String,
+      label: json['label'] as String,
+      icon: icon,
+      color: Color((json['color'] as int?) ?? Colors.black.toARGB32()),
+      baseWidth: (json['baseWidth'] as num?)?.toDouble() ?? 4.0,
+      isHighlighter: json['isHighlighter'] as bool? ?? false,
+      isEraser: json['isEraser'] as bool? ?? false,
+      usePressure: json['usePressure'] as bool? ?? true,
+    );
+  }
 }
 
 /// Standardpalette für neue Notizen.
 class DrawingToolDefaults {
+  /// Alle unterstützten Icons für die Serialisierung.
+  /// Wird benötigt, um Tree-Shaking Errors beim Build zu vermeiden.
+  static const Map<int, IconData> supportedIcons = <int, IconData>{
+    0xe21a: Icons.edit,
+    0xe168: Icons.create,
+    0xe22a: Icons.draw,
+    0xe104: Icons.brush,
+    0xe31d: Icons.highlight,
+    0xe096: Icons.auto_fix_off,
+  };
+
   /// Vordefinierte Werkzeuge, die beim ersten Öffnen verwendet werden.
   static const List<DrawingTool> palette = <DrawingTool>[
     DrawingTool(
