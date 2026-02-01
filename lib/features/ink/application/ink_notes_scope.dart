@@ -497,7 +497,13 @@ class InkNotesController extends ChangeNotifier {
     _safelyNotifyListeners();
 
     // Trigger repository sync which will attempt to upload pending items and merge
-    await _repository.syncAll(userId: userId);
+    try {
+      await _repository.syncAll(userId: userId);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[InkNotesController] Sync failed: $e');
+      }
+    }
 
     if (_disposed) return;
 
