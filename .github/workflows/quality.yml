@@ -100,7 +100,7 @@ jobs:
             artifact-path: build/ios/ipa
             runs-on: macos-latest
           - target: macos
-            build-command: flutter build macos --release
+            build-command: flutter build macos --release --no-tree-shake-icons
             artifact-path: build/macos/Build/Products/Release
             runs-on: macos-latest
 
