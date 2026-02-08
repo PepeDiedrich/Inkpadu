@@ -390,6 +390,9 @@ class TranslationsPaperDe {
 
 	/// de: 'Punktiert'
 	String get dotted => 'Punktiert';
+
+	/// de: 'Hintergrund wählen'
+	String get selectBackground => 'Hintergrund wählen';
 }
 
 // Path: ai
@@ -926,6 +929,7 @@ extension on Translations {
 			'paper.lined' => 'Liniert',
 			'paper.grid' => 'Kariert',
 			'paper.dotted' => 'Punktiert',
+			'paper.selectBackground' => 'Hintergrund wählen',
 			'ai.title' => 'KI-Funktionen',
 			'ai.assistant' => 'KI-Assistent',
 			'ai.recognize' => 'Text erkennen',
