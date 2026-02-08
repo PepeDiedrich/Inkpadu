@@ -55,13 +55,16 @@ class NoteThumbnail extends StatelessWidget {
     double maxX = double.negativeInfinity;
     double maxY = double.negativeInfinity;
 
+    // ⚡ Bolt Optimization: Use cached boundingBox instead of iterating all points.
+    // This reduces complexity from O(Points) to O(Strokes).
     for (final stroke in page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dx < minX) minX = point.position.dx;
-        if (point.position.dy < minY) minY = point.position.dy;
-        if (point.position.dx > maxX) maxX = point.position.dx;
-        if (point.position.dy > maxY) maxY = point.position.dy;
-      }
+      if (stroke.points.isEmpty) continue;
+
+      final rect = stroke.boundingBox;
+      if (rect.left < minX) minX = rect.left;
+      if (rect.top < minY) minY = rect.top;
+      if (rect.right > maxX) maxX = rect.right;
+      if (rect.bottom > maxY) maxY = rect.bottom;
     }
 
     final contentWidth = maxX - minX;
