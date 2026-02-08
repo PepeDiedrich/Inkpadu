@@ -166,6 +166,17 @@ class InkNotesSyncService implements InkNotesSync {
       if (kDebugMode) {
         debugPrint('Appwrite fetchNotes failed: ${error.message}');
       }
+      // If the error code indicates a server/network issue (e.g. 530 Cloudflare block or 5xx server error),
+      // we treat it as "offline" and return an empty list instead of crashing.
+      if (error.code != null && (error.code == 530 || error.code! >= 500)) {
+        if (kDebugMode) {
+          debugPrint(
+            'InkNotesSyncService: Treating error ${error.code} as offline mode.',
+          );
+        }
+        return const <InkNote>[];
+      }
+
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stackTrace,
