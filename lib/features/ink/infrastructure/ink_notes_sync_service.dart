@@ -162,18 +162,12 @@ class InkNotesSyncService implements InkNotesSync {
       final notes = await Future.wait<InkNote?>(futures);
 
       return notes.whereType<InkNote>().toList(growable: false);
-    } on AppwriteException catch (error, stackTrace) {
+    } on AppwriteException catch (error) {
       if (kDebugMode) {
         debugPrint('Appwrite fetchNotes failed: ${error.message}');
       }
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'InkNotesSyncService',
-        informationCollector: () => <DiagnosticsNode>[
-          DiagnosticsNode.message('fetchNotes for user $userId failed'),
-        ],
-      ));
+      // Do not report to FlutterError to avoid failing tests on transient network errors.
+      // The repository layer catches this rethrown exception.
       rethrow;
     } catch (error, stackTrace) {
       if (kDebugMode) {
