@@ -955,45 +955,40 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                   onPointerMove: _update,
                   onPointerUp: _end,
                   onPointerCancel: _cancel,
-                  child: AnimatedBuilder(
-                    animation: widget.drawingController,
-                    builder: (context, child) => Stack(
-                      children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: FinishedStrokesPainter(
-                              strokes: widget.drawingController.strokes,
-                              version: widget.drawingController.strokesVersion,
-                            ),
-                          ),
-                        ),
-                        RepaintBoundary(
-                          child: CustomPaint(
+                  child: Stack(
+                    children: [
+                      // ⚡ Bolt Optimization: Separate finished strokes layer to prevent
+                      // rebuilding it on every drag frame (120Hz).
+                      _FinishedStrokesLayer(
+                        drawingController: widget.drawingController,
+                      ),
+                      // Only rebuild current stroke on every controller notification
+                      RepaintBoundary(
+                        child: AnimatedBuilder(
+                          animation: widget.drawingController,
+                          builder: (context, child) => CustomPaint(
                             painter: CurrentStrokePainter(
                               currentStroke:
                                   widget.drawingController.currentStroke,
-                              pointCount:
-                                  widget
-                                      .drawingController
-                                      .currentStroke
-                                      ?.points
-                                      .length ??
+                              pointCount: widget
+                                      .drawingController.currentStroke?.points.length ??
                                   0,
                             ),
                           ),
                         ),
-                        if (showDebugOverlay)
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: CustomPaint(
-                                painter: ConvexHullsPainter(
-                                  hulls: _convexHulls,
-                                  boundingBoxes: _boundingBoxes,
-                                ),
+                      ),
+                      if (showDebugOverlay)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: ConvexHullsPainter(
+                                hulls: _convexHulls,
+                                boundingBoxes: _boundingBoxes,
                               ),
                             ),
                           ),
-                        ...widget.links.map((link) => Positioned(
+                        ),
+                      ...widget.links.map((link) => Positioned(
                               left: link.position.dx,
                               top: link.position.dy,
                               child: GestureDetector(
@@ -1051,7 +1046,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                             )),
                       ],
                     ),
-                  ),
                 ),
               ),
             ),
@@ -1067,7 +1061,69 @@ class _DrawingScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => const {
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.unknown,
-  };
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.unknown,
+      };
+}
+
+/// A specialized layer for finished strokes that only rebuilds when
+/// the structural version of the drawing changes (e.g. stroke completed, undo/redo).
+///
+/// This avoids rebuilding the entire widget tree on every drag frame.
+class _FinishedStrokesLayer extends StatefulWidget {
+  const _FinishedStrokesLayer({
+    required this.drawingController,
+  });
+
+  final DrawingController drawingController;
+
+  @override
+  State<_FinishedStrokesLayer> createState() => _FinishedStrokesLayerState();
+}
+
+class _FinishedStrokesLayerState extends State<_FinishedStrokesLayer> {
+  int _version = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _version = widget.drawingController.strokesVersion;
+    widget.drawingController.addListener(_onControllerChange);
+  }
+
+  @override
+  void didUpdateWidget(_FinishedStrokesLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.drawingController != widget.drawingController) {
+      oldWidget.drawingController.removeListener(_onControllerChange);
+      widget.drawingController.addListener(_onControllerChange);
+      _version = widget.drawingController.strokesVersion;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.drawingController.removeListener(_onControllerChange);
+    super.dispose();
+  }
+
+  void _onControllerChange() {
+    // Only rebuild if the structural version changed.
+    // Ignored during active drawing (updateStroke).
+    if (widget.drawingController.strokesVersion != _version) {
+      setState(() {
+        _version = widget.drawingController.strokesVersion;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+        child: CustomPaint(
+          painter: FinishedStrokesPainter(
+            strokes: widget.drawingController.strokes,
+            version: _version,
+          ),
+        ),
+      );
 }
