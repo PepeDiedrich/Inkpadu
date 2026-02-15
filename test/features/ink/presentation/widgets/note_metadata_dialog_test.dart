@@ -146,7 +146,9 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('shows current paper style and can open selection dialog', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -158,7 +160,7 @@ void main() {
                 onPressed: () => showNoteMetadataDialog(
                   context,
                   initialTitle: '',
-                  initialPaperStyle: NotePaperStyle.plain,
+                  initialPaperStyle: NotePaperStyle.lined,
                 ),
                 child: const Text('Open'),
               ),
@@ -170,9 +172,18 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
-      expect(find.text('Blanko'), findsOneWidget);
+      // Check title for section
+      expect(find.text('Papierstil'), findsOneWidget);
+      // Check current style is shown
       expect(find.text('Liniert'), findsOneWidget);
+
+      // Tap the style to open dialog
+      await tester.tap(find.text('Liniert'));
+      await tester.pumpAndSettle();
+
+      // Now we expect the options to be visible in the new dialog
+      // (The parent dialog is also visible in background, but find.text finds them)
+      // Since 'Liniert' is already there, check for others
       expect(find.text('Kariert'), findsOneWidget);
       expect(find.text('Punktiert'), findsOneWidget);
     });
