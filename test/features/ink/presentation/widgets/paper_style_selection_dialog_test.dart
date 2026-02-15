@@ -6,39 +6,30 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUpAll(() {
-    LocaleSettings.setLocale(AppLocale.en);
-  });
+  setUpAll(() => LocaleSettings.setLocale(AppLocale.en));
 
   Widget pumpDialog(
     WidgetTester tester, {
     NotePaperStyle initialStyle = NotePaperStyle.plain,
-  }) {
-    return TranslationProvider(
-      child: MaterialApp(
-        locale: LocaleSettings.currentLocale.flutterLocale,
-        supportedLocales: AppLocaleUtils.supportedLocales,
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: Scaffold(
-          body: Builder(
-            builder: (context) {
-              return TextButton(
-                onPressed: () async {
-                  await showDialog<NotePaperStyle>(
-                    context: context,
-                    builder:
-                        (context) =>
-                            PaperStyleSelectionDialog(initialStyle: initialStyle),
-                  );
-                },
-                child: const Text('Open Dialog'),
-              );
-            },
+  }) => TranslationProvider(
+    child: MaterialApp(
+      locale: LocaleSettings.currentLocale.flutterLocale,
+      supportedLocales: AppLocaleUtils.supportedLocales,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => showDialog<NotePaperStyle>(
+              context: context,
+              builder: (context) =>
+                  PaperStyleSelectionDialog(initialStyle: initialStyle),
+            ),
+            child: const Text('Open Dialog'),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 
   testWidgets('PaperStyleSelectionDialog renders correctly', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
@@ -66,9 +57,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      pumpDialog(tester, initialStyle: NotePaperStyle.plain),
-    );
+    await tester.pumpWidget(pumpDialog(tester));
     await tester.tap(find.text('Open Dialog'));
     await tester.pumpAndSettle();
 
@@ -95,20 +84,16 @@ void main() {
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           home: Scaffold(
             body: Builder(
-              builder: (context) {
-                return TextButton(
-                  onPressed: () async {
+              builder: (context) => TextButton(
+                onPressed: () async =>
                     result = await showDialog<NotePaperStyle>(
                       context: context,
-                      builder:
-                          (context) => const PaperStyleSelectionDialog(
-                            initialStyle: NotePaperStyle.plain,
-                          ),
-                    );
-                  },
-                  child: const Text('Open Dialog'),
-                );
-              },
+                      builder: (context) => const PaperStyleSelectionDialog(
+                        initialStyle: NotePaperStyle.plain,
+                      ),
+                    ),
+                child: const Text('Open Dialog'),
+              ),
             ),
           ),
         ),
@@ -145,20 +130,16 @@ void main() {
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           home: Scaffold(
             body: Builder(
-              builder: (context) {
-                return TextButton(
-                  onPressed: () async {
+              builder: (context) => TextButton(
+                onPressed: () async =>
                     result = await showDialog<NotePaperStyle>(
                       context: context,
-                      builder:
-                          (context) => const PaperStyleSelectionDialog(
-                            initialStyle: NotePaperStyle.plain,
-                          ),
-                    );
-                  },
-                  child: const Text('Open Dialog'),
-                );
-              },
+                      builder: (context) => const PaperStyleSelectionDialog(
+                        initialStyle: NotePaperStyle.plain,
+                      ),
+                    ),
+                child: const Text('Open Dialog'),
+              ),
             ),
           ),
         ),
