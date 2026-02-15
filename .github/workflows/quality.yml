@@ -95,8 +95,8 @@ jobs:
             artifact-path: build/windows/x64/runner/Release
             runs-on: windows-latest
           - target: ios
-            build-command: flutter build ipa --no-codesign
-            artifact-path: build/ios/ipa
+            build-command: flutter build ios --release --no-codesign --simulator
+            artifact-path: build/ios/iphonesimulator/Runner.app
             runs-on: macos-latest
           - target: macos
             build-command: flutter build macos --release --no-tree-shake-icons
