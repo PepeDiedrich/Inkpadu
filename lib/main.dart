@@ -28,6 +28,14 @@ import 'package:ai_handwriting_app/i18n/translations.g.dart';
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // SENTINEL FIX: Disable logging in release mode to prevent leaking sensitive data.
+  // This implements the "Fail Securely" philosophy by preventing error details
+  // and debug prints from appearing in system logs (Logcat/Console) in production.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+    FlutterError.onError = (FlutterErrorDetails details) {};
+  }
   
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
