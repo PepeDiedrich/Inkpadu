@@ -49,19 +49,19 @@ class NoteThumbnail extends StatelessWidget {
   }
 
   Widget _buildStrokesPreview(BuildContext context) {
-    // ⚡ Bolt Optimization: Use cached bounding boxes to avoid O(P) iteration
-    // Instead of iterating all points (P), we iterate strokes (S) which is much faster.
+    // Calculate bounding box to scale strokes appropriately
     double minX = double.infinity;
     double minY = double.infinity;
     double maxX = double.negativeInfinity;
     double maxY = double.negativeInfinity;
 
     for (final stroke in page.strokes) {
-      final rect = stroke.boundingBox;
-      if (rect.left < minX) minX = rect.left;
-      if (rect.top < minY) minY = rect.top;
-      if (rect.right > maxX) maxX = rect.right;
-      if (rect.bottom > maxY) maxY = rect.bottom;
+      for (final point in stroke.points) {
+        if (point.position.dx < minX) minX = point.position.dx;
+        if (point.position.dy < minY) minY = point.position.dy;
+        if (point.position.dx > maxX) maxX = point.position.dx;
+        if (point.position.dy > maxY) maxY = point.position.dy;
+      }
     }
 
     final contentWidth = maxX - minX;
@@ -80,18 +80,14 @@ class NoteThumbnail extends StatelessWidget {
       availableSize / contentHeight,
     );
 
-    // ⚡ Bolt Optimization: Wrap in RepaintBoundary to cache the rasterized thumbnail
-    // This prevents expensive re-painting during scrolling when the thumbnail content is static.
-    return RepaintBoundary(
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _ThumbnailPainter(
-          strokes: page.strokes,
-          offsetX: -minX,
-          offsetY: -minY,
-          scale: scale,
-          padding: padding,
-        ),
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _ThumbnailPainter(
+        strokes: page.strokes,
+        offsetX: -minX,
+        offsetY: -minY,
+        scale: scale,
+        padding: padding,
       ),
     );
   }
