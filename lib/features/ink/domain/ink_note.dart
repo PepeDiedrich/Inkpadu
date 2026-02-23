@@ -9,6 +9,7 @@ class InkNote {
   /// Erstellt eine neue handschriftliche Notiz.
   const InkNote({
     required this.id,
+    this.parentId,
     required this.title,
     required this.updatedAt,
     required this.pages,
@@ -18,6 +19,9 @@ class InkNote {
 
   /// Eindeutige ID.
   final String id;
+
+  /// ID der übergeordneten Notiz (falls vorhanden).
+  final String? parentId;
 
   /// Titel (automatisch generiert, kann später geändert werden).
   final String title;
@@ -46,12 +50,14 @@ class InkNote {
   /// Kopie mit geänderten Feldern.
   InkNote copyWith({
     String? title,
+    String? parentId,
     DateTime? updatedAt,
     List<NotePage>? pages,
     NotePaperStyle? paperStyle,
     int? lastOpenedPageIndex,
   }) => InkNote(
     id: id,
+    parentId: parentId ?? this.parentId,
     title: title ?? this.title,
     updatedAt: updatedAt ?? this.updatedAt,
     pages: pages ?? this.pages,
@@ -62,6 +68,7 @@ class InkNote {
   /// Erzeugt eine leere neue Notiz mit generiertem Titel.
   factory InkNote.empty({
     String? id,
+    String? parentId,
     String? title,
     DateTime? timestamp,
     NotePaperStyle paperStyle = NotePaperStyle.plain,
@@ -69,6 +76,7 @@ class InkNote {
     final now = (timestamp ?? DateTime.now()).toLocal();
     return InkNote(
       id: id ?? now.microsecondsSinceEpoch.toString(),
+      parentId: parentId,
       title: title ?? generateTitle(now),
       updatedAt: now,
       pages: List<NotePage>.unmodifiable(<NotePage>[

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:ai_handwriting_app/features/drawing/application/shape_recognizer.dart';
 import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart'
     as async_simpl;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
@@ -12,12 +13,28 @@ class DrawingController extends ChangeNotifier {
   /// Aktuell gezeichnete Striche.
   List<Stroke> _strokes = const [];
 
+  /// Zwischengespeicherte, unveränderliche Ansicht der Striche.
+  List<Stroke>? _cachedStrokes;
+
   /// Version der Strichliste. Erhöht sich bei jeder strukturellen Änderung
   /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
   int _strokesVersion = 0;
 
   /// Der temporäre Strich, der gerade entsteht.
   Stroke? _currentStroke;
+
+  /// Indicates if the current stroke is locked to a specific shape (e.g. line).
+  bool _isLockedToShape = false;
+  ShapeType? _lockedShapeType;
+
+  /// Stores the vertices defining the locked shape.
+  /// For Line: [start, end]
+  /// For Triangle: [v1, v2, v3]
+  /// For Rect/Ellipse: [fixedCorner, movingCorner] (defining the diagonal)
+  List<Offset> _lockedVertices = [];
+
+  /// The index of the vertex in [_lockedVertices] that is currently being dragged.
+  int _activeVertexIndex = -1;
 
   /// Stack für Wiederherstellen-Operationen.
   final List<Stroke> _redoStack = [];
@@ -26,7 +43,7 @@ class DrawingController extends ChangeNotifier {
   double _simplifierMinTolerance = 0.3;
 
   /// Liefert eine unveränderliche Sicht auf alle gespeicherten Striche.
-  List<Stroke> get strokes => List.unmodifiable(_strokes);
+  List<Stroke> get strokes => _cachedStrokes ??= List.unmodifiable(_strokes);
 
   /// Liefert die aktuelle Versionsnummer der Strichliste.
   int get strokesVersion => _strokesVersion;
@@ -43,6 +60,7 @@ class DrawingController extends ChangeNotifier {
   /// Übernimmt eine bestehende Liste von Strichen in den Controller.
   void initialize(List<Stroke> initialStrokes) {
     _strokes = List<Stroke>.of(initialStrokes);
+    _cachedStrokes = null;
     _strokesVersion++; // Initialisierung zählt als Änderung.
     _currentStroke = null;
     _redoStack.clear();
@@ -62,6 +80,10 @@ class DrawingController extends ChangeNotifier {
       baseWidth: baseWidth,
       isHighlighter: isHighlighter,
     );
+    _isLockedToShape = false;
+    _lockedShapeType = null;
+    _lockedVertices = [];
+    _activeVertexIndex = -1;
     _redoStack.clear();
     notifyListeners();
   }
@@ -69,10 +91,165 @@ class DrawingController extends ChangeNotifier {
   /// Fügt dem aktuellen Strich einen weiteren Punkt hinzu.
   void updateStroke(DrawingPoint point) {
     if (_currentStroke == null) return;
+
+    if (_isLockedToShape && _lockedShapeType != null) {
+      // Wenn gesperrt, aktualisieren wir nur den aktiven Vertex und generieren die Form neu.
+      if (_activeVertexIndex >= 0 && _activeVertexIndex < _lockedVertices.length) {
+        _lockedVertices[_activeVertexIndex] = point.position;
+
+        List<DrawingPoint> newPoints = [];
+        final pressure = _currentStroke!.points.first.pressure;
+
+        switch (_lockedShapeType!) {
+          case ShapeType.line:
+            // Line: defined by 2 points.
+            newPoints = [
+              DrawingPoint(position: _lockedVertices[0], pressure: pressure),
+              DrawingPoint(position: _lockedVertices[1], pressure: pressure),
+            ];
+            break;
+
+          case ShapeType.triangle:
+             // Triangle: defined by 3 points. generatePolygonPoints handles it.
+             newPoints = ShapeRecognizer.generatePolygonPoints(_lockedVertices, pressure);
+             break;
+
+          case ShapeType.rectangle:
+             // Rect: defined by diagonal (2 points in _lockedVertices).
+             final rect = Rect.fromPoints(_lockedVertices[0], _lockedVertices[1]);
+             newPoints = ShapeRecognizer.generateRectPoints(rect, pressure);
+             break;
+
+          case ShapeType.ellipse:
+             // Ellipse: defined by diagonal (2 points in _lockedVertices).
+             final rect = Rect.fromPoints(_lockedVertices[0], _lockedVertices[1]);
+             newPoints = ShapeRecognizer.generateEllipsePoints(rect, pressure);
+             break;
+        }
+
+        _currentStroke = _currentStroke!.copyWith(points: newPoints);
+        notifyListeners();
+      }
+      return;
+    }
+
     _currentStroke = _currentStroke!.copyWith(
       points: List<DrawingPoint>.of(_currentStroke!.points)..add(point),
     );
     notifyListeners();
+  }
+
+  /// Attempts to recognize a shape from the current stroke and snap to it.
+  bool trySnapToShape({double tolerance = 10.0}) {
+    if (_currentStroke == null || _isLockedToShape) {
+      return false;
+    }
+
+    // Save the last point of the original stroke to determine user intent/position.
+    final originalLastPoint = _currentStroke!.points.isNotEmpty
+        ? _currentStroke!.points.last.position
+        : Offset.zero;
+
+    final match = ShapeRecognizer.recognizeShape(
+      _currentStroke!.points,
+      tolerance,
+    );
+
+    if (match != null) {
+      _currentStroke = _currentStroke!.copyWith(
+        points: match.correctedPoints,
+      );
+      _isLockedToShape = true;
+      _lockedShapeType = match.type;
+
+      // Initialize locking state for resizing
+      switch (match.type) {
+        case ShapeType.line:
+           if (match is LineMatch) {
+             // For line, [start, end].
+             _lockedVertices = [match.correctedPoints.first.position, match.correctedPoints.last.position];
+             // Find closest vertex to user's finger (originalLastPoint)
+             final dStart = (_lockedVertices[0] - originalLastPoint).distanceSquared;
+             final dEnd = (_lockedVertices[1] - originalLastPoint).distanceSquared;
+             _activeVertexIndex = dStart < dEnd ? 0 : 1;
+           }
+           break;
+
+        case ShapeType.triangle:
+           if (match is TriangleMatch) {
+             _lockedVertices = List.of(match.vertices);
+
+             // Find vertex closest to user's position.
+             int bestIndex = 0;
+             double minD = double.infinity;
+             for(int i=0; i<_lockedVertices.length; i++) {
+               final d = (_lockedVertices[i] - originalLastPoint).distanceSquared;
+               if (d < minD) {
+                 minD = d;
+                 bestIndex = i;
+               }
+             }
+             _activeVertexIndex = bestIndex;
+           }
+           break;
+
+        case ShapeType.rectangle:
+           if (match is RectangleMatch) {
+             final rect = match.rect;
+             // Define 4 corners
+             final corners = [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft];
+
+             // Find the corner closest to the user's finger.
+             int bestIndex = 0;
+             double minD = double.infinity;
+             for(int i=0; i<4; i++) {
+               final d = (corners[i] - originalLastPoint).distanceSquared;
+               if (d < minD) {
+                 minD = d;
+                 bestIndex = i;
+               }
+             }
+
+             // The closest corner is the "moving" one.
+             // The "fixed" corner is the opposite one (index + 2 % 4).
+             final movingCorner = corners[bestIndex];
+             final fixedCorner = corners[(bestIndex + 2) % 4];
+
+             // Store as [fixed, moving] so index 1 is always the moving one logic for rect/ellipse in updateStroke
+             _lockedVertices = [fixedCorner, movingCorner];
+             _activeVertexIndex = 1;
+           }
+           break;
+
+        case ShapeType.ellipse:
+           if (match is EllipseMatch) {
+             final rect = match.boundingBox;
+             final corners = [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft];
+
+             int bestIndex = 0;
+             double minD = double.infinity;
+             for(int i=0; i<4; i++) {
+               final d = (corners[i] - originalLastPoint).distanceSquared;
+               if (d < minD) {
+                 minD = d;
+                 bestIndex = i;
+               }
+             }
+
+             final movingCorner = corners[bestIndex];
+             final fixedCorner = corners[(bestIndex + 2) % 4];
+
+             _lockedVertices = [fixedCorner, movingCorner];
+             _activeVertexIndex = 1;
+           }
+           break;
+      }
+
+      notifyListeners();
+      return true;
+    }
+
+    return false;
   }
 
   /// Entfernt Striche, deren Punkte innerhalb des gegebenen Radius liegen.
@@ -99,12 +276,23 @@ class DrawingController extends ChangeNotifier {
         continue;
       }
 
-      // Detaillierter Punkt-für-Punkt-Check nur bei Überschneidung
-      final bool shouldRemove = stroke.points.any((point) {
-        final double dx = point.position.dx - position.dx;
-        final double dy = point.position.dy - position.dy;
-        return (dx * dx + dy * dy) <= radiusSquared;
-      });
+      // Detaillierter Check: Segmente prüfen
+      bool shouldRemove = false;
+      if (stroke.points.length == 1) {
+         final point = stroke.points.first;
+         final double dx = point.position.dx - position.dx;
+         final double dy = point.position.dy - position.dy;
+         shouldRemove = (dx * dx + dy * dy) <= radiusSquared;
+      } else {
+        for (int i = 0; i < stroke.points.length - 1; i++) {
+          final p1 = stroke.points[i].position;
+          final p2 = stroke.points[i + 1].position;
+          if (_distanceToSegmentSquared(position, p1, p2) <= radiusSquared) {
+            shouldRemove = true;
+            break;
+          }
+        }
+      }
 
       if (shouldRemove) {
         removedAny = true;
@@ -118,10 +306,27 @@ class DrawingController extends ChangeNotifier {
     }
 
     _strokes = List<Stroke>.of(retained);
+    _cachedStrokes = null;
     _redoStack.clear();
     _strokesVersion++;
     notifyListeners();
     return true;
+  }
+
+  double _distanceToSegmentSquared(Offset p, Offset p1, Offset p2) {
+    final double l2 = (p1 - p2).distanceSquared;
+    if (l2 == 0) return (p - p1).distanceSquared;
+    
+    final double t = ((p.dx - p1.dx) * (p2.dx - p1.dx) + (p.dy - p1.dy) * (p2.dy - p1.dy)) / l2;
+    
+    if (t < 0) return (p - p1).distanceSquared;
+    if (t > 1) return (p - p2).distanceSquared;
+    
+    final Offset projection = Offset(
+      p1.dx + t * (p2.dx - p1.dx),
+      p1.dy + t * (p2.dy - p1.dy),
+    );
+    return (p - projection).distanceSquared;
   }
 
   /// Aktualisiert die Parameter des Linien-Vereinfachers.
@@ -152,6 +357,11 @@ class DrawingController extends ChangeNotifier {
 
     final stroke = _currentStroke!;
     _currentStroke = null;
+    final wasLocked = _isLockedToShape;
+    _isLockedToShape = false;
+    _lockedShapeType = null;
+    _lockedVertices = [];
+    _activeVertexIndex = -1;
 
     if (stroke.points.length < 2) {
       notifyListeners();
@@ -160,7 +370,8 @@ class DrawingController extends ChangeNotifier {
 
     Stroke strokeToStore = stroke;
 
-    if (simplify) {
+    // Only simplify if it wasn't already a locked shape (which is already "perfect")
+    if (simplify && !wasLocked) {
       final Stroke simplified = await async_simpl.simplifyStrokeAsync(
         stroke,
         tolerance: _simplificationToleranceFor(stroke),
@@ -182,6 +393,7 @@ class DrawingController extends ChangeNotifier {
     }
 
     _strokes = List<Stroke>.of(_strokes)..add(strokeToStore);
+    _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -195,6 +407,7 @@ class DrawingController extends ChangeNotifier {
     final removed = updated.removeLast();
     _redoStack.add(removed);
     _strokes = updated;
+    _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -206,6 +419,7 @@ class DrawingController extends ChangeNotifier {
 
     final stroke = _redoStack.removeLast();
     _strokes = List<Stroke>.of(_strokes)..add(stroke);
+    _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
     return true;
@@ -217,6 +431,7 @@ class DrawingController extends ChangeNotifier {
       return false;
     }
     _strokes = const [];
+    _cachedStrokes = null;
     _currentStroke = null;
     _redoStack.clear();
     _strokesVersion++;
@@ -228,6 +443,10 @@ class DrawingController extends ChangeNotifier {
   void cancelCurrentStroke() {
     if (_currentStroke == null) return;
     _currentStroke = null;
+    _isLockedToShape = false;
+    _lockedShapeType = null;
+    _lockedVertices = [];
+    _activeVertexIndex = -1;
     notifyListeners();
   }
 

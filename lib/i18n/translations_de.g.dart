@@ -217,6 +217,9 @@ class TranslationsNotesDe {
 	/// de: 'Neue Notiz'
 	String get newNote => 'Neue Notiz';
 
+	/// de: 'Unternotiz erstellen'
+	String get createSubNote => 'Unternotiz erstellen';
+
 	/// de: 'Ohne Titel'
 	String get untitled => 'Ohne Titel';
 
@@ -270,6 +273,24 @@ class TranslationsNotesDe {
 
 	/// de: 'Starte mit einer leeren Seite'
 	String get emptyNoteSubtitle => 'Starte mit einer leeren Seite';
+
+	/// de: 'Zum Löschen wischen'
+	String get swipeToDelete => 'Zum Löschen wischen';
+
+	/// de: 'Notiz gelöscht'
+	String get noteDeleted => 'Notiz gelöscht';
+
+	/// de: 'Rückgängig'
+	String get undo => 'Rückgängig';
+
+	/// de: 'Notizen durchsuchen...'
+	String get searchNotes => 'Notizen durchsuchen...';
+
+	/// de: '${count} Seite(n)'
+	String pagesCount({required Object count}) => '${count} Seite(n)';
+
+	/// de: '${count} Strich(e)'
+	String strokesCount({required Object count}) => '${count} Strich(e)';
 }
 
 // Path: drawing
@@ -853,6 +874,7 @@ extension on Translations {
 			'nav.settings' => 'Einstellungen',
 			'notes.title' => 'Notizen',
 			'notes.newNote' => 'Neue Notiz',
+			'notes.createSubNote' => 'Unternotiz erstellen',
 			'notes.untitled' => 'Ohne Titel',
 			'notes.unnamed' => 'Unbenannte Notiz',
 			'notes.noContent' => 'Noch keine Inhalte',
@@ -871,6 +893,12 @@ extension on Translations {
 			'notes.adjustTitlePaper' => 'Titel & Papier anpassen',
 			'notes.emptyNote' => 'Leere Notiz',
 			'notes.emptyNoteSubtitle' => 'Starte mit einer leeren Seite',
+			'notes.swipeToDelete' => 'Zum Löschen wischen',
+			'notes.noteDeleted' => 'Notiz gelöscht',
+			'notes.undo' => 'Rückgängig',
+			'notes.searchNotes' => 'Notizen durchsuchen...',
+			'notes.pagesCount' => ({required Object count}) => '${count} Seite(n)',
+			'notes.strokesCount' => ({required Object count}) => '${count} Strich(e)',
 			'drawing.pen' => 'Stift',
 			'drawing.pencil' => 'Bleistift',
 			'drawing.highlighter' => 'Textmarker',

@@ -10,7 +10,9 @@ class DrawingToolPalette extends StatelessWidget {
     required this.tools,
     required this.selectedToolId,
     required this.onToolSelected,
-    required this.onToolLongPress,
+    required this.onToolEdit,
+    required this.onToolDelete,
+    this.direction = Axis.horizontal,
   });
 
   /// Verfügbare Werkzeuge.
@@ -22,11 +24,18 @@ class DrawingToolPalette extends StatelessWidget {
   /// Wird beim Auswählen eines Werkzeugs ausgelöst.
   final ValueChanged<String> onToolSelected;
 
-  /// Wird beim Long-Press auf ein Werkzeug ausgelöst.
-  final ValueChanged<DrawingTool> onToolLongPress;
+  /// Wird zum Bearbeiten eines Werkzeugs ausgelöst (Tap auf ausgewähltes Werkzeug).
+  final ValueChanged<DrawingTool> onToolEdit;
+
+  /// Wird zum Löschen eines Werkzeugs ausgelöst (Long-Press).
+  final ValueChanged<String> onToolDelete;
+
+  /// Die Ausrichtung der Palette.
+  final Axis direction;
 
   @override
   Widget build(BuildContext context) => Wrap(
+    direction: direction,
     spacing: 8,
     runSpacing: 8,
     alignment: WrapAlignment.center,
@@ -35,8 +44,14 @@ class DrawingToolPalette extends StatelessWidget {
           (tool) => _ToolChip(
             tool: tool,
             isSelected: tool.id == selectedToolId,
-            onPressed: () => onToolSelected(tool.id),
-            onLongPress: () => onToolLongPress(tool),
+            onPressed: () {
+              if (tool.id == selectedToolId) {
+                onToolEdit(tool);
+              } else {
+                onToolSelected(tool.id);
+              }
+            },
+            onLongPress: () => onToolDelete(tool.id),
           ),
         )
         .toList(growable: false),

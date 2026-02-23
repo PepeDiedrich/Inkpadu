@@ -38,7 +38,8 @@ void main() {
               tools: testTools,
               selectedToolId: 'pen-1',
               onToolSelected: (_) {},
-              onToolLongPress: (_) {},
+              onToolEdit: (_) {},
+              onToolDelete: (_) {},
             ),
           ),
         ),
@@ -58,7 +59,8 @@ void main() {
               tools: testTools,
               selectedToolId: 'pen-1',
               onToolSelected: (id) => selectedId = id,
-              onToolLongPress: (_) {},
+              onToolEdit: (_) {},
+              onToolDelete: (_) {},
             ),
           ),
         ),
@@ -75,9 +77,8 @@ void main() {
       expect(selectedId, 'pen-2');
     });
 
-    testWidgets('calls onToolLongPress when tool is long-pressed',
-        (tester) async {
-      DrawingTool? longPressedTool;
+    testWidgets('calls onToolDelete when tool is long-pressed', (tester) async {
+      String? deletedId;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -85,7 +86,8 @@ void main() {
               tools: testTools,
               selectedToolId: 'pen-1',
               onToolSelected: (_) {},
-              onToolLongPress: (tool) => longPressedTool = tool,
+              onToolEdit: (_) {},
+              onToolDelete: (id) => deletedId = id,
             ),
           ),
         ),
@@ -95,8 +97,32 @@ void main() {
       await tester.longPress(gestures.at(2));
       await tester.pump();
 
-      expect(longPressedTool, isNotNull);
-      expect(longPressedTool!.id, 'eraser');
+      expect(deletedId, 'eraser');
+    });
+
+    testWidgets('calls onToolEdit when selected tool is tapped again',
+        (tester) async {
+      String? editedId;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DrawingToolPalette(
+              tools: testTools,
+              selectedToolId: 'pen-1',
+              onToolSelected: (_) {},
+              onToolEdit: (tool) => editedId = tool.id,
+              onToolDelete: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      final gestures = find.byType(GestureDetector);
+      // Tap the first tool (which is already selected)
+      await tester.tap(gestures.at(0));
+      await tester.pump();
+
+      expect(editedId, 'pen-1');
     });
 
     testWidgets('shows tooltip with tool info', (tester) async {
@@ -107,7 +133,8 @@ void main() {
               tools: testTools,
               selectedToolId: 'pen-1',
               onToolSelected: (_) {},
-              onToolLongPress: (_) {},
+              onToolEdit: (_) {},
+              onToolDelete: (_) {},
             ),
           ),
         ),
@@ -131,7 +158,8 @@ void main() {
               tools: testTools,
               selectedToolId: 'pen-1',
               onToolSelected: (_) {},
-              onToolLongPress: (_) {},
+              onToolEdit: (_) {},
+              onToolDelete: (_) {},
             ),
           ),
         ),
@@ -150,7 +178,8 @@ void main() {
               tools: const [],
               selectedToolId: '',
               onToolSelected: (_) {},
-              onToolLongPress: (_) {},
+              onToolEdit: (_) {},
+              onToolDelete: (_) {},
             ),
           ),
         ),

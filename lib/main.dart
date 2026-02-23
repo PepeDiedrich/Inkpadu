@@ -1,7 +1,13 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:pdfrx/pdfrx.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/shell/presentation/app_shell.dart';
@@ -26,17 +32,32 @@ Future<void> main() async {
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
   
-  // initialize background dispatcher before runApp
-  Workmanager().initialize(callbackDispatcher);
-  // register periodic task (every 15 minutes is minimum on Android)
-  Workmanager().registerPeriodicTask(
-    'inkpadu_periodic_sync',
-    backgroundSyncTask,
-  );
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  // Initialize pdfrx cache directory
+  Pdfrx.getCacheDirectory = () async {
+    final dir = await getApplicationCacheDirectory();
+    return '${dir.path}/pdfrx_cache';
+  };
+
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
+  final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  if (isMobile) {
+    // initialize background dispatcher before runApp
+    await Workmanager().initialize(callbackDispatcher);
+    // register periodic task (every 15 minutes is minimum on Android)
+    await Workmanager().registerPeriodicTask(
+      'inkpadu_periodic_sync',
+      backgroundSyncTask,
+    );
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
   runApp(TranslationProvider(child: const InkpaduApp()));
 }
 
@@ -53,6 +74,8 @@ class _InkpaduAppState extends State<InkpaduApp> {
   late final AuthController _authController;
   late final InkNotesRepository _repository;
   late final InkNotesController _notesController;
+  final bool _isDesktop = !kIsWeb &&
+      (Platform.isLinux || Platform.isMacOS || Platform.isWindows);
   // Globaler PageStorageBucket für persistente Scroll-Positionen
   final PageStorageBucket _pageStorageBucket = PageStorageBucket();
 
@@ -68,6 +91,10 @@ class _InkpaduAppState extends State<InkpaduApp> {
     _repository = InkNotesRepository(localStorage: localStorage, syncService: notesSyncService);
     final authBridge = AuthControllerInkNotesAuth(_authController);
     _notesController = InkNotesController(repository: _repository, auth: authBridge);
+
+    if (_isDesktop) {
+      _notesController.startForegroundSync();
+    }
   }
 
   void _onAuthChanged() => setState(() {});
@@ -75,6 +102,8 @@ class _InkpaduAppState extends State<InkpaduApp> {
   @override
   void dispose() {
     _authController.removeListener(_onAuthChanged);
+    _notesController.dispose();
+    _authController.dispose();
     super.dispose();
   }
 

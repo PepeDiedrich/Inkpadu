@@ -102,6 +102,12 @@ void main() {
   });
 
   testWidgets('Mehrere Notizen erscheinen (>=2) in Übersicht', (tester) async {
+    final view = tester.view;
+    view.physicalSize = const Size(1400, 900);
+    view.devicePixelRatio = 1.0;
+    addTearDown(view.resetPhysicalSize);
+    addTearDown(view.resetDevicePixelRatio);
+
     final controller = InkNotesController(enableConnectivityMonitoring: false);
     addTearDown(controller.dispose);
     // Zwei vorhandene Notizen anlegen (verschiedene IDs & Timestamps)
@@ -114,11 +120,18 @@ void main() {
     );
 
     // Kurzes Pump für Rebuild
-    await tester.pump();
-    expect(find.byType(ListTile), findsNWidgets(2));
+    await tester.pumpAndSettle();
+    // Note: Each note has a Card, so we should find 2 cards
+    expect(find.byType(Card), findsNWidgets(2));
   });
 
-  testWidgets('Löschen-Button löscht Notiz nach Bestätigung', (tester) async {
+  testWidgets('Swipe löscht Notiz nach Bestätigung', (tester) async {
+    final view = tester.view;
+    view.physicalSize = const Size(1400, 900);
+    view.devicePixelRatio = 1.0;
+    addTearDown(view.resetPhysicalSize);
+    addTearDown(view.resetDevicePixelRatio);
+
     final controller = InkNotesController(enableConnectivityMonitoring: false);
     addTearDown(controller.dispose);
     final note = InkNote.empty(title: 'Test Notiz');
@@ -127,14 +140,16 @@ void main() {
     await tester.pumpWidget(
       wrapWithScopes(const HomePage(), controller: controller),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Notiz sollte vorhanden sein
     expect(find.text('Test Notiz'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Löschen-Button finden und drücken
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    // Nach links wischen zum Löschen (find the Dismissible)
+    final dismissible = find.byType(Dismissible);
+    expect(dismissible, findsOneWidget);
+    await tester.fling(dismissible, const Offset(-500, 0), 1000);
     await tester.pumpAndSettle();
 
     // Bestätigungsdialog sollte erscheinen
@@ -148,13 +163,22 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
     await tester.pumpAndSettle();
 
+    // Warte auf den Debounce-Timer (3 Sekunden), damit er feuert und nicht als "pending" übrig bleibt
+    await tester.pump(const Duration(seconds: 3));
+
     // Notiz sollte gelöscht sein
     expect(controller.notes.length, 0);
     expect(find.text('Test Notiz'), findsNothing);
     expect(find.text('Noch keine handschriftlichen Notizen'), findsOneWidget);
   });
 
-  testWidgets('Löschen-Button behält Notiz nach Abbruch', (tester) async {
+  testWidgets('Swipe behält Notiz nach Abbruch', (tester) async {
+    final view = tester.view;
+    view.physicalSize = const Size(1400, 900);
+    view.devicePixelRatio = 1.0;
+    addTearDown(view.resetPhysicalSize);
+    addTearDown(view.resetDevicePixelRatio);
+
     final controller = InkNotesController(enableConnectivityMonitoring: false);
     addTearDown(controller.dispose);
     final note = InkNote.empty(title: 'Behalte mich');
@@ -163,14 +187,16 @@ void main() {
     await tester.pumpWidget(
       wrapWithScopes(const HomePage(), controller: controller),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Notiz sollte vorhanden sein
     expect(find.text('Behalte mich'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Löschen-Button drücken
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    // Nach links wischen zum Löschen
+    final dismissible = find.byType(Dismissible);
+    expect(dismissible, findsOneWidget);
+    await tester.fling(dismissible, const Offset(-500, 0), 1000);
     await tester.pumpAndSettle();
 
     // Bestätigungsdialog erscheint

@@ -22,6 +22,15 @@ class Stroke {
   /// Gecachte Bounding Box für schnelle Hit-Tests.
   Rect? _cachedBoundingBox;
 
+  /// Gecachter Path für schnelles Rendering (lazy berechnet).
+  /// Wird nur verwendet, wenn der Strich für Fast-Path-Rendering geeignet ist.
+  /// Dies ist eine mutable Eigenschaft, die zur Laufzeit (UI-Thread) gesetzt wird.
+  /// Sie wird nicht persistiert und nicht über Isolates transportiert.
+  Path? cachedPath;
+
+  /// Gecachter Wert für die Druck-Konstanz Prüfung.
+  bool? _cachedIsConstantPressure;
+
   /// Liefert die Bounding Box aller Punkte des Strichs (lazy berechnet).
   Rect get boundingBox {
     if (_cachedBoundingBox != null) return _cachedBoundingBox!;
@@ -43,6 +52,28 @@ class Stroke {
     }
     _cachedBoundingBox = Rect.fromLTRB(minX, minY, maxX, maxY);
     return _cachedBoundingBox!;
+  }
+
+  /// Prüft lazy, ob der Strich konstanten Druck hat.
+  /// Dies erlaubt massive Performance-Optimierungen beim Rendering (drawPath vs drawLine loop).
+  bool get isConstantPressure {
+    if (_cachedIsConstantPressure != null) return _cachedIsConstantPressure!;
+
+    if (points.length < 2) {
+      _cachedIsConstantPressure = false;
+      return false;
+    }
+
+    final double baseline = points[0].pressure;
+    for (int i = 1; i < points.length; i++) {
+      if ((points[i].pressure - baseline).abs() > 0.01) {
+        _cachedIsConstantPressure = false;
+        return false;
+      }
+    }
+
+    _cachedIsConstantPressure = true;
+    return true;
   }
 
   /// Erstellt eine neue Instanz eines Strichs.
