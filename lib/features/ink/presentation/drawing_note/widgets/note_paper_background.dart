@@ -9,14 +9,10 @@ class NotePaperBackground extends StatelessWidget {
     super.key,
     required this.paperStyle,
     required this.child,
-    this.importedPdfText,
   });
 
   /// Stil, nach dem der Hintergrund gezeichnet wird.
   final NotePaperStyle paperStyle;
-
-  /// Optionaler Text aus einem importierten PDF.
-  final String? importedPdfText;
 
   /// Zeichenfläche, die oberhalb des Papiermusters dargestellt wird.
   final Widget child;
@@ -36,7 +32,6 @@ class NotePaperBackground extends StatelessWidget {
           painter: _NotePaperPainter(
             style: paperStyle,
             lineColor: accentColor,
-            importedPdfText: importedPdfText,
           ),
           child: child,
         ),
@@ -49,7 +44,6 @@ class NotePaperBackground extends StatelessWidget {
         painter: _NotePaperPainter(
           style: paperStyle,
           lineColor: accentColor,
-          importedPdfText: importedPdfText,
         ),
         child: child,
       ),
@@ -61,19 +55,13 @@ class _NotePaperPainter extends CustomPainter {
   _NotePaperPainter({
     required this.style,
     required this.lineColor,
-    this.importedPdfText,
   });
 
   final NotePaperStyle style;
   final Color lineColor;
-  final String? importedPdfText;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (importedPdfText != null && importedPdfText!.isNotEmpty) {
-      _paintImportedText(canvas, size);
-    }
-
     switch (style) {
       case NotePaperStyle.plain:
         return;
@@ -87,29 +75,6 @@ class _NotePaperPainter extends CustomPainter {
         _paintDotted(canvas, size);
         break;
     }
-  }
-
-  void _paintImportedText(Canvas canvas, Size size) {
-    final textSpan = TextSpan(
-      text: importedPdfText,
-      style: TextStyle(
-        color: lineColor.withValues(alpha: 0.8),
-        fontSize: 16,
-        height: 1.4,
-      ),
-    );
-
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.left,
-    );
-
-    const padding = 24.0;
-    final maxWidth = size.width - (padding * 2);
-
-    textPainter.layout(maxWidth: maxWidth);
-    textPainter.paint(canvas, const Offset(padding, padding));
   }
 
   void _paintLined(Canvas canvas, Size size) {
@@ -156,6 +121,5 @@ class _NotePaperPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _NotePaperPainter oldDelegate) =>
       oldDelegate.style != style ||
-      oldDelegate.lineColor != lineColor ||
-      oldDelegate.importedPdfText != importedPdfText;
+      oldDelegate.lineColor != lineColor;
 }

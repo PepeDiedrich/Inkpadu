@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -33,7 +32,7 @@ class InkNotePageBundle {
 class InkNotePageCodec {
   const InkNotePageCodec._();
 
-  static const int _version = 3;
+  static const int _version = 4;
   static const int _positionScale = 1000;
   static const int _pressureScale = 1000;
   static final GZipEncoder _gzipEncoder = GZipEncoder();
@@ -165,33 +164,7 @@ class InkNotePageCodec {
     final List<Map<String, dynamic>> encodedStrokes =
         page.strokes.map(_encodeStroke).toList(growable: false);
 
-    final Map<String, dynamic>? context = _encodeContext(page);
-
-    return <String, dynamic>{
-      's': encodedStrokes,
-      if (context != null) 'ctx': context,
-    };
-  }
-
-  static Map<String, dynamic>? _encodeContext(NotePage page) {
-    final bool hasDescription =
-        (page.cachedVisionDescription?.trim().isNotEmpty ?? false);
-    final bool hasHistory = page.assistantHistory.isNotEmpty;
-    final bool hasPdfText =
-        (page.importedPdfText?.trim().isNotEmpty ?? false);
-
-    if (!hasDescription && !hasHistory && !hasPdfText) {
-      return null;
-    }
-
-    return <String, dynamic>{
-      if (hasDescription) 'vision': page.cachedVisionDescription,
-      if (hasHistory)
-        'history': page.assistantHistory
-            .map((message) => message.toJson())
-            .toList(growable: false),
-      if (hasPdfText) 'pdfText': page.importedPdfText,
-    };
+    return <String, dynamic>{'s': encodedStrokes};
   }
 
   static NotePage _decodePage(Map<String, dynamic> data, {required int version}) {
@@ -200,52 +173,10 @@ class InkNotePageCodec {
         .map(_decodeStroke)
         .toList(growable: false);
 
-    if (version <= 2) {
-      return NotePage(strokes: strokes);
-    }
-
-    final Object? rawContext = data['ctx'];
-    if (rawContext is! Map<String, dynamic>) {
-      return NotePage(strokes: strokes);
-    }
-
-    final List<AssistantMessage> history = _decodeHistory(rawContext['history']);
-    final String? description = _decodeVisionDescription(rawContext['vision']);
-    final String? pdfText = _decodePdfText(rawContext['pdfText']);
-
-    return NotePage(
-      strokes: strokes,
-      assistantHistory: history,
-      cachedVisionDescription: description,
-      importedPdfText: pdfText,
-    );
-  }
-
-  static List<AssistantMessage> _decodeHistory(Object? rawHistory) {
-    if (rawHistory is! List) {
-      return const <AssistantMessage>[];
-    }
-
-    return rawHistory
-        .whereType<Map<String, dynamic>>()
-        .map(AssistantMessage.fromJson)
-        .toList(growable: false);
-  }
-
-  static String? _decodeVisionDescription(Object? rawDescription) {
-    if (rawDescription is String) {
-      final String trimmed = rawDescription.trim();
-      return trimmed.isEmpty ? null : trimmed;
-    }
-    return null;
-  }
-
-  static String? _decodePdfText(Object? rawPdfText) {
-    if (rawPdfText is String) {
-      final String trimmed = rawPdfText.trim();
-      return trimmed.isEmpty ? null : trimmed;
-    }
-    return null;
+    // Ab v3 konnten zusätzliche Kontextdaten (AI/PDF) unter 'ctx' vorhanden sein.
+    // Diese Daten werden bewusst ignoriert, damit alte Notizen weiterhin
+    // geladen werden können, ohne die entfernten Features zu unterstützen.
+    return NotePage(strokes: strokes);
   }
 
   static Map<String, dynamic> _encodeStroke(Stroke stroke) {

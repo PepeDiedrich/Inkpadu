@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_page.dart';
 import 'package:ai_handwriting_app/features/editor/presentation/editor_settings_page.dart';
-import 'package:ai_handwriting_app/features/editor/presentation/assistant_persona_settings_page.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
@@ -64,18 +63,6 @@ class SettingsPage extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SettingsSection(
-          title: context.t.ai.assistant,
-          tiles: [
-            _SettingsTile(
-              icon: Icons.psychology_outlined,
-              title: context.t.ai.persona,
-              subtitle: context.t.ai.personaSubtitle,
-              onTap: () => _openPersonaSettings(context),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _SettingsSection(
           title: context.t.settings.cloud,
           tiles: [
             _SettingsTile(
@@ -104,10 +91,6 @@ class SettingsPage extends StatelessWidget {
   static Future<void> _openEditorSettings(BuildContext context) => Navigator.of(
     context,
   ).push<void>(_PointerSettingsRoute(const EditorSettingsPage()));
-
-  static Future<void> _openPersonaSettings(BuildContext context) => Navigator.of(
-    context,
-  ).push<void>(_PointerSettingsRoute(const AssistantPersonaSettingsPage()));
 }
 
 class _LogoutSection extends StatelessWidget {

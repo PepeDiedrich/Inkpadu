@@ -1,4 +1,3 @@
-import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 
@@ -8,9 +7,6 @@ class InkNotePageDto {
 	const InkNotePageDto({
 		required this.index,
 		required this.strokes,
-		this.assistantHistory = const <AssistantMessage>[],
-		this.cachedVisionDescription,
-		this.cachedVisionSignature,
 	});
 
 	/// Reihenindex der Seite innerhalb der Notiz.
@@ -19,42 +15,21 @@ class InkNotePageDto {
 	/// Alle Striche, die auf der Seite gezeichnet wurden.
 	final List<Stroke> strokes;
 
-	/// Gespeicherte Konversation mit dem Assistenten.
-	final List<AssistantMessage> assistantHistory;
-
-	/// Optional zwischengespeicherte Bildbeschreibung.
-	final String? cachedVisionDescription;
-
-	/// Signatur der Bounding-Box-Konstellation für die Beschreibung.
-	final String? cachedVisionSignature;
-
 	/// Erstellt ein DTO aus einer Domänen-Seite.
 	factory InkNotePageDto.fromDomain(NotePage page, {required int index}) =>
 			InkNotePageDto(
 				index: index,
 				strokes: List<Stroke>.unmodifiable(page.strokes),
-				assistantHistory:
-						List<AssistantMessage>.unmodifiable(page.assistantHistory),
-				cachedVisionDescription: page.cachedVisionDescription,
-				cachedVisionSignature: page.cachedVisionSignature,
 			);
 
 	/// Wandelt das DTO in die Domänenrepräsentation zurück.
-	NotePage toDomain() => NotePage(
-		strokes: List<Stroke>.unmodifiable(strokes),
-		assistantHistory: assistantHistory,
-		cachedVisionDescription: cachedVisionDescription,
-		cachedVisionSignature: cachedVisionSignature,
-	);
+	NotePage toDomain() =>
+			NotePage(strokes: List<Stroke>.unmodifiable(strokes));
 
 	/// Serialisiert das DTO in eine JSON-Map.
 	Map<String, dynamic> toJson() => <String, dynamic>{
 		'index': index,
 		'strokes': strokes.map((stroke) => stroke.toJson()).toList(growable: false),
-		'assistant_history':
-				assistantHistory.map((msg) => msg.toJson()).toList(growable: false),
-		'cached_vision_description': cachedVisionDescription,
-		'cached_vision_signature': cachedVisionSignature,
 	};
 
 	/// Erstellt ein DTO aus einer JSON-Map.
@@ -69,30 +44,9 @@ class InkNotePageDto {
 						.toList(growable: false)
 				: const <Stroke>[];
 
-		final Object? rawHistory = json['assistant_history'];
-		final List<AssistantMessage> history = rawHistory is List
-				? rawHistory
-						.whereType<Map<String, dynamic>>()
-						.map(AssistantMessage.fromJson)
-						.toList(growable: false)
-				: const <AssistantMessage>[];
-
-		final Object? rawDescription = json['cached_vision_description'];
-		final String? cachedDescription = rawDescription is String
-				? (rawDescription.trim().isEmpty ? null : rawDescription.trim())
-				: null;
-
-		final Object? rawSignature = json['cached_vision_signature'];
-		final String? cachedSignature = rawSignature is String
-				? (rawSignature.trim().isEmpty ? null : rawSignature.trim())
-				: null;
-
 		return InkNotePageDto(
 			index: effectiveIndex,
 			strokes: decodedStrokes,
-			assistantHistory: history,
-			cachedVisionDescription: cachedDescription,
-			cachedVisionSignature: cachedSignature,
 		);
 	}
 }

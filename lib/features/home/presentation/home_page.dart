@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:appwrite/appwrite.dart';
-
-import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_service.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/pdf_export_service.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/pdf_picker_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.
@@ -21,7 +15,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _NoteAction { open, metadata, exportPdf, delete }
+enum _NoteAction { open, metadata, delete }
+
 
 class _HomePageState extends State<HomePage> {
   Future<void> _showNoteActions(InkNote note) async {
@@ -70,11 +65,6 @@ class _HomePageState extends State<HomePage> {
                 onTap: () => Navigator.of(context).pop(_NoteAction.metadata),
               ),
               ListTile(
-                leading: const Icon(Icons.picture_as_pdf_outlined),
-                title: Text(context.t.pdf.export),
-                onTap: () => Navigator.of(context).pop(_NoteAction.exportPdf),
-              ),
-              ListTile(
                 leading: Icon(
                   Icons.delete_outline,
                   color: theme.colorScheme.error,
@@ -106,37 +96,9 @@ class _HomePageState extends State<HomePage> {
       case _NoteAction.metadata:
         await _editNoteMetadata(note);
         break;
-      case _NoteAction.exportPdf:
-        await _exportNoteToPdf(note);
-        break;
       case _NoteAction.delete:
         await _deleteNote(note.id, note.title);
         break;
-    }
-  }
-
-  Future<void> _exportNoteToPdf(InkNote note) async {
-    final scaffold = ScaffoldMessenger.of(context);
-
-    // Zeige Ladeanzeige
-    scaffold.showSnackBar(
-      SnackBar(
-        content: Text(context.t.pdf.exporting),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-
-    try {
-      final service = PdfExportService();
-      await service.exportAndShare(note);
-    } on Exception catch (e) {
-      if (!mounted) return;
-      scaffold.showSnackBar(
-        SnackBar(
-          content: Text(context.t.pdf.exportFailed(error: e.toString())),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
     }
   }
 
@@ -200,13 +162,6 @@ class _HomePageState extends State<HomePage> {
                 subtitle: Text(context.t.notes.emptyNoteSubtitle),
                 onTap: () => Navigator.of(context).pop('empty'),
               ),
-              if (PdfImportService.isAvailable)
-                ListTile(
-                  leading: const Icon(Icons.picture_as_pdf),
-                  title: Text(context.t.pdf.import),
-                  subtitle: Text(context.t.pdf.importSubtitle),
-                  onTap: () => Navigator.of(context).pop('pdf'),
-                ),
               const SizedBox(height: 12),
             ],
           ),
@@ -219,54 +174,7 @@ class _HomePageState extends State<HomePage> {
       case 'empty':
         await _createAndOpen();
         break;
-      case 'pdf':
-        await _importPdfAndCreate();
-        break;
     }
-  }
-
-  Future<void> _importPdfAndCreate() async {
-    // PDF auswählen
-    final PdfPickerResult? pickerResult = await PdfPickerDialog.show(context);
-
-    if (!mounted || pickerResult == null) return;
-
-    // Metadaten-Dialog anzeigen
-    final result = await showNoteMetadataDialog(
-      context,
-      initialTitle: InkNote.generateTitle(),
-      initialPaperStyle: NotePaperStyle.plain,
-    );
-
-    if (!mounted || result == null) return;
-
-    final controller = InkNotesScope.of(context);
-    
-    // Notiz mit leeren Seiten erstellen (Anzahl = PDF-Seitenzahl)
-    final note = controller.createEmptyForPdfImport(
-      pageCount: pickerResult.pageCount,
-      title: result.title,
-      paperStyle: result.paperStyle,
-    );
-
-    // Notiz sofort öffnen
-    _open(note.id);
-
-    // PDF-Verarbeitung im Hintergrund starten
-    final functions = Functions(AppwriteConfig.client);
-    
-    // Optional: Anderes Modell für PDF-Extraktion konfigurieren
-    // const pdfConfig = PdfExtractionConfig(
-    //   deploymentName: 'gpt-4o',  // Oder ein anderes Vision-Modell
-    // );
-    final pdfImportService = PdfImportService(functions: functions);
-
-    // Hintergrundverarbeitung starten (fire and forget)
-    controller.startPdfBackgroundProcessing(
-      noteId: note.id,
-      pdfBytes: pickerResult.pdfBytes,
-      pdfImportService: pdfImportService,
-    );
   }
 
   Future<void> _createAndOpen() async {

@@ -57,7 +57,6 @@ void main() {
     NotePaperStyle paperStyle = NotePaperStyle.plain,
     double initialCanvasHeight = 1600,
     double canvasBottomPadding = 600,
-    String? importedPdfText,
   }) => MaterialApp(
         home: Scaffold(
           body: PointerSettingsScope(
@@ -75,7 +74,6 @@ void main() {
                 paperStyle: paperStyle,
                 initialCanvasHeight: initialCanvasHeight,
                 canvasBottomPadding: canvasBottomPadding,
-                importedPdfText: importedPdfText,
               ),
             ),
           ),

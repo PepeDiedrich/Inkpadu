@@ -11,7 +11,6 @@ class FloatingToolWindow extends StatelessWidget {
     required this.selectedToolId,
     required this.onToolSelected,
     required this.onToolLongPress,
-    required this.onExportPdf,
     required this.onBackPressed,
   });
 
@@ -26,9 +25,6 @@ class FloatingToolWindow extends StatelessWidget {
 
   /// Callback when a tool is long-pressed for configuration.
   final ValueChanged<DrawingTool> onToolLongPress;
-
-  /// Callback to export the note as PDF.
-  final VoidCallback onExportPdf;
 
   /// Callback when the back button is pressed.
   final VoidCallback onBackPressed;
@@ -50,7 +46,6 @@ class FloatingToolWindow extends StatelessWidget {
             // Back Button
             IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Zurück zur Übersicht',
               onPressed: onBackPressed,
             ),
             
@@ -71,21 +66,6 @@ class FloatingToolWindow extends StatelessWidget {
                 onToolSelected: onToolSelected,
                 onToolLongPress: onToolLongPress,
               ),
-            ),
-
-            const SizedBox(width: 8),
-            Container(
-              height: 24,
-              width: 1,
-              color: colorScheme.outlineVariant,
-            ),
-            const SizedBox(width: 8),
-
-            // Export Button
-            IconButton(
-              icon: const Icon(Icons.ios_share_rounded),
-              tooltip: 'Exportieren',
-              onPressed: onExportPdf,
             ),
           ],
         ),

@@ -1,9 +1,0 @@
-name: inkpadu_llm_auth
-description: Appwrite Dart Function to mint short-lived Azure Cognitive Services tokens.
-publish_to: 'none'
-
-environment:
-  sdk: ^3.5.2
-
-dependencies:
-  http: ^1.2.2

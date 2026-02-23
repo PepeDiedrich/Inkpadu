@@ -1,12 +1,9 @@
-import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-    show StrokeBoundingBoxCluster;
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/add_page_placeholder.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/imported_task_header.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/static_note_page.dart';
 import 'package:flutter/material.dart';
 
@@ -34,7 +31,6 @@ class NotePageContent extends StatelessWidget {
     required this.onRequestParentScrollLock,
     required this.initScrollOffset,
     required this.onScrollOffsetChanged,
-    required this.onStrokeClustersChanged,
     required this.onPageChanged,
     required this.onFocusPage,
     required this.canCreateNewPage,
@@ -88,9 +84,6 @@ class NotePageContent extends StatelessWidget {
   /// Callback when scroll offset changes.
   final ValueChanged<double> onScrollOffsetChanged;
 
-  /// Callback when stroke clusters change.
-  final ValueChanged<List<StrokeBoundingBoxCluster>> onStrokeClustersChanged;
-
   /// Callback when page changes.
   final ValueChanged<int> onPageChanged;
 
@@ -122,15 +115,12 @@ class NotePageContent extends StatelessWidget {
         }
         final page = pages[index];
         final bool isActive = index == currentPageIndex;
-        final String? pdfText = page.importedPdfText;
 
         if (isActive) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Column(
               children: [
-                if (pdfText != null && pdfText.isNotEmpty)
-                  ImportedTaskHeader(taskText: pdfText),
                 Expanded(
                   child: DrawingCanvas(
                     drawingController: drawingController,
@@ -147,7 +137,6 @@ class NotePageContent extends StatelessWidget {
                     ),
                     initScrollOffset: initScrollOffset,
                     onScrollOffsetChanged: onScrollOffsetChanged,
-                    onStrokeClustersChanged: onStrokeClustersChanged,
                   ),
                 ),
               ],
@@ -161,8 +150,6 @@ class NotePageContent extends StatelessWidget {
             onTap: () => onFocusPage(index),
             child: Column(
               children: [
-                if (pdfText != null && pdfText.isNotEmpty)
-                  ImportedTaskHeader(taskText: pdfText),
                 Expanded(
                   child: StaticNotePage(
                     page: page,

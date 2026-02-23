@@ -82,36 +82,5 @@ void main() {
       expect(find.byType(NotePaperBackground), findsOneWidget);
     });
 
-    testWidgets('renders with imported PDF text', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: NotePaperBackground(
-              paperStyle: NotePaperStyle.plain,
-              importedPdfText: 'PDF content here',
-              child: SizedBox.expand(),
-            ),
-          ),
-        ),
-      );
-
-      expect(find.byType(NotePaperBackground), findsOneWidget);
-    });
-
-    testWidgets('renders with empty imported PDF text', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: NotePaperBackground(
-              paperStyle: NotePaperStyle.lined,
-              importedPdfText: '',
-              child: SizedBox.expand(),
-            ),
-          ),
-        ),
-      );
-
-      expect(find.byType(NotePaperBackground), findsOneWidget);
-    });
   });
 }

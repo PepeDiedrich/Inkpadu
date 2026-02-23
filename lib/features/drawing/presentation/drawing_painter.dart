@@ -1,5 +1,3 @@
-import 'package:ai_handwriting_app/features/drawing/application/convex_hull_calculator.dart'
-  show RotatedBoundingBox;
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
@@ -75,69 +73,3 @@ class CurrentStrokePainter extends CustomPainter {
       oldDelegate.pointCount != pointCount;
 }
 
-/// Zeichnet konvexe Hüllen als Debug-Overlay.
-class ConvexHullsPainter extends CustomPainter {
-  /// Erstellt einen Painter zur Visualisierung konvexer Hüllen.
-  const ConvexHullsPainter({
-    required this.hulls,
-    required this.boundingBoxes,
-  });
-
-  /// Liste konvexer Hüllen (jede Hülle ist eine geschlossene Polygonkette).
-  final List<List<Offset>> hulls;
-
-  /// Minimale Bounding-Boxen zu den jeweiligen Hüllen.
-  final List<RotatedBoundingBox> boundingBoxes;
-
-  static const Color _strokeColor = Color(0xFFFFC107);
-  static const Color _fillColor = Color(0x33FFC107);
-  static const Color _boundingStrokeColor = Color(0xFF2962FF);
-  static const Color _boundingFillColor = Color(0x1A2962FF);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (hulls.isEmpty) {
-      return;
-    }
-
-    final Paint fillPaint = Paint()
-      ..color = _fillColor
-      ..style = PaintingStyle.fill;
-    final Paint strokePaint = Paint()
-      ..color = _strokeColor
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    final Paint boundingFillPaint = Paint()
-      ..color = _boundingFillColor
-      ..style = PaintingStyle.fill;
-    final Paint boundingStrokePaint = Paint()
-      ..color = _boundingStrokeColor
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    for (final hull in hulls) {
-      if (hull.length < 2) {
-        continue;
-      }
-      final path = Path()..addPolygon(hull, true);
-      canvas.drawPath(path, fillPaint);
-      canvas.drawPath(path, strokePaint);
-    }
-
-    for (final RotatedBoundingBox box in boundingBoxes) {
-      if (box.corners.isEmpty) {
-        continue;
-      }
-      final Path boxPath = Path()..addPolygon(box.corners, true);
-      if (box.width > 0 && box.height > 0) {
-        canvas.drawPath(boxPath, boundingFillPaint);
-      }
-      canvas.drawPath(boxPath, boundingStrokePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant ConvexHullsPainter oldDelegate) =>
-      oldDelegate.hulls != hulls ||
-      oldDelegate.boundingBoxes != boundingBoxes;
-}

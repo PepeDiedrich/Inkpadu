@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/assistant_message.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
@@ -62,14 +61,6 @@ class DrawingNoteController extends ChangeNotifier {
   /// Alle Seiten der aktuellen Notiz.
   List<NotePage> get pages => List<NotePage>.unmodifiable(_note.pages);
 
-  /// Historie des Assistenten auf der aktuellen Seite.
-  List<AssistantMessage> get currentAssistantHistory {
-    if (_note.pages.isEmpty) {
-      return const <AssistantMessage>[];
-    }
-    return _note.pages[_currentPageIndex].assistantHistory;
-  }
-
   /// Index der aktuell aktiven Seite.
   int get currentPageIndex => _currentPageIndex;
 
@@ -106,7 +97,7 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// Aktualisiert die interne Notiz-Kopie mit den neuesten Daten aus dem InkNotesController.
   ///
-  /// Dies ist nützlich, wenn die Notiz extern aktualisiert wurde (z.B. durch PDF-Import).
+  /// Dies ist nützlich, wenn die Notiz extern aktualisiert wurde.
   /// Gibt `true` zurück, wenn die Notiz aktualisiert wurde.
   bool refreshFromSource() {
     final InkNote? sourceNote = _inkNotesController.notes
@@ -131,7 +122,7 @@ class DrawingNoteController extends ChangeNotifier {
     for (int i = 0; i < sourceNote.pages.length; i++) {
       if (i == _currentPageIndex) {
         // Für die aktuelle Seite: Behalte die Striche aus dem DrawingController,
-        // aber übernehme andere Felder (wie importedPdfText) aus der Quelle
+        // aber übernehme andere Felder aus der Quelle
         mergedPages.add(sourceNote.pages[i].copyWith(
           strokes: drawingController.strokes,
         ));
@@ -241,51 +232,6 @@ class DrawingNoteController extends ChangeNotifier {
     _inkNotesController.upsert(
       _note,
       changedPageIndices: {_currentPageIndex},
-    );
-    notifyListeners();
-  }
-
-  /// Fügt eine neue Assistenten-Nachricht hinzu und persistiert die Änderung.
-  void appendAssistantMessage(
-    AssistantMessage message, {
-    String? visionSignature,
-  }) {
-    if (!_initialized || _note.pages.isEmpty) {
-      return;
-    }
-
-    final int normalizedIndex = _normalizePageIndex(_currentPageIndex);
-    final List<NotePage> updatedPages = List<NotePage>.of(_note.pages);
-    final NotePage current = updatedPages[normalizedIndex];
-    final List<AssistantMessage> history = List<AssistantMessage>.of(
-      current.assistantHistory,
-    )
-      ..add(message);
-
-  final String? trimmedDescription =
-    message.visionDescription?.trim().isNotEmpty == true
-      ? message.visionDescription!.trim()
-      : null;
-
-  final String? nextCachedDescription = trimmedDescription;
-  final String? nextCachedSignature = trimmedDescription != null
-    ? visionSignature
-    : null;
-
-    updatedPages[normalizedIndex] = current.copyWith(
-      assistantHistory: List<AssistantMessage>.unmodifiable(history),
-      cachedVisionDescription: nextCachedDescription,
-      cachedVisionSignature: nextCachedSignature,
-    );
-
-    _note = _note.copyWith(
-      pages: List<NotePage>.unmodifiable(updatedPages),
-      updatedAt: DateTime.now(),
-    );
-
-    _inkNotesController.upsert(
-      _note,
-      changedPageIndices: {normalizedIndex},
     );
     notifyListeners();
   }
@@ -431,27 +377,15 @@ class DrawingNoteController extends ChangeNotifier {
     if (_currentPageIndex < _pageContentHistory.length) {
       _pageContentHistory[_currentPageIndex] = hasContent;
     }
-
-    final String? nextDescription =
-        hasContent ? currentPage.cachedVisionDescription : null;
-    final String? nextSignature =
-        hasContent ? currentPage.cachedVisionSignature : null;
-
     final bool strokesChanged =
         !listEquals(currentPage.strokes, persistedStrokes);
-    final bool descriptionChanged =
-        currentPage.cachedVisionDescription != nextDescription;
-    final bool signatureChanged =
-        currentPage.cachedVisionSignature != nextSignature;
 
-    if (!strokesChanged && !descriptionChanged && !signatureChanged) {
+    if (!strokesChanged) {
       return;
     }
 
     updatedPages[_currentPageIndex] = currentPage.copyWith(
       strokes: persistedStrokes,
-      cachedVisionDescription: nextDescription,
-      cachedVisionSignature: nextSignature,
     );
 
     _note = _note.copyWith(
@@ -463,10 +397,8 @@ class DrawingNoteController extends ChangeNotifier {
         (Stroke stroke) => stroke.points.isNotEmpty,
       );
 
-  /// Prüft, ob eine Seite relevanten Inhalt hat (Striche oder importierten PDF-Text).
-  bool _pageHasContent(NotePage page) =>
-      _strokesHaveContent(page.strokes) ||
-      (page.importedPdfText != null && page.importedPdfText!.trim().isNotEmpty);
+  /// Prüft, ob eine Seite relevanten Inhalt hat (Striche).
+  bool _pageHasContent(NotePage page) => _strokesHaveContent(page.strokes);
 
   ({int targetIndex, bool removedPage}) _maybeRemoveCurrentPageIfEmpty(
     int targetIndex,
@@ -479,7 +411,7 @@ class DrawingNoteController extends ChangeNotifier {
 
     final List<NotePage> pages = List<NotePage>.of(_note.pages);
     final NotePage currentPage = pages[_currentPageIndex];
-    // Prüfe ob die Seite Striche, importierten PDF-Text oder historischen Inhalt hat
+    // Prüfe ob die Seite Striche enthält
     final bool hasContent = _pageHasContent(currentPage);
     final bool hadContentBefore =
         _currentPageIndex < _pageContentHistory.length &&

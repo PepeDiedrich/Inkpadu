@@ -1,12 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/ink/application/pdf/pdf_import_service.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
@@ -78,21 +74,8 @@ class InkNotesController extends ChangeNotifier {
   // Flüchtige Scroll-Offsets pro Notiz und Seite (nur zur Laufzeit im Speicher)
   final Map<String, Map<int, double>> _scrollOffsets = <String, Map<int, double>>{};
 
-  // PDF-Hintergrundverarbeitung: Speichert IDs von Notizen, die gerade verarbeitet werden
-  final Set<String> _pdfProcessingNoteIds = <String>{};
-
   /// Unveränderliche Sicht auf alle Notizen.
   List<InkNote> get notes => List.unmodifiable(_notes);
-
-  /// Prüft, ob für eine bestimmte Notiz noch PDF-Text extrahiert wird.
-  bool isPdfProcessing(String noteId) => _pdfProcessingNoteIds.contains(noteId);
-
-  /// Stream-Controller für PDF-Fortschrittsmeldungen.
-  final StreamController<PdfProcessingUpdate> _pdfProgressController =
-      StreamController<PdfProcessingUpdate>.broadcast();
-
-  /// Stream von PDF-Verarbeitungs-Updates.
-  Stream<PdfProcessingUpdate> get pdfProcessingUpdates => _pdfProgressController.stream;
 
   /// Liefert den zuletzt bekannten Scroll-Offset für [noteId] und [pageIndex].
   double? getScrollOffset(String noteId, int pageIndex) {
@@ -120,216 +103,6 @@ class InkNotesController extends ChangeNotifier {
     _safelyNotifyListeners();
     _syncIfPossible(note, changedPageIndices: const <int>{0});
     return note;
-  }
-
-  /// Erstellt eine neue Notiz aus importierten PDF-Seiten.
-  ///
-  /// [extractedTexts] enthält die extrahierten Texte für jede PDF-Seite.
-  /// Für jede Seite wird eine [NotePage] mit leerem Strich-Array und dem
-  /// importierten Text als `importedPdfText` erstellt.
-  InkNote createFromPdfImport({
-    required List<String> extractedTexts,
-    String? title,
-    NotePaperStyle paperStyle = NotePaperStyle.plain,
-  }) {
-    final String? cleanedTitle = title?.trim();
-    final DateTime now = DateTime.now().toLocal();
-    
-    final List<NotePage> pages = extractedTexts
-        .map((text) => NotePage(
-              strokes: const <Stroke>[],
-              importedPdfText: text.trim().isEmpty ? null : text.trim(),
-            ))
-        .toList();
-
-    // Mindestens eine Seite erstellen, falls extractedTexts leer ist
-    if (pages.isEmpty) {
-      pages.add(NotePage(strokes: const <Stroke>[]));
-    }
-
-    final note = InkNote(
-      id: now.microsecondsSinceEpoch.toString(),
-      title: (cleanedTitle?.isEmpty ?? true) 
-          ? InkNote.generateTitle(now) 
-          : cleanedTitle!,
-      updatedAt: now,
-      pages: List<NotePage>.unmodifiable(pages),
-      paperStyle: paperStyle,
-    );
-
-    _notes.insert(0, note);
-    _safelyNotifyListeners();
-    
-    // Alle Seiten als geändert markieren
-    final Set<int> allPageIndices = Set<int>.from(
-      List<int>.generate(pages.length, (i) => i),
-    );
-    _syncIfPossible(note, changedPageIndices: allPageIndices);
-    
-    return note;
-  }
-
-  /// Erstellt eine leere Notiz mit einer Platzhalter-Seite für PDF-Import.
-  ///
-  /// Die Notiz wird sofort erstellt und kann geöffnet werden. Die PDF-Extraktion
-  /// läuft dann im Hintergrund, und die Seiten werden nach dem Aufgaben-Parsing
-  /// dynamisch erstellt (eine Seite pro erkannter Aufgabe).
-  InkNote createEmptyForPdfImport({
-    required int pageCount,
-    String? title,
-    NotePaperStyle paperStyle = NotePaperStyle.plain,
-  }) {
-    final String? cleanedTitle = title?.trim();
-    final DateTime now = DateTime.now().toLocal();
-    
-    // Erstelle nur eine Platzhalter-Seite - die finalen Aufgaben-Seiten
-    // werden nach dem Parsing dynamisch erstellt
-    final List<NotePage> pages = <NotePage>[
-      NotePage(strokes: const <Stroke>[]),
-    ];
-
-    final note = InkNote(
-      id: now.microsecondsSinceEpoch.toString(),
-      title: (cleanedTitle?.isEmpty ?? true) 
-          ? InkNote.generateTitle(now) 
-          : cleanedTitle!,
-      updatedAt: now,
-      pages: List<NotePage>.unmodifiable(pages),
-      paperStyle: paperStyle,
-    );
-
-    _notes.insert(0, note);
-    _safelyNotifyListeners();
-    
-    _syncIfPossible(note, changedPageIndices: const <int>{0});
-    
-    return note;
-  }
-
-  /// Startet die PDF-Textextraktion im Hintergrund für eine bereits erstellte Notiz.
-  ///
-  /// [noteId] ist die ID der Notiz, die aktualisiert werden soll.
-  /// [pdfBytes] sind die Bytes der PDF-Datei.
-  /// [pdfImportService] ist der Service für die Extraktion.
-  ///
-  /// Nach der Text-Extraktion werden die erkannten Aufgaben automatisch als
-  /// separate Notizseiten angelegt. Während der Verarbeitung ist [isPdfProcessing]
-  /// für diese Notiz `true`.
-  Future<void> startPdfBackgroundProcessing({
-    required String noteId,
-    required Uint8List pdfBytes,
-    required PdfImportService pdfImportService,
-  }) async {
-    debugPrint('[PDF] Starting background processing for note: $noteId');
-    debugPrint('[PDF] PDF size: ${pdfBytes.length} bytes');
-    
-    _pdfProcessingNoteIds.add(noteId);
-    _safelyNotifyListeners();
-
-    try {
-      debugPrint('[PDF] Calling importPdf...');
-      final results = await pdfImportService.importPdf(
-        pdfBytes: pdfBytes,
-        onProgress: (progress) {
-          debugPrint('[PDF] Progress: page ${progress.currentPage}/${progress.totalPages}, stage: ${progress.stage}');
-          _pdfProgressController.add(PdfProcessingUpdate(
-            noteId: noteId,
-            currentPage: progress.currentPage,
-            totalPages: progress.totalPages,
-            stage: progress.stage,
-          ));
-        },
-      );
-
-      debugPrint('[PDF] Import complete! Got ${results.length} pages');
-
-      // Kombiniere den extrahierten Text aller Seiten
-      final String combinedText = results
-          .map((r) => '--- Seite ${r.pageNumber} ---\n${r.extractedText}')
-          .join('\n\n');
-      
-      debugPrint('[PDF] Combined text length: ${combinedText.length}');
-
-      // Signalisiere Aufgaben-Parsing-Phase
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: results.length,
-        totalPages: results.length,
-        stage: PdfImportStage.parsingTasks,
-      ));
-
-      // Extrahiere Aufgaben aus dem kombinierten Text
-      debugPrint('[PDF] Extracting tasks from combined text...');
-      final List<String> tasks = await pdfImportService.extractTasksFromText(combinedText);
-      debugPrint('[PDF] Found ${tasks.length} tasks');
-
-      // Finde die Notiz
-      final idx = _notes.indexWhere((n) => n.id == noteId);
-      if (idx == -1) {
-        debugPrint('[PDF] Note $noteId not found in list!');
-        return;
-      }
-
-      final InkNote currentNote = _notes[idx];
-      final List<NotePage> updatedPages = <NotePage>[];
-      final Set<int> changedPageIndices = <int>{};
-
-      if (tasks.isEmpty) {
-        // Keine Aufgaben erkannt - gesamten Text als eine Seite speichern
-        debugPrint('[PDF] No tasks found, creating single page with full text');
-        updatedPages.add(NotePage(
-          strokes: const <Stroke>[],
-          importedPdfText: combinedText.trim().isEmpty ? null : combinedText.trim(),
-        ));
-        changedPageIndices.add(0);
-      } else {
-        // Für jede Aufgabe eine eigene Seite erstellen
-        for (int i = 0; i < tasks.length; i++) {
-          final String taskText = tasks[i].trim();
-          debugPrint('[PDF] Creating page ${i + 1} for task: ${taskText.substring(0, taskText.length.clamp(0, 50))}...');
-          
-          updatedPages.add(NotePage(
-            strokes: const <Stroke>[],
-            importedPdfText: taskText.isEmpty ? null : taskText,
-          ));
-          changedPageIndices.add(i);
-        }
-      }
-
-      // Aktualisiere die Notiz mit den neuen Aufgaben-Seiten
-      final updatedNote = currentNote.copyWith(
-        pages: List<NotePage>.unmodifiable(updatedPages),
-        updatedAt: DateTime.now(),
-        lastOpenedPageIndex: 0,
-      );
-      
-      debugPrint('[PDF] Upserting note with ${updatedPages.length} task pages');
-      upsert(updatedNote, changedPageIndices: changedPageIndices);
-
-      // Sende finales Update mit den erkannten Aufgaben
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: tasks.length,
-        totalPages: tasks.length,
-        stage: PdfImportStage.parsingTasks,
-        parsedTasks: tasks,
-      ));
-
-      debugPrint('[PDF] Processing complete! Created ${updatedPages.length} task pages');
-    } catch (error, stackTrace) {
-      debugPrint('[PDF] ERROR: $error');
-      debugPrint('[PDF] Stack trace: $stackTrace');
-      _pdfProgressController.add(PdfProcessingUpdate(
-        noteId: noteId,
-        currentPage: 0,
-        totalPages: 0,
-        stage: PdfImportStage.extracting,
-        error: error.toString(),
-      ));
-    } finally {
-      _pdfProcessingNoteIds.remove(noteId);
-      _safelyNotifyListeners();
-    }
   }
 
   /// Fügt eine Notiz ein oder aktualisiert sie anhand der ID.
@@ -516,7 +289,6 @@ class InkNotesController extends ChangeNotifier {
     unawaited(_realtimeSubscription?.cancel());
     unawaited(_connectivitySubscription?.cancel());
     unawaited(_connectivityService?.stopMonitoring());
-    unawaited(_pdfProgressController.close());
     // Cancel any pending debounce timers to avoid firing network requests
     // after the controller has been disposed.
     for (final timer in _debounceTimers.values) {
@@ -524,7 +296,6 @@ class InkNotesController extends ChangeNotifier {
     }
     _debounceTimers.clear();
     _pendingPageChanges.clear();
-    _pdfProcessingNoteIds.clear();
     unawaited(_repository.localStorage.close());
     super.dispose();
   }
