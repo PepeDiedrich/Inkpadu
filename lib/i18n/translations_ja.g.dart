@@ -169,6 +169,7 @@ class _TranslationsDrawingJa extends TranslationsDrawingDe {
 	@override String get highlighter => '蛍光ペン';
 	@override String get eraser => '消しゴム';
 	@override String get select => '選択';
+	@override String get lasso => '投げ縄';
 	@override String get undo => '元に戻す';
 	@override String get redo => 'やり直す';
 	@override String get clear => '消去';
@@ -217,6 +218,11 @@ class _TranslationsAiJa extends TranslationsAiDe {
 	@override String get extractTasks => 'タスクを抽出';
 	@override String get translate => '翻訳';
 	@override String get noTextFound => 'テキストが見つかりません';
+	@override String get helpMe => '助けて';
+	@override String get helpMeTitle => 'AIの回答';
+	@override String get analyzingSelection => '選択範囲を分析中…';
+	@override String get noSelection => '先に投げ縄で何かを選択してください。';
+	@override String get helpMeNotConfigured => 'AIはまだ設定されていません。';
 	@override String get persona => 'AIアシスタントのペルソナ';
 	@override String get personaSubtitle => 'アシスタントのスタイルを選択';
 }
@@ -459,6 +465,7 @@ extension on TranslationsJa {
 			'drawing.highlighter' => '蛍光ペン',
 			'drawing.eraser' => '消しゴム',
 			'drawing.select' => '選択',
+			'drawing.lasso' => '投げ縄',
 			'drawing.undo' => '元に戻す',
 			'drawing.redo' => 'やり直す',
 			'drawing.clear' => '消去',
@@ -489,6 +496,11 @@ extension on TranslationsJa {
 			'ai.extractTasks' => 'タスクを抽出',
 			'ai.translate' => '翻訳',
 			'ai.noTextFound' => 'テキストが見つかりません',
+			'ai.helpMe' => '助けて',
+			'ai.helpMeTitle' => 'AIの回答',
+			'ai.analyzingSelection' => '選択範囲を分析中…',
+			'ai.noSelection' => '先に投げ縄で何かを選択してください。',
+			'ai.helpMeNotConfigured' => 'AIはまだ設定されていません。',
 			'ai.persona' => 'AIアシスタントのペルソナ',
 			'ai.personaSubtitle' => 'アシスタントのスタイルを選択',
 			'pdf.import' => 'PDFをインポート',

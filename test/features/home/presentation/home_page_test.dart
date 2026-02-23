@@ -146,10 +146,10 @@ void main() {
     expect(find.text('Test Notiz'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Nach links wischen zum Löschen (find the Dismissible)
-    final dismissible = find.byType(Dismissible);
-    expect(dismissible, findsOneWidget);
-    await tester.fling(dismissible, const Offset(-500, 0), 1000);
+    // Auf das Löschen-Icon tippen
+    final deleteButton = find.byIcon(Icons.delete_outline);
+    expect(deleteButton, findsOneWidget);
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
     // Bestätigungsdialog sollte erscheinen
@@ -193,10 +193,10 @@ void main() {
     expect(find.text('Behalte mich'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Nach links wischen zum Löschen
-    final dismissible = find.byType(Dismissible);
-    expect(dismissible, findsOneWidget);
-    await tester.fling(dismissible, const Offset(-500, 0), 1000);
+    // Auf das Löschen-Icon tippen
+    final deleteButton = find.byIcon(Icons.delete_outline);
+    expect(deleteButton, findsOneWidget);
+    await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
     // Bestätigungsdialog erscheint

@@ -40,7 +40,7 @@ class DrawingToolPreferencesRepository {
 
       List<DrawingTool> result;
       if (local != null && local.isNotEmpty) {
-        result = local;
+        result = _mergeWithDefaults(local, defaults);
       } else {
         result = defaults;
       }
@@ -50,7 +50,7 @@ class DrawingToolPreferencesRepository {
       if (remote != null) {
         final List<DrawingTool> remoteTools = _decodeTools(remote.toolsJson);
         if (remoteTools.isNotEmpty) {
-          result = remoteTools;
+          result = _mergeWithDefaults(remoteTools, defaults);
           await _persistLocalState(
             prefs,
             tools: result,
@@ -70,6 +70,22 @@ class DrawingToolPreferencesRepository {
       }
       return defaults;
     }
+  }
+
+  List<DrawingTool> _mergeWithDefaults(
+    List<DrawingTool> tools,
+    List<DrawingTool> defaults,
+  ) {
+    if (defaults.isEmpty) return tools;
+
+    final Set<String> existingIds = tools.map((t) => t.id).toSet();
+    final List<DrawingTool> merged = List<DrawingTool>.of(tools);
+    for (final tool in defaults) {
+      if (!existingIds.contains(tool.id)) {
+        merged.add(tool);
+      }
+    }
+    return merged;
   }
 
   /// Lädt die gespeicherte Toolbar-Position.

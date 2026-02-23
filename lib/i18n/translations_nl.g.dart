@@ -169,6 +169,7 @@ class _TranslationsDrawingNl extends TranslationsDrawingDe {
 	@override String get highlighter => 'Marker';
 	@override String get eraser => 'Gum';
 	@override String get select => 'Selecteren';
+	@override String get lasso => 'Lasso';
 	@override String get undo => 'Ongedaan maken';
 	@override String get redo => 'Opnieuw doen';
 	@override String get clear => 'Wissen';
@@ -217,6 +218,11 @@ class _TranslationsAiNl extends TranslationsAiDe {
 	@override String get extractTasks => 'Taken extraheren';
 	@override String get translate => 'Vertalen';
 	@override String get noTextFound => 'Geen tekst gevonden';
+	@override String get helpMe => 'Help mij';
+	@override String get helpMeTitle => 'AI-antwoord';
+	@override String get analyzingSelection => 'Selectie analyseren…';
+	@override String get noSelection => 'Selecteer eerst iets met de lasso.';
+	@override String get helpMeNotConfigured => 'AI is nog niet geconfigureerd.';
 	@override String get persona => 'AI-assistent persona';
 	@override String get personaSubtitle => 'Kies de stijl van de assistent';
 }
@@ -459,6 +465,7 @@ extension on TranslationsNl {
 			'drawing.highlighter' => 'Marker',
 			'drawing.eraser' => 'Gum',
 			'drawing.select' => 'Selecteren',
+			'drawing.lasso' => 'Lasso',
 			'drawing.undo' => 'Ongedaan maken',
 			'drawing.redo' => 'Opnieuw doen',
 			'drawing.clear' => 'Wissen',
@@ -489,6 +496,11 @@ extension on TranslationsNl {
 			'ai.extractTasks' => 'Taken extraheren',
 			'ai.translate' => 'Vertalen',
 			'ai.noTextFound' => 'Geen tekst gevonden',
+			'ai.helpMe' => 'Help mij',
+			'ai.helpMeTitle' => 'AI-antwoord',
+			'ai.analyzingSelection' => 'Selectie analyseren…',
+			'ai.noSelection' => 'Selecteer eerst iets met de lasso.',
+			'ai.helpMeNotConfigured' => 'AI is nog niet geconfigureerd.',
 			'ai.persona' => 'AI-assistent persona',
 			'ai.personaSubtitle' => 'Kies de stijl van de assistent',
 			'pdf.import' => 'PDF importeren',

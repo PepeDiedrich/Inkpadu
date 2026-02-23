@@ -66,7 +66,6 @@ class NoteBreadcrumbs extends StatelessWidget {
                             MaterialPageRoute<void>(
                               builder: (context) => DrawingNotePage(
                                 noteId: note.id,
-                                isSubNote: note.parentId != null,
                               ),
                             ),
                           );

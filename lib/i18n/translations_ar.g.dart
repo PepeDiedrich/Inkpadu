@@ -169,6 +169,7 @@ class _TranslationsDrawingAr extends TranslationsDrawingDe {
 	@override String get highlighter => 'محدد';
 	@override String get eraser => 'ممحاة';
 	@override String get select => 'تحديد';
+	@override String get lasso => 'لاسو';
 	@override String get undo => 'تراجع';
 	@override String get redo => 'إعادة';
 	@override String get clear => 'مسح';
@@ -217,6 +218,11 @@ class _TranslationsAiAr extends TranslationsAiDe {
 	@override String get extractTasks => 'استخراج المهام';
 	@override String get translate => 'ترجمة';
 	@override String get noTextFound => 'لم يتم العثور على نص';
+	@override String get helpMe => 'ساعدني';
+	@override String get helpMeTitle => 'ردّ الذكاء الاصطناعي';
+	@override String get analyzingSelection => 'جارٍ تحليل التحديد…';
+	@override String get noSelection => 'يرجى تحديد شيء باستخدام أداة اللاسو أولاً.';
+	@override String get helpMeNotConfigured => 'لم يتم إعداد الذكاء الاصطناعي بعد.';
 	@override String get persona => 'شخصية مساعد الذكاء الاصطناعي';
 	@override String get personaSubtitle => 'اختر أسلوب المساعد';
 }
@@ -459,6 +465,7 @@ extension on TranslationsAr {
 			'drawing.highlighter' => 'محدد',
 			'drawing.eraser' => 'ممحاة',
 			'drawing.select' => 'تحديد',
+			'drawing.lasso' => 'لاسو',
 			'drawing.undo' => 'تراجع',
 			'drawing.redo' => 'إعادة',
 			'drawing.clear' => 'مسح',
@@ -489,6 +496,11 @@ extension on TranslationsAr {
 			'ai.extractTasks' => 'استخراج المهام',
 			'ai.translate' => 'ترجمة',
 			'ai.noTextFound' => 'لم يتم العثور على نص',
+			'ai.helpMe' => 'ساعدني',
+			'ai.helpMeTitle' => 'ردّ الذكاء الاصطناعي',
+			'ai.analyzingSelection' => 'جارٍ تحليل التحديد…',
+			'ai.noSelection' => 'يرجى تحديد شيء باستخدام أداة اللاسو أولاً.',
+			'ai.helpMeNotConfigured' => 'لم يتم إعداد الذكاء الاصطناعي بعد.',
 			'ai.persona' => 'شخصية مساعد الذكاء الاصطناعي',
 			'ai.personaSubtitle' => 'اختر أسلوب المساعد',
 			'pdf.import' => 'استيراد PDF',

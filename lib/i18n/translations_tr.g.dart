@@ -169,6 +169,7 @@ class _TranslationsDrawingTr extends TranslationsDrawingDe {
 	@override String get highlighter => 'Marker';
 	@override String get eraser => 'Silgi';
 	@override String get select => 'Seç';
+	@override String get lasso => 'Kement';
 	@override String get undo => 'Geri al';
 	@override String get redo => 'Yinele';
 	@override String get clear => 'Temizle';
@@ -217,6 +218,11 @@ class _TranslationsAiTr extends TranslationsAiDe {
 	@override String get extractTasks => 'Görevleri çıkar';
 	@override String get translate => 'Çevir';
 	@override String get noTextFound => 'Metin bulunamadı';
+	@override String get helpMe => 'Lütfen yardım et';
+	@override String get helpMeTitle => 'YZ yanıtı';
+	@override String get analyzingSelection => 'Seçim analiz ediliyor…';
+	@override String get noSelection => 'Önce kement ile bir şey seç.';
+	@override String get helpMeNotConfigured => 'Yapay zeka henüz yapılandırılmadı.';
 	@override String get persona => 'Yapay Zeka Asistanı Persona';
 	@override String get personaSubtitle => 'Asistan stilini seç';
 }
@@ -459,6 +465,7 @@ extension on TranslationsTr {
 			'drawing.highlighter' => 'Marker',
 			'drawing.eraser' => 'Silgi',
 			'drawing.select' => 'Seç',
+			'drawing.lasso' => 'Kement',
 			'drawing.undo' => 'Geri al',
 			'drawing.redo' => 'Yinele',
 			'drawing.clear' => 'Temizle',
@@ -489,6 +496,11 @@ extension on TranslationsTr {
 			'ai.extractTasks' => 'Görevleri çıkar',
 			'ai.translate' => 'Çevir',
 			'ai.noTextFound' => 'Metin bulunamadı',
+			'ai.helpMe' => 'Lütfen yardım et',
+			'ai.helpMeTitle' => 'YZ yanıtı',
+			'ai.analyzingSelection' => 'Seçim analiz ediliyor…',
+			'ai.noSelection' => 'Önce kement ile bir şey seç.',
+			'ai.helpMeNotConfigured' => 'Yapay zeka henüz yapılandırılmadı.',
 			'ai.persona' => 'Yapay Zeka Asistanı Persona',
 			'ai.personaSubtitle' => 'Asistan stilini seç',
 			'pdf.import' => 'PDF içe aktar',

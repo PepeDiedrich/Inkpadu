@@ -10,6 +10,7 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -104,6 +105,17 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   final Map<int, Offset> _threeFingerTapInitialPositions =
       <int, Offset>{};
 
+    int? _activeLassoPointerId;
+    final List<Offset> _lassoPoints = <Offset>[];
+    final Set<int> _selectedStrokeIndices = <int>{};
+    List<Rect> _selectedStrokeBounds = const <Rect>[];
+    bool _aiPanelOpen = false;
+    bool _aiLoading = false;
+    String? _aiAnswer;
+
+    bool get _isLassoTool =>
+      widget.currentTool.id == DrawingToolDefaults.lassoId;
+
   @override
   void initState() {
     super.initState();
@@ -141,7 +153,22 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       );
       // reset any gesture-related state
     } else if (oldWidget.currentTool.id != widget.currentTool.id) {
+      if (!_isLassoTool) {
+        _clearLassoSelection(closeAiPanel: true);
+      }
       setState(() {});
+    }
+  }
+
+  void _clearLassoSelection({required bool closeAiPanel}) {
+    _activeLassoPointerId = null;
+    _lassoPoints.clear();
+    _selectedStrokeIndices.clear();
+    _selectedStrokeBounds = const <Rect>[];
+    if (closeAiPanel) {
+      _aiPanelOpen = false;
+      _aiLoading = false;
+      _aiAnswer = null;
     }
   }
 
@@ -457,6 +484,18 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _activeToolDuringStrokeId = tool.id;
     _didEraseDuringDrag = false;
 
+    if (_isLassoTool) {
+      _activeLassoPointerId = details.pointer;
+      _lassoPoints
+        ..clear()
+        ..add(details.localPosition);
+      _selectedStrokeIndices.clear();
+      _selectedStrokeBounds = const <Rect>[];
+      widget.onRequestParentScrollLock?.call(true);
+      setState(() {});
+      return;
+    }
+
     if (tool.isEraser) {
       _activeDrawingPointerId = details.pointer;
       final bool erased = _applyEraserPoint(details.localPosition, tool);
@@ -557,6 +596,16 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       }
     }
 
+    if (_activeLassoPointerId == details.pointer && details.down) {
+      final Offset next = details.localPosition;
+      final Offset? last = _lassoPoints.isNotEmpty ? _lassoPoints.last : null;
+      if (last == null || (next - last).distanceSquared > 3) {
+        _lassoPoints.add(next);
+        setState(() {});
+      }
+      return;
+    }
+
     if (_activeDrawingPointerId != details.pointer || !details.down) {
       return;
     }
@@ -638,6 +687,28 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       }
     }
 
+    if (_activeLassoPointerId == details.pointer) {
+      _activeLassoPointerId = null;
+      widget.onRequestParentScrollLock?.call(false);
+
+      final points = List<Offset>.unmodifiable(_lassoPoints);
+      if (points.length >= 3) {
+        final selection = _selectStrokesWithinLasso(
+          widget.drawingController.strokes,
+          points,
+        );
+        _selectedStrokeIndices
+          ..clear()
+          ..addAll(selection.indices);
+        _selectedStrokeBounds = selection.bounds;
+      } else {
+        _selectedStrokeIndices.clear();
+        _selectedStrokeBounds = const <Rect>[];
+      }
+      setState(() {});
+      return;
+    }
+
     if (_activeDrawingPointerId != details.pointer) {
       return;
     }
@@ -692,6 +763,122 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeDrawingPointerId = null;
       _activeToolDuringStrokeId = null;
     }
+
+    if (_activeLassoPointerId == details.pointer) {
+      _activeLassoPointerId = null;
+      widget.onRequestParentScrollLock?.call(false);
+      setState(() {});
+    }
+  }
+
+  ({Set<int> indices, List<Rect> bounds}) _selectStrokesWithinLasso(
+    List<Stroke> strokes,
+    List<Offset> lassoPoints,
+  ) {
+    final Rect lassoBounds = _boundsOfOffsets(lassoPoints);
+
+    final Set<int> selected = <int>{};
+    final List<Rect> selectedBounds = <Rect>[];
+
+    for (var i = 0; i < strokes.length; i++) {
+      final stroke = strokes[i];
+      if (stroke.points.isEmpty) continue;
+
+      final Rect strokeBounds = _boundsOfStroke(stroke);
+      if (!lassoBounds.overlaps(strokeBounds)) continue;
+
+      var hit = false;
+      for (final point in stroke.points) {
+        if (_isPointInPolygon(point.position, lassoPoints)) {
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) continue;
+
+      selected.add(i);
+      selectedBounds.add(strokeBounds);
+    }
+
+    return (indices: selected, bounds: selectedBounds);
+  }
+
+  Rect _boundsOfOffsets(List<Offset> points) {
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var maxX = -double.infinity;
+    var maxY = -double.infinity;
+    for (final p in points) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    if (!minX.isFinite || !minY.isFinite || !maxX.isFinite || !maxY.isFinite) {
+      return Rect.zero;
+    }
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+  Rect _boundsOfStroke(Stroke stroke) {
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var maxX = -double.infinity;
+    var maxY = -double.infinity;
+    for (final p in stroke.points) {
+      final o = p.position;
+      if (o.dx < minX) minX = o.dx;
+      if (o.dy < minY) minY = o.dy;
+      if (o.dx > maxX) maxX = o.dx;
+      if (o.dy > maxY) maxY = o.dy;
+    }
+    if (!minX.isFinite || !minY.isFinite || !maxX.isFinite || !maxY.isFinite) {
+      return Rect.zero;
+    }
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+  bool _isPointInPolygon(Offset point, List<Offset> polygon) {
+    if (polygon.length < 3) return false;
+    var inside = false;
+    for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      final xi = polygon[i].dx;
+      final yi = polygon[i].dy;
+      final xj = polygon[j].dx;
+      final yj = polygon[j].dy;
+      final bool intersect =
+          ((yi > point.dy) != (yj > point.dy)) &&
+          (point.dx <
+              (xj - xi) * (point.dy - yi) / ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
+                  xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  Future<void> _openAiPanel() async {
+    if (!_isLassoTool || _selectedStrokeIndices.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.t.ai.noSelection)),
+      );
+      return;
+    }
+
+    setState(() {
+      _aiPanelOpen = true;
+      _aiLoading = true;
+      _aiAnswer = null;
+    });
+
+    // Placeholder implementation until a backend / LLM is wired up.
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+
+    setState(() {
+      _aiLoading = false;
+      _aiAnswer = context.t.ai.helpMeNotConfigured;
+    });
   }
 
   bool _applyEraserPoint(Offset position, DrawingTool tool) {
@@ -728,58 +915,73 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   }
 
   @override
-  Widget build(BuildContext context) => ScrollConfiguration(
-    behavior: const _DrawingScrollBehavior(),
-    child: NotificationListener<ScrollNotification>(
-      onNotification: (notification) => _onScrollNotification(notification),
-      child: SingleChildScrollView(
-        key: widget.scrollKey,
-        controller: _canvasScrollController,
-        physics: const ClampingScrollPhysics(),
-        padding: EdgeInsets.zero,
-        child: SizedBox(
-          width: double.infinity,
-          height: _canvasHeight,
-          child: InteractiveViewer(
-            // Zoom disabled intentionally
-            panEnabled: false,
-            scaleEnabled: false,
-            boundaryMargin: const EdgeInsets.symmetric(
-              horizontal: 120,
-              vertical: 120,
-            ),
-            alignment: Alignment.topCenter,
-            child: NotePaperBackground(
-              paperStyle: widget.paperStyle,
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: _start,
-                onPointerMove: _update,
-                onPointerUp: _end,
-                onPointerCancel: _cancel,
-                child: AnimatedBuilder(
-                  animation: widget.drawingController,
-                  builder: (context, child) => Stack(
-                    children: [
-                      RepaintBoundary(
-                        child: CustomPaint(
-                          painter: FinishedStrokesPainter(
-                            strokes: widget.drawingController.strokes,
-                            version: widget.drawingController.strokesVersion,
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
+    final Widget scrollableCanvas = ScrollConfiguration(
+      behavior: const _DrawingScrollBehavior(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) => _onScrollNotification(notification),
+        child: SingleChildScrollView(
+          key: widget.scrollKey,
+          controller: _canvasScrollController,
+          physics: const ClampingScrollPhysics(),
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: double.infinity,
+            height: _canvasHeight,
+            child: InteractiveViewer(
+              // Zoom disabled intentionally
+              panEnabled: false,
+              scaleEnabled: false,
+              boundaryMargin: const EdgeInsets.symmetric(
+                horizontal: 120,
+                vertical: 120,
+              ),
+              alignment: Alignment.topCenter,
+              child: NotePaperBackground(
+                paperStyle: widget.paperStyle,
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: _start,
+                  onPointerMove: _update,
+                  onPointerUp: _end,
+                  onPointerCancel: _cancel,
+                  child: AnimatedBuilder(
+                    animation: widget.drawingController,
+                    builder: (context, child) => Stack(
+                      children: [
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            painter: FinishedStrokesPainter(
+                              strokes: widget.drawingController.strokes,
+                              version: widget.drawingController.strokesVersion,
+                            ),
                           ),
                         ),
-                      ),
-                      RepaintBoundary(
-                        child: CustomPaint(
-                          painter: CurrentStrokePainter(
-                            currentStroke: widget.drawingController.currentStroke,
-                            pointCount:
-                                widget.drawingController.currentStroke?.points.length ??
-                                0,
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            painter: CurrentStrokePainter(
+                              currentStroke:
+                                  widget.drawingController.currentStroke,
+                              pointCount: widget.drawingController.currentStroke
+                                      ?.points.length ??
+                                  0,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            painter: _LassoSelectionPainter(
+                              lassoPoints: _lassoPoints,
+                              selectedStrokeBounds: _selectedStrokeBounds,
+                              selectionColor: scheme.primary,
+                              lassoColor: scheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -787,16 +989,148 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ),
         ),
       ),
-    ),
-  );
+    );
+
+    final bool showHelpButton =
+        _isLassoTool && _selectedStrokeIndices.isNotEmpty;
+
+    return Stack(
+      children: [
+        scrollableCanvas,
+        if (showHelpButton)
+          Positioned(
+            right: 16,
+            bottom: 104,
+            child: FilledButton.icon(
+              onPressed: _openAiPanel,
+              icon: const Icon(Icons.auto_awesome),
+              label: Text(context.t.ai.helpMe),
+            ),
+          ),
+        if (_aiPanelOpen)
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                context.t.ai.helpMeTitle,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: context.t.common.close,
+                              onPressed: () => setState(() {
+                                _aiPanelOpen = false;
+                              }),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (_aiLoading)
+                          Row(
+                            children: [
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(context.t.ai.analyzingSelection)),
+                            ],
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 240),
+                            child: SingleChildScrollView(
+                              child: SelectableText(
+                                _aiAnswer ?? '',
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _LassoSelectionPainter extends CustomPainter {
+  _LassoSelectionPainter({
+    required List<Offset> lassoPoints,
+    required List<Rect> selectedStrokeBounds,
+    required this.selectionColor,
+    required this.lassoColor,
+  })  : lassoPoints = List<Offset>.unmodifiable(lassoPoints),
+        selectedStrokeBounds = List<Rect>.unmodifiable(selectedStrokeBounds);
+
+  final List<Offset> lassoPoints;
+  final List<Rect> selectedStrokeBounds;
+  final Color selectionColor;
+  final Color lassoColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (selectedStrokeBounds.isNotEmpty) {
+      final paint = Paint()
+        ..color = selectionColor.withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      for (final rect in selectedStrokeBounds) {
+        final rrect = RRect.fromRectAndRadius(
+          rect.inflate(6),
+          const Radius.circular(10),
+        );
+        canvas.drawRRect(rrect, paint);
+      }
+    }
+
+    if (lassoPoints.length >= 2) {
+      final paint = Paint()
+        ..color = lassoColor.withValues(alpha: 0.75)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      final path = Path()..moveTo(lassoPoints.first.dx, lassoPoints.first.dy);
+      for (final p in lassoPoints.skip(1)) {
+        path.lineTo(p.dx, p.dy);
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LassoSelectionPainter oldDelegate) =>
+      oldDelegate.lassoPoints != lassoPoints ||
+      oldDelegate.selectedStrokeBounds != selectedStrokeBounds ||
+      oldDelegate.selectionColor != selectionColor ||
+      oldDelegate.lassoColor != lassoColor;
 }
 
 class _DrawingScrollBehavior extends MaterialScrollBehavior {
   const _DrawingScrollBehavior();
 
   @override
-  Set<PointerDeviceKind> get dragDevices => const {
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.unknown,
-  };
+  Set<PointerDeviceKind> get dragDevices =>
+      const {PointerDeviceKind.mouse, PointerDeviceKind.unknown};
 }

@@ -169,6 +169,7 @@ class _TranslationsDrawingZh extends TranslationsDrawingDe {
 	@override String get highlighter => '荧光笔';
 	@override String get eraser => '橡皮擦';
 	@override String get select => '选择';
+	@override String get lasso => '套索';
 	@override String get undo => '撤销';
 	@override String get redo => '重做';
 	@override String get clear => '清除';
@@ -217,6 +218,11 @@ class _TranslationsAiZh extends TranslationsAiDe {
 	@override String get extractTasks => '提取任务';
 	@override String get translate => '翻译';
 	@override String get noTextFound => '未找到文本';
+	@override String get helpMe => '帮帮我';
+	@override String get helpMeTitle => 'AI 回复';
+	@override String get analyzingSelection => '正在分析选区…';
+	@override String get noSelection => '请先用套索选中内容。';
+	@override String get helpMeNotConfigured => 'AI 尚未配置。';
 	@override String get persona => 'AI 助手角色';
 	@override String get personaSubtitle => '选择助手风格';
 }
@@ -459,6 +465,7 @@ extension on TranslationsZh {
 			'drawing.highlighter' => '荧光笔',
 			'drawing.eraser' => '橡皮擦',
 			'drawing.select' => '选择',
+			'drawing.lasso' => '套索',
 			'drawing.undo' => '撤销',
 			'drawing.redo' => '重做',
 			'drawing.clear' => '清除',
@@ -489,6 +496,11 @@ extension on TranslationsZh {
 			'ai.extractTasks' => '提取任务',
 			'ai.translate' => '翻译',
 			'ai.noTextFound' => '未找到文本',
+			'ai.helpMe' => '帮帮我',
+			'ai.helpMeTitle' => 'AI 回复',
+			'ai.analyzingSelection' => '正在分析选区…',
+			'ai.noSelection' => '请先用套索选中内容。',
+			'ai.helpMeNotConfigured' => 'AI 尚未配置。',
 			'ai.persona' => 'AI 助手角色',
 			'ai.personaSubtitle' => '选择助手风格',
 			'pdf.import' => '导入 PDF',

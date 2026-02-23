@@ -33,6 +33,13 @@ class FloatingToolWindow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    DrawingTool? findToolById(String toolId) {
+      for (final tool in tools) {
+        if (tool.id == toolId) return tool;
+      }
+      return null;
+    }
+
     return Card(
       elevation: 8,
       shadowColor: Colors.black26,
@@ -64,7 +71,12 @@ class FloatingToolWindow extends StatelessWidget {
                 tools: tools,
                 selectedToolId: selectedToolId,
                 onToolSelected: onToolSelected,
-                onToolLongPress: onToolLongPress,
+                onToolEdit: onToolLongPress,
+                onToolDelete: (toolId) {
+                  final tool = findToolById(toolId);
+                  if (tool == null) return;
+                  onToolLongPress(tool);
+                },
               ),
             ),
           ],

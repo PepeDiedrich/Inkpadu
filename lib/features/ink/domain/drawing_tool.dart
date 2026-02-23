@@ -143,5 +143,16 @@ class DrawingToolDefaults {
       isEraser: true,
       usePressure: false,
     ),
+    DrawingTool(
+      id: 'lasso',
+      label: 'lasso',
+      icon: Icons.select_all,
+      color: Colors.black,
+      baseWidth: 2,
+      usePressure: false,
+    ),
   ];
+
+  /// ID des Lasso-Tools.
+  static const String lassoId = 'lasso';
 }

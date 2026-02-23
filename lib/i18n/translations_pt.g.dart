@@ -169,6 +169,7 @@ class _TranslationsDrawingPt extends TranslationsDrawingDe {
 	@override String get highlighter => 'Marcador';
 	@override String get eraser => 'Borracha';
 	@override String get select => 'Selecionar';
+	@override String get lasso => 'Laço';
 	@override String get undo => 'Desfazer';
 	@override String get redo => 'Refazer';
 	@override String get clear => 'Limpar';
@@ -217,6 +218,11 @@ class _TranslationsAiPt extends TranslationsAiDe {
 	@override String get extractTasks => 'Extrair tarefas';
 	@override String get translate => 'Traduzir';
 	@override String get noTextFound => 'Nenhum texto encontrado';
+	@override String get helpMe => 'Ajude-me';
+	@override String get helpMeTitle => 'Resposta da IA';
+	@override String get analyzingSelection => 'Analisando seleção…';
+	@override String get noSelection => 'Selecione algo com o laço primeiro.';
+	@override String get helpMeNotConfigured => 'A IA ainda não está configurada.';
 	@override String get persona => 'Persona do Assistente de IA';
 	@override String get personaSubtitle => 'Escolher estilo do assistente';
 }
@@ -459,6 +465,7 @@ extension on TranslationsPt {
 			'drawing.highlighter' => 'Marcador',
 			'drawing.eraser' => 'Borracha',
 			'drawing.select' => 'Selecionar',
+			'drawing.lasso' => 'Laço',
 			'drawing.undo' => 'Desfazer',
 			'drawing.redo' => 'Refazer',
 			'drawing.clear' => 'Limpar',
@@ -489,6 +496,11 @@ extension on TranslationsPt {
 			'ai.extractTasks' => 'Extrair tarefas',
 			'ai.translate' => 'Traduzir',
 			'ai.noTextFound' => 'Nenhum texto encontrado',
+			'ai.helpMe' => 'Ajude-me',
+			'ai.helpMeTitle' => 'Resposta da IA',
+			'ai.analyzingSelection' => 'Analisando seleção…',
+			'ai.noSelection' => 'Selecione algo com o laço primeiro.',
+			'ai.helpMeNotConfigured' => 'A IA ainda não está configurada.',
 			'ai.persona' => 'Persona do Assistente de IA',
 			'ai.personaSubtitle' => 'Escolher estilo do assistente',
 			'pdf.import' => 'Importar PDF',

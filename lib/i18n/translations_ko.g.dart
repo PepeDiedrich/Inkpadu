@@ -169,6 +169,7 @@ class _TranslationsDrawingKo extends TranslationsDrawingDe {
 	@override String get highlighter => '형광펜';
 	@override String get eraser => '지우개';
 	@override String get select => '선택';
+	@override String get lasso => '올가미';
 	@override String get undo => '실행 취소';
 	@override String get redo => '다시 실행';
 	@override String get clear => '지우기';
@@ -217,6 +218,11 @@ class _TranslationsAiKo extends TranslationsAiDe {
 	@override String get extractTasks => '작업 추출';
 	@override String get translate => '번역하기';
 	@override String get noTextFound => '텍스트를 찾을 수 없습니다';
+	@override String get helpMe => '도와줘';
+	@override String get helpMeTitle => 'AI 답변';
+	@override String get analyzingSelection => '선택 영역 분석 중…';
+	@override String get noSelection => '먼저 올가미로 무언가를 선택해 주세요.';
+	@override String get helpMeNotConfigured => 'AI가 아직 설정되지 않았습니다.';
 	@override String get persona => 'AI 어시스턴트 페르소나';
 	@override String get personaSubtitle => '어시스턴트 스타일 선택';
 }
@@ -459,6 +465,7 @@ extension on TranslationsKo {
 			'drawing.highlighter' => '형광펜',
 			'drawing.eraser' => '지우개',
 			'drawing.select' => '선택',
+			'drawing.lasso' => '올가미',
 			'drawing.undo' => '실행 취소',
 			'drawing.redo' => '다시 실행',
 			'drawing.clear' => '지우기',
@@ -489,6 +496,11 @@ extension on TranslationsKo {
 			'ai.extractTasks' => '작업 추출',
 			'ai.translate' => '번역하기',
 			'ai.noTextFound' => '텍스트를 찾을 수 없습니다',
+			'ai.helpMe' => '도와줘',
+			'ai.helpMeTitle' => 'AI 답변',
+			'ai.analyzingSelection' => '선택 영역 분석 중…',
+			'ai.noSelection' => '먼저 올가미로 무언가를 선택해 주세요.',
+			'ai.helpMeNotConfigured' => 'AI가 아직 설정되지 않았습니다.',
 			'ai.persona' => 'AI 어시스턴트 페르소나',
 			'ai.personaSubtitle' => '어시스턴트 스타일 선택',
 			'pdf.import' => 'PDF 가져오기',

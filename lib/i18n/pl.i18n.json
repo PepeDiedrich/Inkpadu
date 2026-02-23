@@ -89,7 +89,8 @@
     "inkRoller": "Pióro",
     "fountainPen": "Pióro wieczne",
     "marker": "Marker",
-    "neon": "Neon"
+    "neon": "Neon",
+    "lasso": "Lasso"
   },
   "paper": {
     "plain": "Czysta",
@@ -107,7 +108,12 @@
     "translate": "Tłumacz",
     "noTextFound": "Nie znaleziono tekstu",
     "persona": "Personalizacja asystenta AI",
-    "personaSubtitle": "Wybierz styl asystenta"
+    "personaSubtitle": "Wybierz styl asystenta",
+    "helpMe": "Pomóż mi",
+    "helpMeTitle": "Odpowiedź AI",
+    "analyzingSelection": "Analizowanie zaznaczenia…",
+    "noSelection": "Najpierw zaznacz coś lasssem.",
+    "helpMeNotConfigured": "AI nie jest jeszcze skonfigurowane."
   },
   "pdf": {
     "import": "Importuj PDF",

@@ -1,5 +1,6 @@
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 
 /// Zeigt die Werkzeugauswahl mit Schnellzugriff und Long-Press-Editor an.
@@ -100,9 +101,13 @@ class _ToolChipState extends State<_ToolChip> {
                 ? colorScheme.onSurfaceVariant
                 : iconColor);
 
+    final bool isLasso = widget.tool.id == DrawingToolDefaults.lassoId;
+    final String tooltipMessage = isLasso
+        ? context.t.drawing.lasso
+        : '${widget.tool.label} · ${widget.tool.baseWidth.toStringAsFixed(1)} px';
+
     return Tooltip(
-      message:
-          '${widget.tool.label} · ${widget.tool.baseWidth.toStringAsFixed(1)} px',
+      message: tooltipMessage,
       child: GestureDetector(
         onTap: widget.onPressed,
         onLongPress: widget.onLongPress,

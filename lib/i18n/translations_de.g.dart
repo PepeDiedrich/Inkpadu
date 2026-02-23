@@ -316,6 +316,9 @@ class TranslationsDrawingDe {
 	/// de: 'Auswählen'
 	String get select => 'Auswählen';
 
+	/// de: 'Lasso'
+	String get lasso => 'Lasso';
+
 	/// de: 'Rückgängig'
 	String get undo => 'Rückgängig';
 
@@ -423,6 +426,21 @@ class TranslationsAiDe {
 
 	/// de: 'Kein Text gefunden'
 	String get noTextFound => 'Kein Text gefunden';
+
+	/// de: 'Bitte hilf mir'
+	String get helpMe => 'Bitte hilf mir';
+
+	/// de: 'KI-Antwort'
+	String get helpMeTitle => 'KI-Antwort';
+
+	/// de: 'Auswahl wird analysiert…'
+	String get analyzingSelection => 'Auswahl wird analysiert…';
+
+	/// de: 'Bitte markiere zuerst etwas mit dem Lasso.'
+	String get noSelection => 'Bitte markiere zuerst etwas mit dem Lasso.';
+
+	/// de: 'Die KI ist noch nicht konfiguriert.'
+	String get helpMeNotConfigured => 'Die KI ist noch nicht konfiguriert.';
 
 	/// de: 'KI-Assistent Persona'
 	String get persona => 'KI-Assistent Persona';
@@ -904,6 +922,7 @@ extension on Translations {
 			'drawing.highlighter' => 'Textmarker',
 			'drawing.eraser' => 'Radierer',
 			'drawing.select' => 'Auswählen',
+			'drawing.lasso' => 'Lasso',
 			'drawing.undo' => 'Rückgängig',
 			'drawing.redo' => 'Wiederholen',
 			'drawing.clear' => 'Löschen',
@@ -934,6 +953,11 @@ extension on Translations {
 			'ai.extractTasks' => 'Aufgaben extrahieren',
 			'ai.translate' => 'Übersetzen',
 			'ai.noTextFound' => 'Kein Text gefunden',
+			'ai.helpMe' => 'Bitte hilf mir',
+			'ai.helpMeTitle' => 'KI-Antwort',
+			'ai.analyzingSelection' => 'Auswahl wird analysiert…',
+			'ai.noSelection' => 'Bitte markiere zuerst etwas mit dem Lasso.',
+			'ai.helpMeNotConfigured' => 'Die KI ist noch nicht konfiguriert.',
 			'ai.persona' => 'KI-Assistent Persona',
 			'ai.personaSubtitle' => 'Stil des Assistenten wählen',
 			'pdf.import' => 'PDF importieren',

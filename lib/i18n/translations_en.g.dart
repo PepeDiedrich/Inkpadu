@@ -170,6 +170,7 @@ class _TranslationsDrawingEn extends TranslationsDrawingDe {
 	@override String get highlighter => 'Highlighter';
 	@override String get eraser => 'Eraser';
 	@override String get select => 'Select';
+	@override String get lasso => 'Lasso';
 	@override String get undo => 'Undo';
 	@override String get redo => 'Redo';
 	@override String get clear => 'Clear';
@@ -218,6 +219,11 @@ class _TranslationsAiEn extends TranslationsAiDe {
 	@override String get extractTasks => 'Extract tasks';
 	@override String get translate => 'Translate';
 	@override String get noTextFound => 'No text found';
+	@override String get helpMe => 'Help me';
+	@override String get helpMeTitle => 'AI response';
+	@override String get analyzingSelection => 'Analyzing selection…';
+	@override String get noSelection => 'Please select something with the lasso first.';
+	@override String get helpMeNotConfigured => 'AI is not configured yet.';
 	@override String get persona => 'AI Assistant Persona';
 	@override String get personaSubtitle => 'Choose assistant style';
 }
@@ -461,6 +467,7 @@ extension on TranslationsEn {
 			'drawing.highlighter' => 'Highlighter',
 			'drawing.eraser' => 'Eraser',
 			'drawing.select' => 'Select',
+			'drawing.lasso' => 'Lasso',
 			'drawing.undo' => 'Undo',
 			'drawing.redo' => 'Redo',
 			'drawing.clear' => 'Clear',
@@ -491,6 +498,11 @@ extension on TranslationsEn {
 			'ai.extractTasks' => 'Extract tasks',
 			'ai.translate' => 'Translate',
 			'ai.noTextFound' => 'No text found',
+			'ai.helpMe' => 'Help me',
+			'ai.helpMeTitle' => 'AI response',
+			'ai.analyzingSelection' => 'Analyzing selection…',
+			'ai.noSelection' => 'Please select something with the lasso first.',
+			'ai.helpMeNotConfigured' => 'AI is not configured yet.',
 			'ai.persona' => 'AI Assistant Persona',
 			'ai.personaSubtitle' => 'Choose assistant style',
 			'pdf.import' => 'Import PDF',

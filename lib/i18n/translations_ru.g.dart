@@ -169,6 +169,7 @@ class _TranslationsDrawingRu extends TranslationsDrawingDe {
 	@override String get highlighter => 'Маркер';
 	@override String get eraser => 'Стерка';
 	@override String get select => 'Выбрать';
+	@override String get lasso => 'Лассо';
 	@override String get undo => 'Отменить';
 	@override String get redo => 'Повторить';
 	@override String get clear => 'Очистить';
@@ -217,6 +218,11 @@ class _TranslationsAiRu extends TranslationsAiDe {
 	@override String get extractTasks => 'Извлечение задач';
 	@override String get translate => 'Перевести';
 	@override String get noTextFound => 'Текст не найден';
+	@override String get helpMe => 'Помоги мне';
+	@override String get helpMeTitle => 'Ответ ИИ';
+	@override String get analyzingSelection => 'Анализ выделения…';
+	@override String get noSelection => 'Сначала выделите что-нибудь лассо.';
+	@override String get helpMeNotConfigured => 'ИИ ещё не настроен.';
 	@override String get persona => 'Персона AI-ассистента';
 	@override String get personaSubtitle => 'Выбрать стиль ассистента';
 }
@@ -459,6 +465,7 @@ extension on TranslationsRu {
 			'drawing.highlighter' => 'Маркер',
 			'drawing.eraser' => 'Стерка',
 			'drawing.select' => 'Выбрать',
+			'drawing.lasso' => 'Лассо',
 			'drawing.undo' => 'Отменить',
 			'drawing.redo' => 'Повторить',
 			'drawing.clear' => 'Очистить',
@@ -489,6 +496,11 @@ extension on TranslationsRu {
 			'ai.extractTasks' => 'Извлечение задач',
 			'ai.translate' => 'Перевести',
 			'ai.noTextFound' => 'Текст не найден',
+			'ai.helpMe' => 'Помоги мне',
+			'ai.helpMeTitle' => 'Ответ ИИ',
+			'ai.analyzingSelection' => 'Анализ выделения…',
+			'ai.noSelection' => 'Сначала выделите что-нибудь лассо.',
+			'ai.helpMeNotConfigured' => 'ИИ ещё не настроен.',
 			'ai.persona' => 'Персона AI-ассистента',
 			'ai.personaSubtitle' => 'Выбрать стиль ассистента',
 			'pdf.import' => 'Импортировать PDF',

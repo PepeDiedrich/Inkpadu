@@ -109,6 +109,10 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     final controller = _controller;
     if (controller == null) return;
 
+    if (tool.id == DrawingToolDefaults.lassoId) {
+      return;
+    }
+
     final DrawingTool? updated = await DrawingToolEditorSheet.show(
       context,
       tool: tool,

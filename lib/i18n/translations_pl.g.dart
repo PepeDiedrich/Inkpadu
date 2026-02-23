@@ -187,6 +187,7 @@ class _TranslationsDrawingPl extends TranslationsDrawingDe {
 	@override String get fountainPen => 'Pióro wieczne';
 	@override String get marker => 'Marker';
 	@override String get neon => 'Neon';
+	@override String get lasso => 'Lasso';
 }
 
 // Path: paper
@@ -219,6 +220,11 @@ class _TranslationsAiPl extends TranslationsAiDe {
 	@override String get noTextFound => 'Nie znaleziono tekstu';
 	@override String get persona => 'Personalizacja asystenta AI';
 	@override String get personaSubtitle => 'Wybierz styl asystenta';
+	@override String get helpMe => 'Pomóż mi';
+	@override String get helpMeTitle => 'Odpowiedź AI';
+	@override String get analyzingSelection => 'Analizowanie zaznaczenia…';
+	@override String get noSelection => 'Najpierw zaznacz coś lasssem.';
+	@override String get helpMeNotConfigured => 'AI nie jest jeszcze skonfigurowane.';
 }
 
 // Path: pdf
@@ -477,6 +483,7 @@ extension on TranslationsPl {
 			'drawing.fountainPen' => 'Pióro wieczne',
 			'drawing.marker' => 'Marker',
 			'drawing.neon' => 'Neon',
+			'drawing.lasso' => 'Lasso',
 			'paper.plain' => 'Czysta',
 			'paper.lined' => 'W linię',
 			'paper.grid' => 'W kratkę',
@@ -491,6 +498,11 @@ extension on TranslationsPl {
 			'ai.noTextFound' => 'Nie znaleziono tekstu',
 			'ai.persona' => 'Personalizacja asystenta AI',
 			'ai.personaSubtitle' => 'Wybierz styl asystenta',
+			'ai.helpMe' => 'Pomóż mi',
+			'ai.helpMeTitle' => 'Odpowiedź AI',
+			'ai.analyzingSelection' => 'Analizowanie zaznaczenia…',
+			'ai.noSelection' => 'Najpierw zaznacz coś lasssem.',
+			'ai.helpMeNotConfigured' => 'AI nie jest jeszcze skonfigurowane.',
 			'pdf.import' => 'Importuj PDF',
 			'pdf.importSubtitle' => 'Tekst zostanie automatycznie wyodrębniony',
 			'pdf.export' => 'Eksportuj jako PDF',
