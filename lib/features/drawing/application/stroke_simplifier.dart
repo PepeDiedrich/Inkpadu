@@ -2,78 +2,92 @@ import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
-/// Wendet den Ramer-Douglas-Peucker Algorithmus auf die übergebenen [points] an.
-///
-/// Der Algorithmus reduziert die Anzahl der Punkte, indem er diejenigen entfernt,
-/// die auf einer nahezu geraden Linie zwischen zwei anderen Punkten liegen.
-/// Die charakteristische Form des Strichs bleibt dabei erhalten.
+/// Wendet den Ramer-Douglas-Peucker-Algorithmus mit maximaler algorithmischer
+/// Eleganz und Speichereffizienz auf die übergebenen [points] an.
 List<DrawingPoint> simplifyStrokePoints(
   List<DrawingPoint> points, {
   double tolerance = 1.0,
 }) {
-  if (points.length < 3) {
-    return List<DrawingPoint>.of(points);
-  }
+  final length = points.length;
+  if (length < 3) return List<DrawingPoint>.of(points);
 
-  final sanitizedTolerance = tolerance.isNaN
-      ? 0.0
-      : tolerance.clamp(0, double.infinity).toDouble();
+  final sqTolerance = tolerance.isNaN || tolerance <= 0.0 
+      ? 0.0 
+      : tolerance * tolerance;
 
-  return _rdp(points, sanitizedTolerance);
+  // Ein boolesches Array dient als hochperformante Maske für zu erhaltende Punkte.
+  final keepPoint = List<bool>.filled(length, false);
+  keepPoint[0] = true;
+  keepPoint[length - 1] = true;
+
+  _rdpOptimize(points, 0, length - 1, sqTolerance, keepPoint);
+
+  // Kompakte und elegante Extraktion der maskierten Punkte.
+  return [
+    for (var i = 0; i < length; i++)
+      if (keepPoint[i]) points[i]
+  ];
 }
 
-/// Vereinfacht einen [Stroke] und gibt eine neue Instanz mit reduziertem Punkt-Set zurück.
+/// Vereinfacht einen [Stroke] durch Reduktion des Punkt-Sets.
 Stroke simplifyStroke(
   Stroke stroke, {
   double tolerance = 1.0,
-}) {
-  final simplifiedPoints = simplifyStrokePoints(stroke.points, tolerance: tolerance);
-  return stroke.copyWith(points: simplifiedPoints);
-}
-
-List<DrawingPoint> _rdp(List<DrawingPoint> points, double tolerance) {
-  if (points.length < 3) {
-    return List<DrawingPoint>.of(points);
-  }
-
-  final first = points.first;
-  final last = points.last;
-
-  var index = 0;
-  var maxDistance = 0.0;
-
-  for (var i = 1; i < points.length - 1; i++) {
-    final distance = _perpendicularDistance(
-      points[i].position,
-      first.position,
-      last.position,
+}) =>
+    stroke.copyWith(
+      points: simplifyStrokePoints(stroke.points, tolerance: tolerance),
     );
-    if (distance > maxDistance) {
-      maxDistance = distance;
-      index = i;
+
+/// Rekursive, indexbasierte In-Place-Evaluation ohne Listen-Allokationen.
+void _rdpOptimize(
+  List<DrawingPoint> points,
+  int startIndex,
+  int endIndex,
+  double sqTolerance,
+  List<bool> keepPoint,
+) {
+  var maxSqDistance = 0.0;
+  var splitIndex = 0;
+
+  final start = points[startIndex].position;
+  final end = points[endIndex].position;
+
+  final dx = end.dx - start.dx;
+  final dy = end.dy - start.dy;
+  final lineSqLength = dx * dx + dy * dy;
+
+  for (var i = startIndex + 1; i < endIndex; i++) {
+    final point = points[i].position;
+    final sqDistance = _sqPerpendicularDistance(point, start, dx, dy, lineSqLength);
+
+    if (sqDistance > maxSqDistance) {
+      maxSqDistance = sqDistance;
+      splitIndex = i;
     }
   }
 
-  if (maxDistance <= tolerance) {
-    return <DrawingPoint>[first, if (!_samePoint(first, last)) last];
+  if (maxSqDistance > sqTolerance) {
+    keepPoint[splitIndex] = true;
+    _rdpOptimize(points, startIndex, splitIndex, sqTolerance, keepPoint);
+    _rdpOptimize(points, splitIndex, endIndex, sqTolerance, keepPoint);
   }
-
-  final left = _rdp(points.sublist(0, index + 1), tolerance);
-  final right = _rdp(points.sublist(index, points.length), tolerance);
-
-  return <DrawingPoint>[...left.take(left.length - 1), ...right];
 }
 
-bool _samePoint(DrawingPoint a, DrawingPoint b) =>
-    a.position == b.position && a.pressure == b.pressure;
-
-double _perpendicularDistance(Offset point, Offset lineStart, Offset lineEnd) {
-  final line = lineEnd - lineStart;
-  if (line.distanceSquared == 0) {
-    return (point - lineStart).distance;
+/// Berechnet das Quadrat der lotrechten Distanz effizient ohne teure Wurzelziehen-Operationen.
+double _sqPerpendicularDistance(
+  Offset point,
+  Offset start,
+  double dx,
+  double dy,
+  double lineSqLength,
+) {
+  if (lineSqLength == 0.0) {
+    final px = point.dx - start.dx;
+    final py = point.dy - start.dy;
+    return px * px + py * py;
   }
 
-  final ap = point - lineStart;
-  final cross = (line.dx * ap.dy) - (line.dy * ap.dx);
-  return cross.abs() / line.distance;
+  // 2D-Kreuzprodukt zur Bestimmung der Fläche des Parallelogramms
+  final crossProduct = dx * (point.dy - start.dy) - dy * (point.dx - start.dx);
+  return (crossProduct * crossProduct) / lineSqLength;
 }

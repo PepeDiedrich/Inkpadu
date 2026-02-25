@@ -98,18 +98,12 @@ class NoteBreadcrumbs extends StatelessWidget {
 
   List<InkNote> _buildPath(InkNotesController controller, String noteId) {
     final List<InkNote> path = [];
-    String? currentId = noteId;
-
-    while (currentId != null) {
-      try {
-        final note = controller.notes.firstWhere((n) => n.id == currentId);
-        path.insert(0, note);
-        currentId = note.parentId;
-      } catch (e) {
-        break;
-      }
+    try {
+      final note = controller.notes.firstWhere((n) => n.id == noteId);
+      path.add(note);
+    } catch (e) {
+      // Note not found
     }
-
     return path;
   }
 }

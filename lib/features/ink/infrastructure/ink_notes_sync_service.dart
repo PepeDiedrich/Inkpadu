@@ -338,7 +338,6 @@ class InkNotesSyncService implements InkNotesSync {
       }
 
       final String title = (data['title'] as String?) ?? InkNote.generateTitle();
-      final String? parentId = data['parent_id'] as String?;
       final String? paperStyleRaw = data['paper_style'] as String?;
       final Object? lastOpenedRaw = data['last_opened_page'];
       final int pageCount = _parseInt(data['page_count']) ?? 1;
@@ -359,7 +358,6 @@ class InkNotesSyncService implements InkNotesSync {
       );
 
       return InkNote(
-        parentId: parentId,
         id: rawDoc[r'$id'] as String,
         title: title,
         updatedAt: updatedAt.toLocal(),
@@ -502,7 +500,6 @@ class InkNotesSyncService implements InkNotesSync {
     final DateTime updatedUtc = note.updatedAt.toUtc();
     return <String, dynamic>{
       'user_id': userId,
-      'parent_id': note.parentId,
       'title': note.title,
       'paper_style': note.paperStyle.name,
       'page_count': note.pages.length,

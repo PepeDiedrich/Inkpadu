@@ -171,16 +171,16 @@ class AuthController extends ChangeNotifier {
         }
         _user = await account.get();
       } else {
-        // Explicitly providing success/failure URLs to avoid "missing redirect url" errors
-        // The scheme must match the one defined in AndroidManifest.xml
-        final redirectUrl =
-            'appwrite-callback-${AppwriteConfig.projectId}://callback';
+        // Wir lassen success und failure weg, damit das SDK die Standard-URLs generiert.
+        // Das SDK baut intern eine URL wie: appwrite-callback-[PROJECT_ID]://localhost
         await account.createOAuth2Session(
           provider: provider,
           scopes: scopes,
-          success: redirectUrl,
-          failure: redirectUrl,
         );
+        
+        // Kurze Verzögerung, damit das SDK die Cookies speichern kann
+        await Future<void>.delayed(const Duration(milliseconds: 5000));
+        
         // Nach Redirect und erfolgreichem Session-Aufbau versuchen wir den User zu laden.
         _user = await account.get();
       }
@@ -190,7 +190,11 @@ class AuthController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _hasLoggedIn = true;
       await prefs.setBool(_kHasLoggedInKey, true);
-    } catch (e) {
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[Auth] loginWithProvider failed: $e');
+        debugPrint('[Auth] stack: $st');
+      }
       _status = AuthStatus.unauthenticated;
       rethrow;
     } finally {

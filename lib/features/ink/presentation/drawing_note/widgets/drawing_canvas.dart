@@ -1,6 +1,10 @@
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:appwrite/appwrite.dart' as appwrite;
+import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
+import 'package:ai_handwriting_app/features/ink/application/stroke_renderer.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -871,14 +875,44 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _aiAnswer = null;
     });
 
-    // Placeholder implementation until a backend / LLM is wired up.
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
+    try {
+      final selectedStrokes = _selectedStrokeIndices
+          .map((i) => widget.drawingController.strokes[i])
+          .toList();
 
-    setState(() {
-      _aiLoading = false;
-      _aiAnswer = context.t.ai.helpMeNotConfigured;
-    });
+      final base64Image = await StrokeRenderer.renderStrokesToBase64(selectedStrokes);
+
+      if (base64Image == null) {
+        throw Exception('Could not render strokes to image');
+      }
+
+      final functions = appwrite.Functions(AppwriteConfig.client);
+      final execution = await functions.createExecution(
+        functionId: 'gemini_ai',
+        body: jsonEncode({
+          'image': base64Image,
+          'prompt': 'Please analyze this handwriting or drawing and provide a helpful response.',
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (execution.status.name == 'completed') {
+        final responseBody = jsonDecode(execution.responseBody);
+        setState(() {
+          _aiLoading = false;
+          _aiAnswer = responseBody['text']?.toString() ?? 'No response';
+        });
+      } else {
+        throw Exception('Function execution failed: ${execution.responseBody}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _aiLoading = false;
+        _aiAnswer = 'Error: $e';
+      });
+    }
   }
 
   bool _applyEraserPoint(Offset position, DrawingTool tool) {

@@ -45,7 +45,6 @@ class InkNotesLocalStorage {
           CREATE TABLE $_notesTable (
             id TEXT PRIMARY KEY,
             user_id TEXT,
-            parent_id TEXT,
             title TEXT NOT NULL,
             paper_style TEXT NOT NULL,
             page_data TEXT NOT NULL,
@@ -83,6 +82,7 @@ class InkNotesLocalStorage {
         if (oldVersion < 4) {
           await db.execute(
             'ALTER TABLE $_notesTable ADD COLUMN parent_id TEXT',
+            // No longer used, but keeping migration history
           );
         }
       },
@@ -132,7 +132,6 @@ class InkNotesLocalStorage {
     final map = <String, Object?>{
       'id': dto.id,
       'user_id': dto.userId,
-      'parent_id': dto.parentId,
       'title': dto.title,
       'paper_style': dto.paperStyle,
       'page_data': dto.pageData,
@@ -164,7 +163,6 @@ class InkNotesLocalStorage {
     final map = <String, Object?>{
       'id': dto.id,
       'user_id': dto.userId,
-      'parent_id': dto.parentId,
       'title': dto.title,
       'paper_style': dto.paperStyle,
       'page_data': dto.pageData,
@@ -199,7 +197,6 @@ class InkNotesLocalStorage {
   InkNote? _rowToInkNote(Map<String, Object?> row) {
     try {
       final id = row['id'] as String?;
-      final parentId = row['parent_id'] as String?;
       final title = row['title'] as String? ?? '';
       final paperStyle = row['paper_style'] as String? ?? 'plain';
       final pageData = row['page_data'] as String? ?? '';
@@ -222,7 +219,6 @@ class InkNotesLocalStorage {
       final dto = InkNoteDto(
         id: id ?? '',
         userId: row['user_id'] as String? ?? '',
-        parentId: parentId,
         title: title,
         paperStyle: paperStyle,
         pageData: pageData,

@@ -10,7 +10,6 @@ class InkNoteDto {
   InkNoteDto({
     required this.id,
     required this.userId,
-    this.parentId,
     required this.title,
     required this.paperStyle,
     required this.pageData,
@@ -25,7 +24,6 @@ class InkNoteDto {
       InkNoteDto(
         id: note.id,
         userId: userId,
-        parentId: note.parentId,
         title: note.title,
         paperStyle: note.paperStyle.name,
         pageData: InkNotePageCodec.encode(
@@ -45,9 +43,6 @@ class InkNoteDto {
 
   /// Benutzerkennung, dem die Notiz gehört.
   final String userId;
-
-  /// ID der übergeordneten Notiz (falls vorhanden).
-  final String? parentId;
 
   /// Titel der Notiz.
   final String title;
@@ -90,7 +85,6 @@ class InkNoteDto {
 
     return InkNote(
       id: id,
-      parentId: parentId,
       title: title,
       updatedAt: updatedAt.toLocal(),
       pages: effectivePages,
@@ -102,7 +96,6 @@ class InkNoteDto {
   /// Gibt die Daten als Map zur Verwendung im Appwrite-SDK zurück.
   Map<String, dynamic> toMap() => <String, dynamic>{
     'user_id': userId,
-    'parent_id': parentId,
     'title': title,
     'paper_style': paperStyle,
     'page_data': pageData,

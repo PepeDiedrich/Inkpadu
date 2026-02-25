@@ -36,7 +36,6 @@ class AppwriteConfig {
   static const String callbackUrl = '$callbackScheme://$callbackHost:$callbackPort$callbackPath';
 
   static final Client _client = Client()
-    // TODO: Passe Endpoint & Projekt-ID an.
     ..setEndpoint(endpoint)
     ..setProject(projectId);
 

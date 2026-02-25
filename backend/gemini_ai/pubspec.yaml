@@ -1,0 +1,8 @@
+name: gemini_ai
+description: Appwrite function to call Google Gemini
+version: 1.0.0
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  dart_appwrite: any
+  google_generative_ai: any
