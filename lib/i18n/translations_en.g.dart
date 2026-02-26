@@ -137,7 +137,6 @@ class _TranslationsNotesEn extends TranslationsNotesDe {
 	// Translations
 	@override String get title => 'Notes';
 	@override String get newNote => 'New note';
-	@override String get createSubNote => 'Create sub-note';
 	@override String get untitled => 'Untitled';
 	@override String get unnamed => 'Unnamed note';
 	@override String get noContent => 'No content yet';
@@ -171,6 +170,7 @@ class _TranslationsDrawingEn extends TranslationsDrawingDe {
 	@override String get eraser => 'Eraser';
 	@override String get select => 'Select';
 	@override String get lasso => 'Lasso';
+	@override String get aiLasso => 'AI Lasso';
 	@override String get undo => 'Undo';
 	@override String get redo => 'Redo';
 	@override String get clear => 'Clear';
@@ -224,6 +224,7 @@ class _TranslationsAiEn extends TranslationsAiDe {
 	@override String get analyzingSelection => 'Analyzing selection…';
 	@override String get noSelection => 'Please select something with the lasso first.';
 	@override String get helpMeNotConfigured => 'AI is not configured yet.';
+	@override String get askFollowUp => 'Ask a follow-up question...';
 	@override String get persona => 'AI Assistant Persona';
 	@override String get personaSubtitle => 'Choose assistant style';
 }
@@ -364,6 +365,16 @@ class _TranslationsEditorEn extends TranslationsEditorDe {
 	@override String get yourSystemPrompt => 'Your system prompt';
 	@override String get systemPromptPlaceholder => 'Describe how the assistant should behave…';
 	@override String get systemPromptHint => 'The system prompt defines the assistant\'s personality and behavior for all requests.';
+	@override String get editSystemPrompt => 'Edit system prompt';
+	@override String get aiShortcuts => 'AI shortcuts';
+	@override String get aiShortcutsHint => 'Define three quick actions that appear as buttons in the AI dialog.';
+	@override String aiShortcut({required Object index}) => 'Shortcut ${index}';
+	@override String editShortcut({required Object index}) => 'Edit shortcut ${index}';
+	@override String get shortcutTitle => 'Button title';
+	@override String get shortcutPrompt => 'Prompt';
+	@override String get aiShortcutPrompt1 => 'Review my solution step by step and mark mistakes directly in the selection.';
+	@override String get aiShortcutPrompt2 => 'Explain the marked part simply and give me one short example.';
+	@override String get aiShortcutPrompt3 => 'Give me three concrete improvements for this selection.';
 	@override String get currentStyle => 'Current style';
 	@override String get strictTrainerDescription => 'The assistant gives you hard, direct feedback. It accepts no mediocrity and motivates you to peak performance through constructive criticism.';
 	@override String get encouragingMentorDescription => 'The assistant praises your progress and gives you encouraging feedback. Mistakes are presented as learning opportunities.';
@@ -443,7 +454,6 @@ extension on TranslationsEn {
 			'nav.settings' => 'Settings',
 			'notes.title' => 'Notes',
 			'notes.newNote' => 'New note',
-			'notes.createSubNote' => 'Create sub-note',
 			'notes.untitled' => 'Untitled',
 			'notes.unnamed' => 'Unnamed note',
 			'notes.noContent' => 'No content yet',
@@ -468,6 +478,7 @@ extension on TranslationsEn {
 			'drawing.eraser' => 'Eraser',
 			'drawing.select' => 'Select',
 			'drawing.lasso' => 'Lasso',
+			'drawing.aiLasso' => 'AI Lasso',
 			'drawing.undo' => 'Undo',
 			'drawing.redo' => 'Redo',
 			'drawing.clear' => 'Clear',
@@ -503,6 +514,7 @@ extension on TranslationsEn {
 			'ai.analyzingSelection' => 'Analyzing selection…',
 			'ai.noSelection' => 'Please select something with the lasso first.',
 			'ai.helpMeNotConfigured' => 'AI is not configured yet.',
+			'ai.askFollowUp' => 'Ask a follow-up question...',
 			'ai.persona' => 'AI Assistant Persona',
 			'ai.personaSubtitle' => 'Choose assistant style',
 			'pdf.import' => 'Import PDF',
@@ -598,6 +610,16 @@ extension on TranslationsEn {
 			'editor.yourSystemPrompt' => 'Your system prompt',
 			'editor.systemPromptPlaceholder' => 'Describe how the assistant should behave…',
 			'editor.systemPromptHint' => 'The system prompt defines the assistant\'s personality and behavior for all requests.',
+			'editor.editSystemPrompt' => 'Edit system prompt',
+			'editor.aiShortcuts' => 'AI shortcuts',
+			'editor.aiShortcutsHint' => 'Define three quick actions that appear as buttons in the AI dialog.',
+			'editor.aiShortcut' => ({required Object index}) => 'Shortcut ${index}',
+			'editor.editShortcut' => ({required Object index}) => 'Edit shortcut ${index}',
+			'editor.shortcutTitle' => 'Button title',
+			'editor.shortcutPrompt' => 'Prompt',
+			'editor.aiShortcutPrompt1' => 'Review my solution step by step and mark mistakes directly in the selection.',
+			'editor.aiShortcutPrompt2' => 'Explain the marked part simply and give me one short example.',
+			'editor.aiShortcutPrompt3' => 'Give me three concrete improvements for this selection.',
 			'editor.currentStyle' => 'Current style',
 			'editor.strictTrainerDescription' => 'The assistant gives you hard, direct feedback. It accepts no mediocrity and motivates you to peak performance through constructive criticism.',
 			'editor.encouragingMentorDescription' => 'The assistant praises your progress and gives you encouraging feedback. Mistakes are presented as learning opportunities.',

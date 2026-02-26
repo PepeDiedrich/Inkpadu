@@ -144,15 +144,15 @@ class DrawingToolDefaults {
       usePressure: false,
     ),
     DrawingTool(
-      id: 'lasso',
-      label: 'lasso',
-      icon: Icons.select_all,
-      color: Colors.black,
+      id: 'ai-lasso',
+      label: 'aiLasso',
+      icon: Icons.auto_awesome,
+      color: Colors.deepPurple,
       baseWidth: 2,
       usePressure: false,
     ),
   ];
 
-  /// ID des Lasso-Tools.
-  static const String lassoId = 'lasso';
+  /// ID des KI-Lasso-Tools.
+  static const String aiLassoId = 'ai-lasso';
 }

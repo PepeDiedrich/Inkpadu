@@ -3,10 +3,28 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 
+/// Repräsentiert das Ergebnis eines gerenderten Bildes.
+class RenderedImageResult {
+  /// Erstellt ein neues [RenderedImageResult].
+  RenderedImageResult(this.base64Image, this.bounds);
+
+  /// Das gerenderte Bild als Base64-String.
+  final String base64Image;
+
+  /// Die Begrenzungen des gerenderten Bildes.
+  final Rect bounds;
+}
+
 /// Helper class to render strokes to an image.
 class StrokeRenderer {
   /// Renders a list of strokes to a base64 encoded PNG image.
   static Future<String?> renderStrokesToBase64(List<Stroke> strokes) async {
+    final result = await renderStrokesToImageResult(strokes);
+    return result?.base64Image;
+  }
+
+  /// Renders a list of strokes to a base64 encoded PNG image and returns the bounds.
+  static Future<RenderedImageResult?> renderStrokesToImageResult(List<Stroke> strokes) async {
     if (strokes.isEmpty) return null;
 
     // Calculate bounding box of all strokes
@@ -89,6 +107,9 @@ class StrokeRenderer {
     if (byteData == null) return null;
 
     final bytes = byteData.buffer.asUint8List();
-    return base64Encode(bytes);
+    return RenderedImageResult(
+      base64Encode(bytes),
+      Rect.fromLTWH(minX, minY, width, height),
+    );
   }
 }

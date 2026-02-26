@@ -227,14 +227,20 @@ class DrawingToolPreferencesRepository {
       final List<DrawingTool> stored = <DrawingTool>[];
       for (final dynamic entry in decoded) {
         if (entry is Map<String, dynamic>) {
-          stored.add(DrawingTool.fromJson(entry));
+          final tool = DrawingTool.fromJson(entry);
+          if (tool.id != 'lasso') {
+            stored.add(tool);
+          }
           continue;
         }
         if (entry is Map) {
           final map = entry.map(
             (key, value) => MapEntry(key.toString(), value),
           );
-          stored.add(DrawingTool.fromJson(map));
+          final tool = DrawingTool.fromJson(map);
+          if (tool.id != 'lasso') {
+            stored.add(tool);
+          }
           continue;
         }
         if (kDebugMode) {

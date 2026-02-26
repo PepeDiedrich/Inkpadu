@@ -101,7 +101,7 @@ class _ToolChipState extends State<_ToolChip> {
                 ? colorScheme.onSurfaceVariant
                 : iconColor);
 
-    final bool isLasso = widget.tool.id == DrawingToolDefaults.lassoId;
+    final bool isLasso = widget.tool.id == DrawingToolDefaults.aiLassoId;
     final String tooltipMessage = isLasso
         ? context.t.drawing.lasso
         : '${widget.tool.label} · ${widget.tool.baseWidth.toStringAsFixed(1)} px';

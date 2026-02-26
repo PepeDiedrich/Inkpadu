@@ -109,7 +109,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
     final controller = _controller;
     if (controller == null) return;
 
-    if (tool.id == DrawingToolDefaults.lassoId) {
+    if (tool.id == DrawingToolDefaults.aiLassoId) {
       return;
     }
 

@@ -9,6 +9,31 @@ enum EditorSidebarSide {
   right,
 }
 
+/// Repräsentiert einen KI-Prompt mit ID, Titel und dem eigentlichen Prompt-Text.
+class AiPrompt {
+  /// Erstellt einen neuen [AiPrompt].
+  const AiPrompt({required this.id, required this.title, required this.prompt});
+
+  /// Die eindeutige ID des Prompts.
+  final String id;
+
+  /// Der Titel des Prompts.
+  final String title;
+
+  /// Der eigentliche Prompt-Text.
+  final String prompt;
+
+  /// Konvertiert den Prompt in ein JSON-Format.
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'prompt': prompt};
+
+  /// Erstellt einen [AiPrompt] aus einem JSON-Format.
+  factory AiPrompt.fromJson(Map<String, dynamic> json) => AiPrompt(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        prompt: json['prompt'] as String,
+      );
+}
+
 /// Einstellungen für den Notiz-Editor.
 class EditorSettings extends ChangeNotifier {
   /// Erstellt neue [EditorSettings] mit optionalen Vorgaben.
@@ -18,6 +43,8 @@ class EditorSettings extends ChangeNotifier {
     this.lineSimplifierStrength = 0.25,
     this.lineSimplifierMinTolerance = 0.3,
     this.debugModeEnabled = false,
+    this.aiSystemPrompt = '',
+    this.aiPrompts = const [],
   });
 
   /// `true`, wenn Debug-Overlays im Editor angezeigt werden sollen.
@@ -37,6 +64,12 @@ class EditorSettings extends ChangeNotifier {
   /// Wertebereich: >= 0.05.
   double lineSimplifierMinTolerance;
 
+  /// Liste der benutzerdefinierten AI-Prompts.
+  List<AiPrompt> aiPrompts;
+
+  /// Optionales System-Prompt für den KI-Assistenten.
+  String aiSystemPrompt;
+
   /// Convenience: `true`, wenn das Panel links erscheinen soll.
   bool get isPanelOnLeft => sidebarSide == EditorSidebarSide.left;
 
@@ -50,6 +83,8 @@ class EditorSettings extends ChangeNotifier {
     double? lineSimplifierStrength,
     double? lineSimplifierMinTolerance,
     bool? debugModeEnabled,
+    String? aiSystemPrompt,
+    List<AiPrompt>? aiPrompts,
   }) {
     var hasChanged = false;
     if (sidebarSide != null && sidebarSide != this.sidebarSide) {
@@ -76,6 +111,14 @@ class EditorSettings extends ChangeNotifier {
     }
     if (debugModeEnabled != null && debugModeEnabled != this.debugModeEnabled) {
       this.debugModeEnabled = debugModeEnabled;
+      hasChanged = true;
+    }
+    if (aiSystemPrompt != null && aiSystemPrompt != this.aiSystemPrompt) {
+      this.aiSystemPrompt = aiSystemPrompt;
+      hasChanged = true;
+    }
+    if (aiPrompts != null) {
+      this.aiPrompts = aiPrompts;
       hasChanged = true;
     }
     if (hasChanged) {

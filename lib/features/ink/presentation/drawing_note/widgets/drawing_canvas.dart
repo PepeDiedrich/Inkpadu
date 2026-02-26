@@ -14,9 +14,22 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+/// Repräsentiert eine Bounding Box für KI-Ergebnisse.
+class AiBoundingBox {
+  /// Erstellt eine neue [AiBoundingBox].
+  const AiBoundingBox(this.rect, this.color);
+
+  /// Das Rechteck der Bounding Box.
+  final Rect rect;
+
+  /// Die Farbe der Bounding Box.
+  final Color color;
+}
 
 /// Zeichenfläche, die Eingaben an den [DrawingController] weiterleitet und
 /// dynamisch in der Höhe wächst.
@@ -116,9 +129,15 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     bool _aiPanelOpen = false;
     bool _aiLoading = false;
     String? _aiAnswer;
+    Offset _aiPanelPosition = const Offset(16, 16);
+    List<AiBoundingBox> _aiBoundingBoxes = const <AiBoundingBox>[];
+    final TextEditingController _aiChatController = TextEditingController();
 
     bool get _isLassoTool =>
-      widget.currentTool.id == DrawingToolDefaults.lassoId;
+      widget.currentTool.id == DrawingToolDefaults.aiLassoId;
+
+    bool get _isAiLassoTool =>
+      widget.currentTool.id == DrawingToolDefaults.aiLassoId;
 
   @override
   void initState() {
@@ -169,6 +188,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _lassoPoints.clear();
     _selectedStrokeIndices.clear();
     _selectedStrokeBounds = const <Rect>[];
+    _aiBoundingBoxes = const <AiBoundingBox>[];
     if (closeAiPanel) {
       _aiPanelOpen = false;
       _aiLoading = false;
@@ -180,6 +200,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void dispose() {
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
+    _aiChatController.dispose();
     super.dispose();
   }
 
@@ -495,9 +516,17 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         ..add(details.localPosition);
       _selectedStrokeIndices.clear();
       _selectedStrokeBounds = const <Rect>[];
+      _aiBoundingBoxes = const <AiBoundingBox>[];
       widget.onRequestParentScrollLock?.call(true);
       setState(() {});
       return;
+    }
+
+    // Close AI panel when starting to draw
+    if (_aiPanelOpen) {
+      setState(() {
+        _aiPanelOpen = false;
+      });
     }
 
     if (tool.isEraser) {
@@ -705,10 +734,23 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ..clear()
           ..addAll(selection.indices);
         _selectedStrokeBounds = selection.bounds;
+        
+        if (_isAiLassoTool && _selectedStrokeIndices.isNotEmpty) {
+          setState(() {
+            _aiPanelOpen = true;
+            _aiLoading = false;
+            _aiAnswer = null;
+            _aiBoundingBoxes = const <AiBoundingBox>[];
+          });
+        }
       } else {
         _selectedStrokeIndices.clear();
         _selectedStrokeBounds = const <Rect>[];
       }
+      
+      // Clear lasso points so the drawn circle disappears
+      _lassoPoints.clear();
+      
       setState(() {});
       return;
     }
@@ -860,7 +902,100 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return inside;
   }
 
-  Future<void> _openAiPanel() async {
+  List<AiPrompt> _defaultAiShortcuts() => <AiPrompt>[
+        AiPrompt(
+          id: 'ai-shortcut-1',
+          title: context.t.editor.aiShortcut(index: 1),
+          prompt: context.t.editor.aiShortcutPrompt1,
+        ),
+        AiPrompt(
+          id: 'ai-shortcut-2',
+          title: context.t.editor.aiShortcut(index: 2),
+          prompt: context.t.editor.aiShortcutPrompt2,
+        ),
+        AiPrompt(
+          id: 'ai-shortcut-3',
+          title: context.t.editor.aiShortcut(index: 3),
+          prompt: context.t.editor.aiShortcutPrompt3,
+        ),
+      ];
+
+  List<AiPrompt> _resolveAiShortcuts(List<AiPrompt> source) {
+    final defaults = _defaultAiShortcuts();
+    final List<AiPrompt> result = <AiPrompt>[];
+    for (var i = 0; i < 3; i++) {
+      final fallback = defaults[i];
+      final existing = i < source.length ? source[i] : fallback;
+      final title = existing.title.trim().isEmpty ? fallback.title : existing.title;
+      final prompt = existing.prompt.trim().isEmpty
+          ? fallback.prompt
+          : existing.prompt;
+      result.add(AiPrompt(id: fallback.id, title: title, prompt: prompt));
+    }
+    return result;
+  }
+
+  Color _parseAiBoxColor(dynamic rawColor) {
+    final String input = rawColor?.toString().trim() ?? '';
+    if (input.isEmpty) {
+      return Colors.red;
+    }
+
+    String normalized = input.toLowerCase();
+    normalized = normalized.replaceAll('"', '');
+
+    String hex = normalized.replaceAll('#', '');
+    if (hex.startsWith('0x')) {
+      hex = hex.substring(2);
+    }
+
+    if (hex.length == 3) {
+      hex = hex.split('').map((char) => '$char$char').join();
+    }
+
+    if (hex.length == 6) {
+      final int? rgb = int.tryParse(hex, radix: 16);
+      if (rgb != null) {
+        final Color color = Color(0xFF000000 | rgb);
+        return color.toARGB32() == Colors.white.toARGB32() ? Colors.black : color;
+      }
+    }
+
+    if (hex.length == 8) {
+      final int? argb = int.tryParse(hex, radix: 16);
+      if (argb != null) {
+        final Color color = Color(argb);
+        return color.toARGB32() == Colors.white.toARGB32() ? Colors.black : color;
+      }
+    }
+
+    switch (normalized) {
+      case 'green':
+        return Colors.green;
+      case 'blue':
+        return Colors.blue;
+      case 'yellow':
+        return Colors.yellow;
+      case 'orange':
+        return Colors.orange;
+      case 'purple':
+        return Colors.purple;
+      case 'pink':
+        return Colors.pink;
+      case 'cyan':
+        return Colors.cyan;
+      case 'magenta':
+        return const Color(0xFFFF00FF);
+      case 'black':
+      case 'white':
+        return Colors.black;
+      case 'red':
+      default:
+        return Colors.red;
+    }
+  }
+
+  Future<void> _openAiPanel([AiPrompt? prompt, String? customPrompt]) async {
     if (!_isLassoTool || _selectedStrokeIndices.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -873,25 +1008,34 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _aiPanelOpen = true;
       _aiLoading = true;
       _aiAnswer = null;
+      _aiBoundingBoxes = const <AiBoundingBox>[];
     });
+
+    final editorSettings = EditorSettingsScope.of(context);
+    final String selectedPrompt =
+        customPrompt ?? prompt?.prompt ?? 'Please analyze this handwriting or drawing and provide a helpful response.';
+    final String systemPrompt = editorSettings.aiSystemPrompt.trim();
+    final String effectivePrompt = systemPrompt.isEmpty
+        ? selectedPrompt
+        : 'System instruction:\n$systemPrompt\n\nUser request:\n$selectedPrompt';
 
     try {
       final selectedStrokes = _selectedStrokeIndices
           .map((i) => widget.drawingController.strokes[i])
           .toList();
 
-      final base64Image = await StrokeRenderer.renderStrokesToBase64(selectedStrokes);
+      final renderResult = await StrokeRenderer.renderStrokesToImageResult(selectedStrokes);
 
-      if (base64Image == null) {
+      if (renderResult == null) {
         throw Exception('Could not render strokes to image');
       }
 
       final functions = appwrite.Functions(AppwriteConfig.client);
       final execution = await functions.createExecution(
-        functionId: 'gemini_ai',
+        functionId: '699f260b003cfa670c2c',
         body: jsonEncode({
-          'image': base64Image,
-          'prompt': 'Please analyze this handwriting or drawing and provide a helpful response.',
+          'image': renderResult.base64Image,
+          'prompt': effectivePrompt,
         }),
       );
 
@@ -899,9 +1043,32 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
       if (execution.status.name == 'completed') {
         final responseBody = jsonDecode(execution.responseBody);
+        
+        final List<AiBoundingBox> parsedBoxes = [];
+        if (responseBody['boxes'] != null && responseBody['boxes'] is Iterable) {
+          for (final box in responseBody['boxes'] as Iterable) {
+            final ymin = (box['ymin'] as num).toDouble() / 1000.0;
+            final xmin = (box['xmin'] as num).toDouble() / 1000.0;
+            final ymax = (box['ymax'] as num).toDouble() / 1000.0;
+            final xmax = (box['xmax'] as num).toDouble() / 1000.0;
+            
+            final rect = Rect.fromLTRB(
+              renderResult.bounds.left + xmin * renderResult.bounds.width,
+              renderResult.bounds.top + ymin * renderResult.bounds.height,
+              renderResult.bounds.left + xmax * renderResult.bounds.width,
+              renderResult.bounds.top + ymax * renderResult.bounds.height,
+            );
+            
+            final Color boxColor = _parseAiBoxColor(box['color']);
+            
+            parsedBoxes.add(AiBoundingBox(rect, boxColor));
+          }
+        }
+
         setState(() {
           _aiLoading = false;
           _aiAnswer = responseBody['text']?.toString() ?? 'No response';
+          _aiBoundingBoxes = parsedBoxes;
         });
       } else {
         throw Exception('Function execution failed: ${execution.responseBody}');
@@ -1009,6 +1176,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                             painter: _LassoSelectionPainter(
                               lassoPoints: _lassoPoints,
                               selectedStrokeBounds: _selectedStrokeBounds,
+                              aiBoundingBoxes: _aiBoundingBoxes,
                               selectionColor: scheme.primary,
                               lassoColor: scheme.primary,
                             ),
@@ -1025,40 +1193,38 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       ),
     );
 
-    final bool showHelpButton =
+    final editorSettings = EditorSettingsScope.of(context);
+    final aiShortcuts = _resolveAiShortcuts(editorSettings.aiPrompts);
+    final bool showShortcutPanel =
         _isLassoTool && _selectedStrokeIndices.isNotEmpty;
 
     return Stack(
       children: [
         scrollableCanvas,
-        if (showHelpButton)
-          Positioned(
-            right: 16,
-            bottom: 104,
-            child: FilledButton.icon(
-              onPressed: _openAiPanel,
-              icon: const Icon(Icons.auto_awesome),
-              label: Text(context.t.ai.helpMe),
-            ),
-          ),
         if (_aiPanelOpen)
           Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
+            top: _aiPanelPosition.dy,
+            left: _aiPanelPosition.dx,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Card(
+                elevation: 8,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      GestureDetector(
+                        onPanUpdate: (details) {
+                          setState(() {
+                            _aiPanelPosition += details.delta;
+                          });
+                        },
+                        child: Row(
                           children: [
+                            const Icon(Icons.drag_indicator, color: Colors.grey),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 context.t.ai.helpMeTitle,
@@ -1076,30 +1242,88 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (showShortcutPanel) ...[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final prompt in aiShortcuts)
+                              FilledButton.tonalIcon(
+                                onPressed: _aiLoading
+                                    ? null
+                                    : () => _openAiPanel(prompt),
+                                icon: const Icon(Icons.flash_on),
+                                label: Text(prompt.title),
+                              ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
-                        if (_aiLoading)
-                          Row(
-                            children: [
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(child: Text(context.t.ai.analyzingSelection)),
-                            ],
-                          )
-                        else
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 240),
-                            child: SingleChildScrollView(
-                              child: SelectableText(
-                                _aiAnswer ?? '',
-                              ),
+                      ],
+                      if (_aiLoading)
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text(context.t.ai.analyzingSelection)),
+                          ],
+                        )
+                      else if (_aiAnswer != null)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 400),
+                          child: SingleChildScrollView(
+                            child: MathRichText(
+                              text: _aiAnswer!,
                             ),
                           ),
+                        ),
+                      if (!_aiLoading) ...[
+                        if (_aiAnswer != null) const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _aiChatController,
+                                decoration: InputDecoration(
+                                  hintText: context.t.ai.askFollowUp,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                onSubmitted: (value) {
+                                  if (value.trim().isNotEmpty) {
+                                    _openAiPanel(null, value.trim());
+                                    _aiChatController.clear();
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.send),
+                              color: Theme.of(context).colorScheme.primary,
+                              onPressed: () {
+                                final text = _aiChatController.text.trim();
+                                if (text.isNotEmpty) {
+                                  _openAiPanel(null, text);
+                                  _aiChatController.clear();
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -1114,13 +1338,16 @@ class _LassoSelectionPainter extends CustomPainter {
   _LassoSelectionPainter({
     required List<Offset> lassoPoints,
     required List<Rect> selectedStrokeBounds,
+    required List<AiBoundingBox> aiBoundingBoxes,
     required this.selectionColor,
     required this.lassoColor,
   })  : lassoPoints = List<Offset>.unmodifiable(lassoPoints),
-        selectedStrokeBounds = List<Rect>.unmodifiable(selectedStrokeBounds);
+        selectedStrokeBounds = List<Rect>.unmodifiable(selectedStrokeBounds),
+        aiBoundingBoxes = List<AiBoundingBox>.unmodifiable(aiBoundingBoxes);
 
   final List<Offset> lassoPoints;
   final List<Rect> selectedStrokeBounds;
+  final List<AiBoundingBox> aiBoundingBoxes;
   final Color selectionColor;
   final Color lassoColor;
 
@@ -1131,10 +1358,38 @@ class _LassoSelectionPainter extends CustomPainter {
         ..color = selectionColor.withValues(alpha: 0.55)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
+      
+      double minX = double.infinity;
+      double minY = double.infinity;
+      double maxX = double.negativeInfinity;
+      double maxY = double.negativeInfinity;
+
       for (final rect in selectedStrokeBounds) {
+        if (rect.left < minX) minX = rect.left;
+        if (rect.top < minY) minY = rect.top;
+        if (rect.right > maxX) maxX = rect.right;
+        if (rect.bottom > maxY) maxY = rect.bottom;
+      }
+
+      if (minX != double.infinity) {
+        final combinedRect = Rect.fromLTRB(minX, minY, maxX, maxY);
         final rrect = RRect.fromRectAndRadius(
-          rect.inflate(6),
+          combinedRect.inflate(6),
           const Radius.circular(10),
+        );
+        canvas.drawRRect(rrect, paint);
+      }
+    }
+
+    if (aiBoundingBoxes.isNotEmpty) {
+      for (final aiBox in aiBoundingBoxes) {
+        final paint = Paint()
+          ..color = aiBox.color.withValues(alpha: 0.8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3;
+        final rrect = RRect.fromRectAndRadius(
+          aiBox.rect.inflate(4),
+          const Radius.circular(8),
         );
         canvas.drawRRect(rrect, paint);
       }
@@ -1157,6 +1412,7 @@ class _LassoSelectionPainter extends CustomPainter {
   bool shouldRepaint(covariant _LassoSelectionPainter oldDelegate) =>
       oldDelegate.lassoPoints != lassoPoints ||
       oldDelegate.selectedStrokeBounds != selectedStrokeBounds ||
+      oldDelegate.aiBoundingBoxes != aiBoundingBoxes ||
       oldDelegate.selectionColor != selectionColor ||
       oldDelegate.lassoColor != lassoColor;
 }

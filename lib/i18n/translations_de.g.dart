@@ -217,9 +217,6 @@ class TranslationsNotesDe {
 	/// de: 'Neue Notiz'
 	String get newNote => 'Neue Notiz';
 
-	/// de: 'Unternotiz erstellen'
-	String get createSubNote => 'Unternotiz erstellen';
-
 	/// de: 'Ohne Titel'
 	String get untitled => 'Ohne Titel';
 
@@ -318,6 +315,9 @@ class TranslationsDrawingDe {
 
 	/// de: 'Lasso'
 	String get lasso => 'Lasso';
+
+	/// de: 'KI Lasso'
+	String get aiLasso => 'KI Lasso';
 
 	/// de: 'Rückgängig'
 	String get undo => 'Rückgängig';
@@ -441,6 +441,9 @@ class TranslationsAiDe {
 
 	/// de: 'Die KI ist noch nicht konfiguriert.'
 	String get helpMeNotConfigured => 'Die KI ist noch nicht konfiguriert.';
+
+	/// de: 'Stelle eine Folgefrage...'
+	String get askFollowUp => 'Stelle eine Folgefrage...';
 
 	/// de: 'KI-Assistent Persona'
 	String get persona => 'KI-Assistent Persona';
@@ -772,6 +775,36 @@ class TranslationsEditorDe {
 	/// de: 'Das System-Prompt definiert die Persönlichkeit und das Verhalten des Assistenten bei allen Anfragen.'
 	String get systemPromptHint => 'Das System-Prompt definiert die Persönlichkeit und das Verhalten des Assistenten bei allen Anfragen.';
 
+	/// de: 'System-Prompt bearbeiten'
+	String get editSystemPrompt => 'System-Prompt bearbeiten';
+
+	/// de: 'KI-Shortcuts'
+	String get aiShortcuts => 'KI-Shortcuts';
+
+	/// de: 'Lege drei Schnellaktionen fest, die im KI-Dialog als Buttons erscheinen.'
+	String get aiShortcutsHint => 'Lege drei Schnellaktionen fest, die im KI-Dialog als Buttons erscheinen.';
+
+	/// de: 'Shortcut ${index}'
+	String aiShortcut({required Object index}) => 'Shortcut ${index}';
+
+	/// de: 'Shortcut ${index} bearbeiten'
+	String editShortcut({required Object index}) => 'Shortcut ${index} bearbeiten';
+
+	/// de: 'Button-Titel'
+	String get shortcutTitle => 'Button-Titel';
+
+	/// de: 'Prompt'
+	String get shortcutPrompt => 'Prompt';
+
+	/// de: 'Prüfe meine Lösung Schritt für Schritt und markiere Fehler direkt in der Auswahl.'
+	String get aiShortcutPrompt1 => 'Prüfe meine Lösung Schritt für Schritt und markiere Fehler direkt in der Auswahl.';
+
+	/// de: 'Erkläre die markierte Stelle einfach und gib mir ein kurzes Beispiel.'
+	String get aiShortcutPrompt2 => 'Erkläre die markierte Stelle einfach und gib mir ein kurzes Beispiel.';
+
+	/// de: 'Gib mir drei konkrete Verbesserungen für diese Auswahl.'
+	String get aiShortcutPrompt3 => 'Gib mir drei konkrete Verbesserungen für diese Auswahl.';
+
 	/// de: 'Aktueller Stil'
 	String get currentStyle => 'Aktueller Stil';
 
@@ -892,7 +925,6 @@ extension on Translations {
 			'nav.settings' => 'Einstellungen',
 			'notes.title' => 'Notizen',
 			'notes.newNote' => 'Neue Notiz',
-			'notes.createSubNote' => 'Unternotiz erstellen',
 			'notes.untitled' => 'Ohne Titel',
 			'notes.unnamed' => 'Unbenannte Notiz',
 			'notes.noContent' => 'Noch keine Inhalte',
@@ -923,6 +955,7 @@ extension on Translations {
 			'drawing.eraser' => 'Radierer',
 			'drawing.select' => 'Auswählen',
 			'drawing.lasso' => 'Lasso',
+			'drawing.aiLasso' => 'KI Lasso',
 			'drawing.undo' => 'Rückgängig',
 			'drawing.redo' => 'Wiederholen',
 			'drawing.clear' => 'Löschen',
@@ -958,6 +991,7 @@ extension on Translations {
 			'ai.analyzingSelection' => 'Auswahl wird analysiert…',
 			'ai.noSelection' => 'Bitte markiere zuerst etwas mit dem Lasso.',
 			'ai.helpMeNotConfigured' => 'Die KI ist noch nicht konfiguriert.',
+			'ai.askFollowUp' => 'Stelle eine Folgefrage...',
 			'ai.persona' => 'KI-Assistent Persona',
 			'ai.personaSubtitle' => 'Stil des Assistenten wählen',
 			'pdf.import' => 'PDF importieren',
@@ -1053,6 +1087,16 @@ extension on Translations {
 			'editor.yourSystemPrompt' => 'Dein System-Prompt',
 			'editor.systemPromptPlaceholder' => 'Beschreibe, wie sich der Assistent verhalten soll…',
 			'editor.systemPromptHint' => 'Das System-Prompt definiert die Persönlichkeit und das Verhalten des Assistenten bei allen Anfragen.',
+			'editor.editSystemPrompt' => 'System-Prompt bearbeiten',
+			'editor.aiShortcuts' => 'KI-Shortcuts',
+			'editor.aiShortcutsHint' => 'Lege drei Schnellaktionen fest, die im KI-Dialog als Buttons erscheinen.',
+			'editor.aiShortcut' => ({required Object index}) => 'Shortcut ${index}',
+			'editor.editShortcut' => ({required Object index}) => 'Shortcut ${index} bearbeiten',
+			'editor.shortcutTitle' => 'Button-Titel',
+			'editor.shortcutPrompt' => 'Prompt',
+			'editor.aiShortcutPrompt1' => 'Prüfe meine Lösung Schritt für Schritt und markiere Fehler direkt in der Auswahl.',
+			'editor.aiShortcutPrompt2' => 'Erkläre die markierte Stelle einfach und gib mir ein kurzes Beispiel.',
+			'editor.aiShortcutPrompt3' => 'Gib mir drei konkrete Verbesserungen für diese Auswahl.',
 			'editor.currentStyle' => 'Aktueller Stil',
 			'editor.strictTrainerDescription' => 'Der Assistent gibt dir hartes, direktes Feedback. Er akzeptiert keine Mittelmäßigkeit und motiviert dich durch konstruktive Kritik zu Höchstleistungen.',
 			'editor.encouragingMentorDescription' => 'Der Assistent lobt deine Fortschritte und gibt dir ermutigendes Feedback. Fehler werden als Lernmöglichkeiten dargestellt.',
