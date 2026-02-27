@@ -262,6 +262,9 @@ class TranslationsNotesDe {
 	/// de: 'Notiz öffnen'
 	String get openNote => 'Notiz öffnen';
 
+	/// de: 'Hintergrund wählen'
+	String get selectPaper => 'Hintergrund wählen';
+
 	/// de: 'Titel & Papier anpassen'
 	String get adjustTitlePaper => 'Titel & Papier anpassen';
 
@@ -940,6 +943,7 @@ extension on Translations {
 			'notes.share' => 'Teilen',
 			'notes.duplicate' => 'Duplizieren',
 			'notes.openNote' => 'Notiz öffnen',
+			'notes.selectPaper' => 'Hintergrund wählen',
 			'notes.adjustTitlePaper' => 'Titel & Papier anpassen',
 			'notes.emptyNote' => 'Leere Notiz',
 			'notes.emptyNoteSubtitle' => 'Starte mit einer leeren Seite',
