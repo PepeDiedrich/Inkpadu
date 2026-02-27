@@ -30,11 +30,6 @@ Future<void> main() async {
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
 
-  // SENTINEL: Disable logging in release mode to prevent data leakage
-  if (kReleaseMode) {
-    debugPrint = (String? message, {int? wrapWidth}) {};
-  }
-
   if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;

@@ -12,11 +12,11 @@ log_step() {
 log_step "Flutter analyze"
 flutter analyze
 
-log_step "Gemini AI: dart pub get"
-(cd backend/gemini_ai && dart pub get)
+log_step "LLM Auth: dart pub get"
+(cd backend/llm_auth && dart pub get)
 
-log_step "Gemini AI: dart analyze"
-(cd backend/gemini_ai && dart analyze)
+log_step "LLM Auth: dart analyze"
+(cd backend/llm_auth && dart analyze)
 
 log_step "Dart Code Metrics: activate"
 dart pub global activate dart_code_metrics
