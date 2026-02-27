@@ -1,11 +1,7 @@
-import 'dart:collection';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:appwrite/appwrite.dart' as appwrite;
 import 'package:flutter/rendering.dart';
-import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -16,8 +12,8 @@ import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/canvas_gesture_recognizer.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -116,32 +112,20 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   late double _canvasHeight;
   double? _desiredInitialOffset;
   double _lastScrollExpansionTrigger = -1;
-  final Map<int, Offset> _activeTouchPositions = HashMap<int, Offset>();
-  static const Duration _twoFingerTapMaxDuration = Duration(milliseconds: 260);
-  static const double _twoFingerTapMaxMovement = 22;
+  late final CanvasGestureRecognizer _gestureRecognizer;
 
-  DateTime? _twoFingerTapStart;
-  final Map<int, Offset> _twoFingerTapInitialPositions = <int, Offset>{};
-  bool _isTwoFingerScrollActive = false;
-  Offset? _lastTwoFingerFocalPoint;
   int? _activeDrawingPointerId;
   String? _activeToolDuringStrokeId;
   bool _didEraseDuringDrag = false;
   int _lastObservedVersion = 0;
-  DateTime? _threeFingerTapStart;
-  final Map<int, Offset> _threeFingerTapInitialPositions =
-      <int, Offset>{};
 
     int? _activeLassoPointerId;
     final List<Offset> _lassoPoints = <Offset>[];
     final Set<int> _selectedStrokeIndices = <int>{};
     List<Rect> _selectedStrokeBounds = const <Rect>[];
     bool _aiPanelOpen = false;
-    bool _aiLoading = false;
-    String? _aiAnswer;
     Offset _aiPanelPosition = const Offset(16, 16);
     List<AiBoundingBox> _aiBoundingBoxes = const <AiBoundingBox>[];
-    final TextEditingController _aiChatController = TextEditingController();
 
     bool get _isLassoTool =>
       widget.currentTool.id == DrawingToolDefaults.aiLassoId;
@@ -154,6 +138,11 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   @override
   void initState() {
     super.initState();
+    _gestureRecognizer = CanvasGestureRecognizer(
+      onTwoFingerUndo: _triggerTwoFingerUndo,
+      onThreeFingerRedo: _triggerThreeFingerRedo,
+      onTwoFingerScrollUpdate: _handleTwoFingerScrollUpdate,
+    );
     _canvasScrollController = ScrollController();
     _canvasHeight = _requiredCanvasHeightForStrokes(
       widget.drawingController.strokes,
@@ -203,8 +192,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _aiBoundingBoxes = const <AiBoundingBox>[];
     if (closeAiPanel) {
       _aiPanelOpen = false;
-      _aiLoading = false;
-      _aiAnswer = null;
     }
   }
 
@@ -212,7 +199,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void dispose() {
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
-    _aiChatController.dispose();
     super.dispose();
   }
 
@@ -274,145 +260,25 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     });
   }
 
-  Offset? _computeTouchFocalPoint() {
-    if (_activeTouchPositions.isEmpty) {
-      return null;
-    }
-    var focal = Offset.zero;
-    for (final position in _activeTouchPositions.values) {
-      focal += position;
-    }
-    return focal / _activeTouchPositions.length.toDouble();
-  }
-
-  // pinch distance calculation removed (no pinch-to-zoom)
-
-  void _resetTwoFingerScrollState() {
-    if (_activeTouchPositions.length < 2) {
-      _clearTwoFingerGestureState();
-      _cancelThreeFingerTapCandidate();
-    } else {
-      _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
-      // keep track of focal point for two-finger scroll
-    }
-  }
-
-  void _beginTwoFingerTapCandidate() {
-    _twoFingerTapStart = DateTime.now();
-    _twoFingerTapInitialPositions
-      ..clear()
-      ..addAll(_activeTouchPositions);
-    _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
-    _setTwoFingerScrollActive(false);
-    // initialize two-finger tap candidate
-  }
-
-  void _cancelTwoFingerTapCandidate() {
-    _twoFingerTapStart = null;
-    _twoFingerTapInitialPositions.clear();
-  }
-
-  void _beginThreeFingerTapCandidate() {
-    _threeFingerTapStart = DateTime.now();
-    _threeFingerTapInitialPositions
-      ..clear()
-      ..addAll(_activeTouchPositions);
-  }
-
-  void _cancelThreeFingerTapCandidate() {
-    _threeFingerTapStart = null;
-    _threeFingerTapInitialPositions.clear();
-  }
-
-  bool _isTwoFingerTapMovementWithinThreshold() {
-    if (_twoFingerTapStart == null || _twoFingerTapInitialPositions.isEmpty) {
-      return false;
-    }
-    final double maxSquared =
-        _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
-    for (final entry in _twoFingerTapInitialPositions.entries) {
-      final Offset? current = _activeTouchPositions[entry.key];
-      if (current == null) {
-        continue;
-      }
-      final double dx = current.dx - entry.value.dx;
-      final double dy = current.dy - entry.value.dy;
-      if ((dx * dx + dy * dy) > maxSquared) {
-        return false;
+  void _handleTwoFingerScrollUpdate(double delta) {
+    if (_canvasScrollController.hasClients) {
+      final double currentOffset = _canvasScrollController.offset;
+      final double maxOffset = _canvasScrollController.position.maxScrollExtent;
+      final double targetOffset = (currentOffset - delta).clamp(0.0, maxOffset);
+      if ((targetOffset - currentOffset).abs() > 0.01) {
+        _canvasScrollController.jumpTo(targetOffset);
       }
     }
-    return true;
-  }
-
-  bool _isTwoFingerTapWithinTimeWindow() {
-    if (_twoFingerTapStart == null) {
-      return false;
-    }
-    return DateTime.now().difference(_twoFingerTapStart!) <=
-        _twoFingerTapMaxDuration;
-  }
-
-  bool _isThreeFingerTapMovementWithinThreshold() {
-    if (_threeFingerTapStart == null ||
-        _threeFingerTapInitialPositions.isEmpty) {
-      return false;
-    }
-    final double maxSquared =
-        _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
-    for (final entry in _threeFingerTapInitialPositions.entries) {
-      final Offset? current = _activeTouchPositions[entry.key];
-      if (current == null) {
-        continue;
-      }
-      final double dx = current.dx - entry.value.dx;
-      final double dy = current.dy - entry.value.dy;
-      if ((dx * dx + dy * dy) > maxSquared) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _isThreeFingerTapWithinTimeWindow() {
-    if (_threeFingerTapStart == null) {
-      return false;
-    }
-    return DateTime.now().difference(_threeFingerTapStart!) <=
-        _twoFingerTapMaxDuration;
   }
 
   void _triggerTwoFingerUndo() {
-    _clearTwoFingerGestureState();
     Feedback.forTap(context);
     widget.onTwoFingerUndo();
   }
 
-  void _clearTwoFingerGestureState() {
-    _setTwoFingerScrollActive(false);
-    _lastTwoFingerFocalPoint = null;
-    _cancelTwoFingerTapCandidate();
-    _cancelThreeFingerTapCandidate();
-    // clear pinch/initial distance state (pinch removed)
-  }
-
   void _triggerThreeFingerRedo() {
-    _clearThreeFingerGestureState();
     Feedback.forTap(context);
     widget.onThreeFingerRedo();
-  }
-
-  void _clearThreeFingerGestureState() {
-    _cancelThreeFingerTapCandidate();
-  }
-
-  void _setTwoFingerScrollActive(bool value) {
-    if (_isTwoFingerScrollActive == value) {
-      return;
-    }
-    _isTwoFingerScrollActive = value;
-    if (value) {
-      // prepare two-finger scroll; no pinch handling
-    }
   }
 
   // Pinch-to-zoom has been removed. Two-finger scroll and two-finger-tap remain.
@@ -480,27 +346,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     bool touchAllowsDrawing = true;
 
     if (kind == PointerDeviceKind.touch) {
-      _activeTouchPositions[details.pointer] = details.localPosition;
-      final int touchCount = _activeTouchPositions.length;
-      if (touchCount >= 3) {
-        if (touchCount == 3) {
-          _beginThreeFingerTapCandidate();
-        } else {
-          _cancelThreeFingerTapCandidate();
-        }
-        _cancelTwoFingerTapCandidate();
-        _setTwoFingerScrollActive(false);
-        _lastTwoFingerFocalPoint = null;
+      _gestureRecognizer.handlePointerDown(details);
+      
+      if (_gestureRecognizer.currentTouchCount >= 3) {
         _abortDrawing();
         touchAllowsDrawing = false;
-      } else if (touchCount == 2) {
-        _cancelThreeFingerTapCandidate();
-        _beginTwoFingerTapCandidate();
+      } else if (_gestureRecognizer.currentTouchCount == 2) {
         _abortDrawing();
         touchAllowsDrawing = false;
-      } else {
-        _cancelTwoFingerTapCandidate();
-        _cancelThreeFingerTapCandidate();
       }
 
       if (!touchAllowsDrawing && !settings.accept(kind)) {
@@ -575,68 +428,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     final kind = details.kind;
 
     if (kind == PointerDeviceKind.touch) {
-      _activeTouchPositions[details.pointer] = details.localPosition;
-
-      final int touchCount = _activeTouchPositions.length;
-      if (touchCount >= 4) {
-        _cancelThreeFingerTapCandidate();
-        _cancelTwoFingerTapCandidate();
-        _setTwoFingerScrollActive(true);
-        return;
-      }
-      if (touchCount == 3) {
-        _setTwoFingerScrollActive(false);
-        _lastTwoFingerFocalPoint = null;
-        if (_threeFingerTapStart != null) {
-          final bool movedTooFar = !_isThreeFingerTapMovementWithinThreshold();
-          final bool timedOut = !_isThreeFingerTapWithinTimeWindow();
-          if (movedTooFar || timedOut) {
-            _cancelThreeFingerTapCandidate();
-          }
-        }
-        return;
-      }
-      if (touchCount == 2) {
-        if (_threeFingerTapStart != null) {
-          final bool movedTooFar = !_isThreeFingerTapMovementWithinThreshold();
-          final bool timedOut = !_isThreeFingerTapWithinTimeWindow();
-          if (movedTooFar || timedOut) {
-            _cancelThreeFingerTapCandidate();
-          } else {
-            return;
-          }
-        }
-
-        // Two-finger gestures: handle two-finger-tap candidate und Scrollen
-        if (_twoFingerTapStart != null) {
-          final bool movedTooFar = !_isTwoFingerTapMovementWithinThreshold();
-          final bool timedOut = !_isTwoFingerTapWithinTimeWindow();
-          if (movedTooFar || timedOut) {
-            _cancelTwoFingerTapCandidate();
-            _setTwoFingerScrollActive(true);
-          }
-        } else {
-          _setTwoFingerScrollActive(true);
-        }
-
-        final Offset? focal = _computeTouchFocalPoint();
-        if (_isTwoFingerScrollActive &&
-            focal != null &&
-            _lastTwoFingerFocalPoint != null &&
-            _canvasScrollController.hasClients) {
-          final double delta = focal.dy - _lastTwoFingerFocalPoint!.dy;
-          final double currentOffset = _canvasScrollController.offset;
-          final double maxOffset =
-              _canvasScrollController.position.maxScrollExtent;
-          final double targetOffset = (currentOffset - delta).clamp(
-            0.0,
-            maxOffset,
-          );
-          if ((targetOffset - currentOffset).abs() > 0.01) {
-            _canvasScrollController.jumpTo(targetOffset);
-          }
-        }
-        _lastTwoFingerFocalPoint = focal ?? _lastTwoFingerFocalPoint;
+      _gestureRecognizer.handlePointerMove(details);
+      if (_gestureRecognizer.maintainsMultipleTouches) {
         return;
       }
     }
@@ -682,53 +475,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   void _end(PointerUpEvent details) {
     if (details.kind == PointerDeviceKind.touch) {
-      _activeTouchPositions[details.pointer] = details.localPosition;
-
-      final bool twoFingerCandidate = _twoFingerTapStart != null;
-      final bool twoWithinMovement =
-          twoFingerCandidate && _isTwoFingerTapMovementWithinThreshold();
-      final bool twoWithinTime =
-          twoFingerCandidate && _isTwoFingerTapWithinTimeWindow();
-
-      final bool threeFingerCandidate = _threeFingerTapStart != null;
-      final bool threeWithinMovement = threeFingerCandidate &&
-          _isThreeFingerTapMovementWithinThreshold();
-      final bool threeWithinTime =
-          threeFingerCandidate && _isThreeFingerTapWithinTimeWindow();
-
-      _activeTouchPositions.remove(details.pointer);
-      final int remainingTouches = _activeTouchPositions.length;
-
-      final bool threeCandidateValid =
-          threeFingerCandidate && threeWithinTime && threeWithinMovement;
-
-      if (threeCandidateValid && remainingTouches == 0) {
-        _triggerThreeFingerRedo();
-        _clearTwoFingerGestureState();
+      _gestureRecognizer.handlePointerUp(details);
+      if (_gestureRecognizer.maintainsMultipleTouches) {
         return;
-      }
-
-      if (threeFingerCandidate && (!threeWithinTime || !threeWithinMovement)) {
-        _cancelThreeFingerTapCandidate();
-      }
-
-      if (threeCandidateValid && remainingTouches > 0) {
-        return;
-      }
-
-      if (twoFingerCandidate &&
-          twoWithinTime &&
-          twoWithinMovement &&
-          remainingTouches < 2 &&
-          !_isTwoFingerScrollActive) {
-        _triggerTwoFingerUndo();
-      } else if (remainingTouches < 2) {
-        _clearTwoFingerGestureState();
-      }
-
-      if (remainingTouches >= 2) {
-        // update focal point for ongoing two-finger scroll
-        _lastTwoFingerFocalPoint = _computeTouchFocalPoint();
       }
     }
 
@@ -750,9 +499,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         if (_isAiLassoTool && (_selectedStrokeIndices.isNotEmpty || _lassoPoints.length >= 3)) {
           setState(() {
             _aiPanelOpen = true;
-            _aiLoading = false;
-            _aiAnswer = null;
             _aiBoundingBoxes = const <AiBoundingBox>[];
+            _aiPanelPosition = _lassoPoints.isNotEmpty ? _lassoPoints.first : const Offset(16, 16);
           });
         }
       } else {
@@ -805,10 +553,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   void _cancel(PointerCancelEvent details) {
     if (details.kind == PointerDeviceKind.touch) {
-      _activeTouchPositions.remove(details.pointer);
-      _resetTwoFingerScrollState();
-      _cancelThreeFingerTapCandidate();
-      // pinch removed: nothing else to do
+      _gestureRecognizer.handlePointerCancel(details);
     }
 
     if (_activeDrawingPointerId == details.pointer) {
@@ -914,98 +659,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return inside;
   }
 
-  List<AiPrompt> _defaultAiShortcuts() => <AiPrompt>[
-        AiPrompt(
-          id: 'ai-shortcut-1',
-          title: context.t.editor.aiShortcut(index: 1),
-          prompt: context.t.editor.aiShortcutPrompt1,
-        ),
-        AiPrompt(
-          id: 'ai-shortcut-2',
-          title: context.t.editor.aiShortcut(index: 2),
-          prompt: context.t.editor.aiShortcutPrompt2,
-        ),
-        AiPrompt(
-          id: 'ai-shortcut-3',
-          title: context.t.editor.aiShortcut(index: 3),
-          prompt: context.t.editor.aiShortcutPrompt3,
-        ),
-      ];
 
-  List<AiPrompt> _resolveAiShortcuts(List<AiPrompt> source) {
-    final defaults = _defaultAiShortcuts();
-    final List<AiPrompt> result = <AiPrompt>[];
-    for (var i = 0; i < 3; i++) {
-      final fallback = defaults[i];
-      final existing = i < source.length ? source[i] : fallback;
-      final title = existing.title.trim().isEmpty ? fallback.title : existing.title;
-      final prompt = existing.prompt.trim().isEmpty
-          ? fallback.prompt
-          : existing.prompt;
-      result.add(AiPrompt(id: fallback.id, title: title, prompt: prompt));
-    }
-    return result;
-  }
-
-  Color _parseAiBoxColor(dynamic rawColor) {
-    final String input = rawColor?.toString().trim() ?? '';
-    if (input.isEmpty) {
-      return Colors.red;
-    }
-
-    String normalized = input.toLowerCase();
-    normalized = normalized.replaceAll('"', '');
-
-    String hex = normalized.replaceAll('#', '');
-    if (hex.startsWith('0x')) {
-      hex = hex.substring(2);
-    }
-
-    if (hex.length == 3) {
-      hex = hex.split('').map((char) => '$char$char').join();
-    }
-
-    if (hex.length == 6) {
-      final int? rgb = int.tryParse(hex, radix: 16);
-      if (rgb != null) {
-        final Color color = Color(0xFF000000 | rgb);
-        return color.toARGB32() == Colors.white.toARGB32() ? Colors.black : color;
-      }
-    }
-
-    if (hex.length == 8) {
-      final int? argb = int.tryParse(hex, radix: 16);
-      if (argb != null) {
-        final Color color = Color(argb);
-        return color.toARGB32() == Colors.white.toARGB32() ? Colors.black : color;
-      }
-    }
-
-    switch (normalized) {
-      case 'green':
-        return Colors.green;
-      case 'blue':
-        return Colors.blue;
-      case 'yellow':
-        return Colors.yellow;
-      case 'orange':
-        return Colors.orange;
-      case 'purple':
-        return Colors.purple;
-      case 'pink':
-        return Colors.pink;
-      case 'cyan':
-        return Colors.cyan;
-      case 'magenta':
-        return const Color(0xFFFF00FF);
-      case 'black':
-      case 'white':
-        return Colors.black;
-      case 'red':
-      default:
-        return Colors.red;
-    }
-  }
 
   Future<ui.Image?> _captureCanvasRegion() async {
     try {
@@ -1040,97 +694,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     } catch (e) {
       debugPrint('Error capturing canvas: $e');
       return null;
-    }
-  }
-
-  Future<void> _openAiPanel([AiPrompt? prompt, String? customPrompt]) async {
-    if (!_isLassoTool || _lassoPoints.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.t.ai.noSelection)),
-      );
-      return;
-    }
-
-    setState(() {
-      _aiPanelOpen = true;
-      _aiLoading = true;
-      _aiAnswer = null;
-      _aiBoundingBoxes = const <AiBoundingBox>[];
-    });
-
-    final editorSettings = EditorSettingsScope.of(context);
-    final String selectedPrompt =
-        customPrompt ?? prompt?.prompt ?? 'Please analyze this handwriting or drawing and provide a helpful response.';
-    final String systemPrompt = editorSettings.aiSystemPrompt.trim();
-    final String effectivePrompt = systemPrompt.isEmpty
-        ? selectedPrompt
-        : 'System instruction:\n$systemPrompt\n\nUser request:\n$selectedPrompt';
-
-    try {
-      final ui.Image? capturedImage = await _captureCanvasRegion();
-      
-      if (capturedImage == null) {
-        throw Exception('Could not render canvas to image');
-      }
-      
-      final byteData = await capturedImage.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-         throw Exception('Could not encode image data');
-      }
-      
-      final base64Image = base64Encode(byteData.buffer.asUint8List());
-      final Rect selectionBounds = _boundsOfOffsets(_lassoPoints);
-
-      final functions = appwrite.Functions(AppwriteConfig.client);
-      final execution = await functions.createExecution(
-        functionId: '699f260b003cfa670c2c',
-        body: jsonEncode({
-          'image': base64Image,
-          'prompt': effectivePrompt,
-        }),
-      );
-
-      if (!mounted) return;
-
-      if (execution.status.name == 'completed') {
-        final responseBody = jsonDecode(execution.responseBody);
-        
-        final List<AiBoundingBox> parsedBoxes = [];
-        if (responseBody['boxes'] != null && responseBody['boxes'] is Iterable) {
-          for (final box in responseBody['boxes'] as Iterable) {
-            final ymin = (box['ymin'] as num).toDouble() / 1000.0;
-            final xmin = (box['xmin'] as num).toDouble() / 1000.0;
-            final ymax = (box['ymax'] as num).toDouble() / 1000.0;
-            final xmax = (box['xmax'] as num).toDouble() / 1000.0;
-            
-            final rect = Rect.fromLTRB(
-              selectionBounds.left + xmin * selectionBounds.width,
-              selectionBounds.top + ymin * selectionBounds.height,
-              selectionBounds.left + xmax * selectionBounds.width,
-              selectionBounds.top + ymax * selectionBounds.height,
-            );
-            
-            final Color boxColor = _parseAiBoxColor(box['color']);
-            
-            parsedBoxes.add(AiBoundingBox(rect, boxColor));
-          }
-        }
-
-        setState(() {
-          _aiLoading = false;
-          _aiAnswer = responseBody['text']?.toString() ?? 'No response';
-          _aiBoundingBoxes = parsedBoxes;
-        });
-      } else {
-        throw Exception('Function execution failed: ${execution.responseBody}');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _aiLoading = false;
-        _aiAnswer = 'Error: $e';
-      });
     }
   }
 
@@ -1249,142 +812,16 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       ),
       ),
     );
-
-    final editorSettings = EditorSettingsScope.of(context);
-    final aiShortcuts = _resolveAiShortcuts(editorSettings.aiPrompts);
-    final bool showShortcutPanel =
-        _isLassoTool && _selectedStrokeIndices.isNotEmpty;
-
     return Stack(
       children: [
         scrollableCanvas,
         if (_aiPanelOpen)
-          Positioned(
-            top: _aiPanelPosition.dy,
-            left: _aiPanelPosition.dx,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Card(
-                elevation: 8,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                            _aiPanelPosition += details.delta;
-                          });
-                        },
-                        child: Row(
-                          children: [
-                            const Icon(Icons.drag_indicator, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                context.t.ai.helpMeTitle,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: context.t.common.close,
-                              onPressed: () => setState(() {
-                                _aiPanelOpen = false;
-                              }),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (showShortcutPanel) ...[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final prompt in aiShortcuts)
-                              FilledButton.tonalIcon(
-                                onPressed: _aiLoading
-                                    ? null
-                                    : () => _openAiPanel(prompt),
-                                icon: const Icon(Icons.flash_on),
-                                label: Text(prompt.title),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (_aiLoading)
-                        Row(
-                          children: [
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(context.t.ai.analyzingSelection)),
-                          ],
-                        )
-                      else if (_aiAnswer != null)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 400),
-                          child: SingleChildScrollView(
-                            child: MathRichText(
-                              text: _aiAnswer!,
-                            ),
-                          ),
-                        ),
-                      if (!_aiLoading) ...[
-                        if (_aiAnswer != null) const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _aiChatController,
-                                decoration: InputDecoration(
-                                  hintText: context.t.ai.askFollowUp,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                onSubmitted: (value) {
-                                  if (value.trim().isNotEmpty) {
-                                    _openAiPanel(null, value.trim());
-                                    _aiChatController.clear();
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.send),
-                              color: Theme.of(context).colorScheme.primary,
-                              onPressed: () {
-                                final text = _aiChatController.text.trim();
-                                if (text.isNotEmpty) {
-                                  _openAiPanel(null, text);
-                                  _aiChatController.clear();
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          AiLassoPanel(
+            initialPosition: _aiPanelPosition,
+            lassoPoints: _lassoPoints,
+            onClose: () => setState(() => _aiPanelOpen = false),
+            onAiBoxesExtracted: (List<AiBoundingBox> boxes) => setState(() => _aiBoundingBoxes = boxes),
+            captureRegion: _captureCanvasRegion,
           ),
       ],
     );
