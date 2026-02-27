@@ -9,3 +9,9 @@
 **Learning:** `List.unmodifiable(list)` always creates a NEW list (and iterates the source), which is an O(N) operation. Using this inside a getter that is called frequently (e.g., inside a `build` method or `paint` loop) causes massive garbage generation and CPU overhead.
 
 **Action:** Cache the unmodifiable view in the state object (Controller/Model) and invalidate it only when the underlying data changes. Avoid calling `List.unmodifiable` in hot loops or getters.
+
+## 2025-02-19 - Batching Rasterization with drawPath
+
+**Learning:** Drawing strokes with `canvas.drawLine` in a loop is expensive ($O(N)$ draw calls) and CPU-intensive, especially for long strokes. For constant-pressure strokes (common with mouse or generic stylus), we can pre-calculate a `Path` and draw it in a single `canvas.drawPath` call ($O(1)$ draw call), letting the GPU handle the geometry more efficiently.
+
+**Action:** Check for constant pressure in stroke data. If constant, cache a `Path` object in the domain entity and render it using `canvas.drawPath` instead of iterating segments.
