@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 
 /// Gemeinsame Low-Level Routine zum Zeichnen eines einzelnen [Stroke].
 void _paintStroke(Canvas canvas, Stroke stroke) {
-  if (stroke.points.isEmpty) return;
-
   final paint = Paint()
     ..color = stroke.isHighlighter
         ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
@@ -12,37 +10,14 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
 
-  // Optimization: If the stroke has constant pressure (common for mouse or
-  // non-pressure-sensitive styluses), we can draw the entire path at once
-  // using canvas.drawPath. This is significantly faster than drawing
-  // hundreds of individual line segments.
-  if (stroke.isConstantPressure) {
-    if (stroke.cachedPath == null) {
-      final path = Path();
-      path.moveTo(stroke.points.first.position.dx, stroke.points.first.position.dy);
-      for (var i = 1; i < stroke.points.length; i++) {
-        path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
-      }
-      stroke.cachedPath = path;
-    }
+  if (stroke.points.isEmpty) return;
 
-    // Since pressure is constant, we can use the pressure of the first point
-    // to calculate the uniform width.
-    paint.strokeWidth = stroke.baseWidth * stroke.points.first.pressure;
-    // Set strokeJoin to round to match the visual style of round-capped segments.
-    paint.strokeJoin = StrokeJoin.round;
-
-    canvas.drawPath(stroke.cachedPath!, paint);
-  } else {
-    // Fallback: For variable pressure strokes, we must draw individual segments
-    // to modulate the width at each step.
-    for (var i = 0; i < stroke.points.length - 1; i++) {
-      final p1 = stroke.points[i];
-      final p2 = stroke.points[i + 1];
-      final width = stroke.baseWidth * (p1.pressure + p2.pressure) / 2;
-      paint.strokeWidth = width;
-      canvas.drawLine(p1.position, p2.position, paint);
-    }
+  for (var i = 0; i < stroke.points.length - 1; i++) {
+    final p1 = stroke.points[i];
+    final p2 = stroke.points[i + 1];
+    final width = stroke.baseWidth * (p1.pressure + p2.pressure) / 2;
+    paint.strokeWidth = width;
+    canvas.drawLine(p1.position, p2.position, paint);
   }
 }
 
