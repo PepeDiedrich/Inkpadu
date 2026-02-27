@@ -1,3 +1,5 @@
+import 'package:ai_handwriting_app/features/ink/application/pdf_export_service.dart';
+import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
@@ -15,7 +17,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _NoteAction { open, metadata, delete }
+enum _NoteAction { open, metadata, exportPdf, delete }
 
 
 class _HomePageState extends State<HomePage> {
@@ -65,6 +67,11 @@ class _HomePageState extends State<HomePage> {
                 onTap: () => Navigator.of(context).pop(_NoteAction.metadata),
               ),
               ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: Text(context.t.pdf.export),
+                onTap: () => Navigator.of(context).pop(_NoteAction.exportPdf),
+              ),
+              ListTile(
                 leading: Icon(
                   Icons.delete_outline,
                   color: theme.colorScheme.error,
@@ -96,9 +103,55 @@ class _HomePageState extends State<HomePage> {
       case _NoteAction.metadata:
         await _editNoteMetadata(note);
         break;
+      case _NoteAction.exportPdf:
+        await _exportPdf(note);
+        break;
       case _NoteAction.delete:
         await _deleteNote(note.id, note.title);
         break;
+    }
+  }
+
+  Future<void> _exportPdf(InkNote note) async {
+    // Zeige Ladeindikator
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 24),
+            Text(context.t.pdf.exporting),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final service = PdfExportService();
+      final pdfBytes = await service.exportNoteToPdf(note);
+      
+      if (!mounted) return;
+      // Schließe Ladeindikator
+      Navigator.of(context).pop();
+
+      // Teile/Speichere das PDF
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: '${note.title}.pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      // Schließe Ladeindikator
+      Navigator.of(context).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t.pdf.exportFailed(error: e.toString())),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
