@@ -7,7 +7,9 @@ import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -18,6 +20,7 @@ void main() {
   late double Function(DrawingTool tool) eraserRadiusFor;
 
   setUp(() {
+    LocaleSettings.setLocale(AppLocale.de);
     controller = DrawingController();
     penTool = const DrawingTool(
       id: 'pen',
@@ -57,23 +60,28 @@ void main() {
     NotePaperStyle paperStyle = NotePaperStyle.plain,
     double initialCanvasHeight = 1600,
     double canvasBottomPadding = 600,
-  }) => MaterialApp(
-        home: Scaffold(
-          body: PointerSettingsScope(
-            settings: PointerSettings(),
-            child: EditorSettingsScope(
-              settings: EditorSettings(),
-              child: DrawingCanvas(
-                drawingController: controller,
-                currentTool: currentTool,
-                resolveTool: resolveTool,
-                eraserRadiusFor: eraserRadiusFor,
-                onPersistDrawing: onPersistDrawing,
-                onTwoFingerUndo: onTwoFingerUndo,
-                onThreeFingerRedo: onThreeFingerRedo,
-                paperStyle: paperStyle,
-                initialCanvasHeight: initialCanvasHeight,
-                canvasBottomPadding: canvasBottomPadding,
+  }) => TranslationProvider(
+        child: MaterialApp(
+          locale: LocaleSettings.currentLocale.flutterLocale,
+          supportedLocales: AppLocaleUtils.supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: PointerSettingsScope(
+              settings: PointerSettings(),
+              child: EditorSettingsScope(
+                settings: EditorSettings(),
+                child: DrawingCanvas(
+                  drawingController: controller,
+                  currentTool: currentTool,
+                  resolveTool: resolveTool,
+                  eraserRadiusFor: eraserRadiusFor,
+                  onPersistDrawing: onPersistDrawing,
+                  onTwoFingerUndo: onTwoFingerUndo,
+                  onThreeFingerRedo: onThreeFingerRedo,
+                  paperStyle: paperStyle,
+                  initialCanvasHeight: initialCanvasHeight,
+                  canvasBottomPadding: canvasBottomPadding,
+                ),
               ),
             ),
           ),
