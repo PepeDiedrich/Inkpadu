@@ -121,6 +121,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
     int? _activeLassoPointerId;
     final List<Offset> _lassoPoints = <Offset>[];
+    final List<Offset> _lastAiLassoPoints = <Offset>[];
     final Set<int> _selectedStrokeIndices = <int>{};
     List<Rect> _selectedStrokeBounds = const <Rect>[];
     bool _aiPanelOpen = false;
@@ -187,6 +188,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   void _clearLassoSelection({required bool closeAiPanel}) {
     _activeLassoPointerId = null;
     _lassoPoints.clear();
+    _lastAiLassoPoints.clear();
     _selectedStrokeIndices.clear();
     _selectedStrokeBounds = const <Rect>[];
     _aiBoundingBoxes = const <AiBoundingBox>[];
@@ -497,6 +499,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         _selectedStrokeBounds = selection.bounds;
         
         if (_isAiLassoTool && (_selectedStrokeIndices.isNotEmpty || _lassoPoints.length >= 3)) {
+          _lastAiLassoPoints
+            ..clear()
+            ..addAll(_lassoPoints);
           setState(() {
             _aiPanelOpen = true;
             _aiBoundingBoxes = const <AiBoundingBox>[];
@@ -667,7 +672,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       if (boundary == null) return null;
 
       final ui.Image fullImage = await boundary.toImage(pixelRatio: 2.0);
-      final Rect selectionBounds = _boundsOfOffsets(_lassoPoints);
+      final Rect selectionBounds = _boundsOfOffsets(_lastAiLassoPoints);
 
       // Crop the image
       final recorder = ui.PictureRecorder();
@@ -794,7 +799,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                           child: CustomPaint(
                             painter: _LassoSelectionPainter(
                               lassoPoints: _lassoPoints,
-                              selectedStrokeBounds: _selectedStrokeBounds,
+                              selectedStrokeBounds: _aiPanelOpen && _selectedStrokeBounds.isEmpty && _lastAiLassoPoints.isNotEmpty
+                                  ? <Rect>[_boundsOfOffsets(_lastAiLassoPoints)]
+                                  : _selectedStrokeBounds,
                               aiBoundingBoxes: _aiBoundingBoxes,
                               selectionColor: scheme.primary,
                               lassoColor: scheme.primary,
@@ -818,7 +825,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         if (_aiPanelOpen)
           AiLassoPanel(
             initialPosition: _aiPanelPosition,
-            lassoPoints: _lassoPoints,
+            lassoPoints: _lastAiLassoPoints,
             onClose: () => setState(() => _aiPanelOpen = false),
             onAiBoxesExtracted: (List<AiBoundingBox> boxes) => setState(() => _aiBoundingBoxes = boxes),
             captureRegion: _captureCanvasRegion,
