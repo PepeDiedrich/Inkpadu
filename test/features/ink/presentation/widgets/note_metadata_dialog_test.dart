@@ -1,5 +1,6 @@
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -30,14 +31,16 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showNoteMetadataDialog(
-                  context,
-                  initialTitle: 'Initial Title',
-                  initialPaperStyle: NotePaperStyle.lined,
-                ),
-                child: const Text('Open'),
-              ),
+              builder:
+                  (context) => ElevatedButton(
+                    onPressed:
+                        () => showNoteMetadataDialog(
+                          context,
+                          initialTitle: 'Initial Title',
+                          initialPaperStyle: NotePaperStyle.lined,
+                        ),
+                    child: const Text('Open'),
+                  ),
             ),
           ),
         ),
@@ -60,15 +63,17 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showNoteMetadataDialog(
-                  context,
-                  initialTitle: 'Existing',
-                  initialPaperStyle: NotePaperStyle.plain,
-                  isEditing: true,
-                ),
-                child: const Text('Open'),
-              ),
+              builder:
+                  (context) => ElevatedButton(
+                    onPressed:
+                        () => showNoteMetadataDialog(
+                          context,
+                          initialTitle: 'Existing',
+                          initialPaperStyle: NotePaperStyle.plain,
+                          isEditing: true,
+                        ),
+                    child: const Text('Open'),
+                  ),
             ),
           ),
         ),
@@ -89,14 +94,16 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showNoteMetadataDialog(
-                  context,
-                  initialTitle: '',
-                  initialPaperStyle: NotePaperStyle.plain,
-                ),
-                child: const Text('Open'),
-              ),
+              builder:
+                  (context) => ElevatedButton(
+                    onPressed:
+                        () => showNoteMetadataDialog(
+                          context,
+                          initialTitle: '',
+                          initialPaperStyle: NotePaperStyle.plain,
+                        ),
+                    child: const Text('Open'),
+                  ),
             ),
           ),
         ),
@@ -123,14 +130,16 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showNoteMetadataDialog(
-                  context,
-                  initialTitle: '',
-                  initialPaperStyle: NotePaperStyle.plain,
-                ),
-                child: const Text('Open'),
-              ),
+              builder:
+                  (context) => ElevatedButton(
+                    onPressed:
+                        () => showNoteMetadataDialog(
+                          context,
+                          initialTitle: '',
+                          initialPaperStyle: NotePaperStyle.plain,
+                        ),
+                    child: const Text('Open'),
+                  ),
             ),
           ),
         ),
@@ -146,7 +155,14 @@ void main() {
       expect(find.text('Neue Notiz'), findsNothing);
     });
 
-    testWidgets('shows all paper style options', (tester) async {
+    testWidgets('opens paper style selection dialog and updates style', (
+      tester,
+    ) async {
+      // Set physical size to ensure dialogs fit nicely
+      tester.view.physicalSize = const Size(1200, 1600);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
       await tester.pumpWidget(
         TranslationProvider(
           child: MaterialApp(
@@ -154,14 +170,16 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showNoteMetadataDialog(
-                  context,
-                  initialTitle: '',
-                  initialPaperStyle: NotePaperStyle.plain,
-                ),
-                child: const Text('Open'),
-              ),
+              builder:
+                  (context) => ElevatedButton(
+                    onPressed:
+                        () => showNoteMetadataDialog(
+                          context,
+                          initialTitle: '',
+                          initialPaperStyle: NotePaperStyle.plain,
+                        ),
+                    child: const Text('Open'),
+                  ),
             ),
           ),
         ),
@@ -170,11 +188,28 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // All paper style labels should be visible
+      // Verify current style is displayed (Plain = Blanko)
       expect(find.text('Blanko'), findsOneWidget);
+
+      // Tap the style list tile to open selection dialog
+      await tester.tap(find.text('Blanko'));
+      await tester.pumpAndSettle();
+
+      // Verify selection dialog is open
+      expect(find.byType(PaperStyleSelectionDialog), findsOneWidget);
+      expect(find.descendant(of: find.byType(PaperStyleSelectionDialog), matching: find.text('Hintergrund wählen')), findsOneWidget);
+
+      // Select 'Liniert' - Ensure we tap the ChoiceChip's label
+      await tester.tap(find.descendant(of: find.byType(PaperStyleSelectionDialog), matching: find.text('Liniert')));
+      await tester.pump();
+
+      // Save selection
+      await tester.tap(find.descendant(of: find.byType(PaperStyleSelectionDialog), matching: find.text('Speichern')));
+      await tester.pumpAndSettle();
+
+      // Verify dialog closed and main dialog updated
+      expect(find.byType(PaperStyleSelectionDialog), findsNothing);
       expect(find.text('Liniert'), findsOneWidget);
-      expect(find.text('Kariert'), findsOneWidget);
-      expect(find.text('Punktiert'), findsOneWidget);
     });
 
     testWidgets('can enter title text', (tester) async {
@@ -185,14 +220,16 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showNoteMetadataDialog(
-                  context,
-                  initialTitle: '',
-                  initialPaperStyle: NotePaperStyle.plain,
-                ),
-                child: const Text('Open'),
-              ),
+              builder:
+                  (context) => ElevatedButton(
+                    onPressed:
+                        () => showNoteMetadataDialog(
+                          context,
+                          initialTitle: '',
+                          initialPaperStyle: NotePaperStyle.plain,
+                        ),
+                    child: const Text('Open'),
+                  ),
             ),
           ),
         ),
