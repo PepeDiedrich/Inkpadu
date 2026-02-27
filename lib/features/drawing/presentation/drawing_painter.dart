@@ -72,4 +72,3 @@ class CurrentStrokePainter extends CustomPainter {
       oldDelegate.currentStroke != currentStroke ||
       oldDelegate.pointCount != pointCount;
 }
-
