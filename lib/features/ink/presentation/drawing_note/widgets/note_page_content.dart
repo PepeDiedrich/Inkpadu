@@ -6,12 +6,17 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/static_note_page.dart';
 import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 /// The main content area showing the PageView with note pages.
 ///
 /// Renders the active page with [DrawingCanvas] and inactive pages
 /// with [StaticNotePage]. Handles page navigation and creation.
-class NotePageContent extends StatelessWidget {
+///
+/// If [pdfBackgroundPath] is provided, loads the PDF document once
+/// and shares it across all child pages to avoid re-loading on every
+/// page switch.
+class NotePageContent extends StatefulWidget {
   /// Creates the note page content.
   const NotePageContent({
     super.key,
@@ -28,6 +33,7 @@ class NotePageContent extends StatelessWidget {
     required this.onTwoFingerUndo,
     required this.onThreeFingerRedo,
     required this.paperStyle,
+    this.pdfBackgroundPath,
     required this.onRequestParentScrollLock,
     required this.initScrollOffset,
     required this.onScrollOffsetChanged,
@@ -75,6 +81,9 @@ class NotePageContent extends StatelessWidget {
   /// The paper style for the canvas.
   final NotePaperStyle paperStyle;
 
+  /// Optional path to PDF background.
+  final String? pdfBackgroundPath;
+
   /// Callback to lock/unlock parent scroll.
   final ValueChanged<bool> onRequestParentScrollLock;
 
@@ -94,27 +103,80 @@ class NotePageContent extends StatelessWidget {
   final bool canCreateNewPage;
 
   @override
+  State<NotePageContent> createState() => _NotePageContentState();
+}
+
+class _NotePageContentState extends State<NotePageContent> {
+  PdfDocument? _sharedPdfDocument;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPdfIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(NotePageContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.pdfBackgroundPath != oldWidget.pdfBackgroundPath) {
+      _loadPdfIfNeeded();
+    }
+  }
+
+  @override
+  void dispose() {
+    _sharedPdfDocument?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPdfIfNeeded() async {
+    final path = widget.pdfBackgroundPath;
+    if (path == null) {
+      if (_sharedPdfDocument != null) {
+        _sharedPdfDocument!.dispose();
+        _sharedPdfDocument = null;
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+
+    try {
+      final doc = await PdfDocument.openFile(path);
+      if (mounted) {
+        setState(() {
+          _sharedPdfDocument?.dispose();
+          _sharedPdfDocument = doc;
+        });
+      } else {
+        doc.dispose();
+      }
+    } catch (e) {
+      debugPrint('[NotePageContent] Error loading PDF: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final int placeholderIndex = canCreateNewPage ? pages.length : -1;
-    final int pageCount = pages.length + (canCreateNewPage ? 1 : 0);
+    final int placeholderIndex = widget.canCreateNewPage ? widget.pages.length : -1;
+    final int pageCount = widget.pages.length + (widget.canCreateNewPage ? 1 : 0);
 
     return PageView.builder(
-      key: PageStorageKey('note_${noteId}_page_view'),
-      controller: pageController,
-      physics: pageScrollLocked
+      key: PageStorageKey('note_${widget.noteId}_page_view'),
+      controller: widget.pageController,
+      physics: widget.pageScrollLocked
           ? const NeverScrollableScrollPhysics()
           : const PageScrollPhysics(),
-      onPageChanged: onPageChanged,
+      onPageChanged: widget.onPageChanged,
       itemCount: pageCount,
       itemBuilder: (context, index) {
-        if (canCreateNewPage && index == placeholderIndex) {
+        if (widget.canCreateNewPage && index == placeholderIndex) {
           return const AddPagePlaceholder();
         }
-        if (index >= pages.length) {
+        if (index >= widget.pages.length) {
           return const SizedBox.shrink();
         }
-        final page = pages[index];
-        final bool isActive = index == currentPageIndex;
+        final page = widget.pages[index];
+        final bool isActive = index == widget.currentPageIndex;
 
         if (isActive) {
           return Padding(
@@ -123,20 +185,22 @@ class NotePageContent extends StatelessWidget {
               children: [
                 Expanded(
                   child: DrawingCanvas(
-                    drawingController: drawingController,
-                    currentTool: currentTool,
-                    resolveTool: resolveTool,
-                    eraserRadiusFor: eraserRadiusFor,
-                    onPersistDrawing: onPersistDrawing,
-                    onTwoFingerUndo: onTwoFingerUndo,
-                    onThreeFingerRedo: onThreeFingerRedo,
-                    paperStyle: paperStyle,
-                    onRequestParentScrollLock: onRequestParentScrollLock,
+                    drawingController: widget.drawingController,
+                    currentTool: widget.currentTool,
+                    resolveTool: widget.resolveTool,
+                    eraserRadiusFor: widget.eraserRadiusFor,
+                    onPersistDrawing: widget.onPersistDrawing,
+                    onTwoFingerUndo: widget.onTwoFingerUndo,
+                    onThreeFingerRedo: widget.onThreeFingerRedo,
+                    paperStyle: widget.paperStyle,
+                    pdfDocument: _sharedPdfDocument,
+                    pdfPageIndex: index,
+                    onRequestParentScrollLock: widget.onRequestParentScrollLock,
                     scrollKey: PageStorageKey(
-                      'note_${noteId}_page_${currentPageIndex}_scroll',
+                      'note_${widget.noteId}_page_${widget.currentPageIndex}_scroll',
                     ),
-                    initScrollOffset: initScrollOffset,
-                    onScrollOffsetChanged: onScrollOffsetChanged,
+                    initScrollOffset: widget.initScrollOffset,
+                    onScrollOffsetChanged: widget.onScrollOffsetChanged,
                   ),
                 ),
               ],
@@ -147,13 +211,15 @@ class NotePageContent extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 24),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => onFocusPage(index),
+            onTap: () => widget.onFocusPage(index),
             child: Column(
               children: [
                 Expanded(
                   child: StaticNotePage(
                     page: page,
-                    paperStyle: paperStyle,
+                    paperStyle: widget.paperStyle,
+                    pdfDocument: _sharedPdfDocument,
+                    pdfPageIndex: index,
                   ),
                 ),
               ],

@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:pdfrx/pdfrx.dart';
 
+import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
@@ -103,6 +106,42 @@ class InkNotesController extends ChangeNotifier {
     _safelyNotifyListeners();
     _syncIfPossible(note, changedPageIndices: const <int>{0});
     return note;
+  }
+
+  /// Erstellt eine neue Notiz aus einer PDF-Datei.
+  Future<InkNote?> createFromPdf(String pdfPath, {String? title}) async {
+    try {
+      final document = await PdfDocument.openFile(pdfPath);
+      final int pageCount = document.pages.length;
+      document.dispose();
+
+      if (pageCount == 0) return null;
+
+      final String? cleanedTitle = title?.trim();
+      final List<NotePage> emptyPages = List.generate(
+        pageCount,
+        (_) => NotePage(strokes: const <Stroke>[]),
+      );
+
+      final note = InkNote.empty(
+        title: (cleanedTitle?.isEmpty ?? true) ? null : cleanedTitle,
+      ).copyWith(
+        pages: emptyPages,
+        pdfBackgroundPath: pdfPath,
+        pdfPageCount: pageCount,
+      );
+
+      _notes.insert(0, note);
+      _safelyNotifyListeners();
+      
+      final Set<int> allPages = Iterable<int>.generate(pageCount).toSet();
+      _syncIfPossible(note, changedPageIndices: allPages);
+      
+      return note;
+    } catch (e) {
+      debugPrint('[InkNotesController] Error creating note from PDF: $e');
+      return null;
+    }
   }
 
   /// Fügt eine Notiz ein oder aktualisiert sie anhand der ID.

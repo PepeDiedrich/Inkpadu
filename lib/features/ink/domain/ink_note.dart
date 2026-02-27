@@ -14,6 +14,9 @@ class InkNote {
     required this.pages,
     required this.paperStyle,
     this.lastOpenedPageIndex = 0,
+    this.pdfBackgroundPath,
+    this.pdfPageCount,
+    this.pdfFileId,
   });
 
   /// Eindeutige ID.
@@ -43,6 +46,15 @@ class InkNote {
   /// Der gewählte Papier- bzw. Hintergrundstil.
   final NotePaperStyle paperStyle;
 
+  /// Optionaler Pfad zu einem PDF-Hintergrund.
+  final String? pdfBackgroundPath;
+
+  /// Anzahl der Seiten im PDF-Hintergrund.
+  final int? pdfPageCount;
+
+  /// Appwrite Storage Datei-ID des PDF-Hintergrunds.
+  final String? pdfFileId;
+
   /// Kopie mit geänderten Feldern.
   InkNote copyWith({
     String? title,
@@ -50,6 +62,9 @@ class InkNote {
     List<NotePage>? pages,
     NotePaperStyle? paperStyle,
     int? lastOpenedPageIndex,
+    String? pdfBackgroundPath,
+    int? pdfPageCount,
+    String? pdfFileId,
   }) => InkNote(
     id: id,
     title: title ?? this.title,
@@ -57,6 +72,9 @@ class InkNote {
     pages: pages ?? this.pages,
     paperStyle: paperStyle ?? this.paperStyle,
     lastOpenedPageIndex: lastOpenedPageIndex ?? this.lastOpenedPageIndex,
+    pdfBackgroundPath: pdfBackgroundPath ?? this.pdfBackgroundPath,
+    pdfPageCount: pdfPageCount ?? this.pdfPageCount,
+    pdfFileId: pdfFileId ?? this.pdfFileId,
   );
 
   /// Erzeugt eine leere neue Notiz mit generiertem Titel.
@@ -65,6 +83,8 @@ class InkNote {
     String? title,
     DateTime? timestamp,
     NotePaperStyle paperStyle = NotePaperStyle.plain,
+    String? pdfBackgroundPath,
+    int? pdfPageCount,
   }) {
     final now = (timestamp ?? DateTime.now()).toLocal();
     return InkNote(
@@ -75,6 +95,8 @@ class InkNote {
         NotePage(strokes: const <Stroke>[]),
       ]),
       paperStyle: paperStyle,
+      pdfBackgroundPath: pdfBackgroundPath,
+      pdfPageCount: pdfPageCount,
     );
   }
 

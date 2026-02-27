@@ -171,6 +171,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                   onTwoFingerUndo: _handleUndo,
                   onThreeFingerRedo: _handleRedo,
                   paperStyle: controller.note.paperStyle,
+                  pdfBackgroundPath: controller.note.pdfBackgroundPath,
                   onRequestParentScrollLock: (lock) =>
                       setState(() => _pageScrollLocked = lock),
                   initScrollOffset: notesScope.getScrollOffset(

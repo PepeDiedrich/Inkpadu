@@ -17,6 +17,8 @@ class InkNoteDto {
     required List<NotePage> pages,
     required this.updatedAt,
     this.createdAt,
+    this.pdfBackgroundPath,
+    this.pdfFileId,
   }) : pages = List<NotePage>.unmodifiable(pages);
 
   /// Erzeugt ein neues DTO aus einem [InkNote]-Domänenobjekt.
@@ -36,6 +38,8 @@ class InkNoteDto {
         pages: note.pages,
         updatedAt: note.updatedAt.toUtc(),
         createdAt: note.updatedAt.toUtc(),
+        pdfBackgroundPath: note.pdfBackgroundPath,
+        pdfFileId: note.pdfFileId,
       );
 
   /// Eindeutige Kennung der Notiz.
@@ -65,6 +69,12 @@ class InkNoteDto {
   /// Zeitpunkt der Erstellung in UTC.
   final DateTime? createdAt;
 
+  /// Optionaler lokaler Pfad zum PDF-Hintergrund.
+  final String? pdfBackgroundPath;
+
+  /// Optionale Appwrite Storage Datei-ID des PDFs.
+  final String? pdfFileId;
+
   /// Wandelt das DTO zurück in ein [InkNote]-Domänenobjekt.
   InkNote toDomain() {
     NotePaperStyle resolvedStyle;
@@ -90,6 +100,8 @@ class InkNoteDto {
       pages: effectivePages,
       lastOpenedPageIndex: normalizedIndex,
       paperStyle: resolvedStyle,
+      pdfBackgroundPath: pdfBackgroundPath,
+      pdfFileId: pdfFileId,
     );
   }
 

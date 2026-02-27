@@ -1,10 +1,11 @@
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:appwrite/appwrite.dart' as appwrite;
+import 'package:flutter/rendering.dart';
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
-import 'package:ai_handwriting_app/features/ink/application/stroke_renderer.dart';
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
@@ -12,6 +13,7 @@ import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
@@ -45,6 +47,8 @@ class DrawingCanvas extends StatefulWidget {
     required this.onTwoFingerUndo,
     required this.onThreeFingerRedo,
     required this.paperStyle,
+    this.pdfDocument,
+    this.pdfPageIndex,
     this.scrollKey,
     this.initScrollOffset,
     this.onScrollOffsetChanged,
@@ -76,6 +80,12 @@ class DrawingCanvas extends StatefulWidget {
 
   /// Bestimmt den visuellen Hintergrund der Zeichenfläche.
   final NotePaperStyle paperStyle;
+
+  /// Optionales bereits geladenes PDF-Dokument.
+  final PdfDocument? pdfDocument;
+
+  /// Optionaler Index (0-basiert) der Seite im PDF.
+  final int? pdfPageIndex;
 
   /// Optionaler Key (z. B. PageStorageKey), um die Scrollposition zu speichern.
   final Key? scrollKey;
@@ -138,6 +148,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
     bool get _isAiLassoTool =>
       widget.currentTool.id == DrawingToolDefaults.aiLassoId;
+
+    final GlobalKey _canvasRepaintKey = GlobalKey();
 
   @override
   void initState() {
@@ -735,7 +747,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ..addAll(selection.indices);
         _selectedStrokeBounds = selection.bounds;
         
-        if (_isAiLassoTool && _selectedStrokeIndices.isNotEmpty) {
+        if (_isAiLassoTool && (_selectedStrokeIndices.isNotEmpty || _lassoPoints.length >= 3)) {
           setState(() {
             _aiPanelOpen = true;
             _aiLoading = false;
@@ -995,8 +1007,44 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
   }
 
+  Future<ui.Image?> _captureCanvasRegion() async {
+    try {
+      final boundary = _canvasRepaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+
+      final ui.Image fullImage = await boundary.toImage(pixelRatio: 2.0);
+      final Rect selectionBounds = _boundsOfOffsets(_lassoPoints);
+
+      // Crop the image
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      
+      // We need to scale the bounds by the pixelRatio
+      final src = Rect.fromLTWH(
+        selectionBounds.left * 2.0,
+        selectionBounds.top * 2.0,
+        selectionBounds.width * 2.0,
+        selectionBounds.height * 2.0,
+      );
+      final dst = Rect.fromLTWH(0, 0, selectionBounds.width * 2.0, selectionBounds.height * 2.0);
+      
+      canvas.drawImageRect(fullImage, src, dst, Paint());
+      final picture = recorder.endRecording();
+      
+      final croppedImage = await picture.toImage(
+        (selectionBounds.width * 2.0).toInt(),
+        (selectionBounds.height * 2.0).toInt(),
+      );
+      
+      return croppedImage;
+    } catch (e) {
+      debugPrint('Error capturing canvas: $e');
+      return null;
+    }
+  }
+
   Future<void> _openAiPanel([AiPrompt? prompt, String? customPrompt]) async {
-    if (!_isLassoTool || _selectedStrokeIndices.isEmpty) {
+    if (!_isLassoTool || _lassoPoints.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.t.ai.noSelection)),
@@ -1020,21 +1068,25 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         : 'System instruction:\n$systemPrompt\n\nUser request:\n$selectedPrompt';
 
     try {
-      final selectedStrokes = _selectedStrokeIndices
-          .map((i) => widget.drawingController.strokes[i])
-          .toList();
-
-      final renderResult = await StrokeRenderer.renderStrokesToImageResult(selectedStrokes);
-
-      if (renderResult == null) {
-        throw Exception('Could not render strokes to image');
+      final ui.Image? capturedImage = await _captureCanvasRegion();
+      
+      if (capturedImage == null) {
+        throw Exception('Could not render canvas to image');
       }
+      
+      final byteData = await capturedImage.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+         throw Exception('Could not encode image data');
+      }
+      
+      final base64Image = base64Encode(byteData.buffer.asUint8List());
+      final Rect selectionBounds = _boundsOfOffsets(_lassoPoints);
 
       final functions = appwrite.Functions(AppwriteConfig.client);
       final execution = await functions.createExecution(
         functionId: '699f260b003cfa670c2c',
         body: jsonEncode({
-          'image': renderResult.base64Image,
+          'image': base64Image,
           'prompt': effectivePrompt,
         }),
       );
@@ -1053,10 +1105,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             final xmax = (box['xmax'] as num).toDouble() / 1000.0;
             
             final rect = Rect.fromLTRB(
-              renderResult.bounds.left + xmin * renderResult.bounds.width,
-              renderResult.bounds.top + ymin * renderResult.bounds.height,
-              renderResult.bounds.left + xmax * renderResult.bounds.width,
-              renderResult.bounds.top + ymax * renderResult.bounds.height,
+              selectionBounds.left + xmin * selectionBounds.width,
+              selectionBounds.top + ymin * selectionBounds.height,
+              selectionBounds.left + xmax * selectionBounds.width,
+              selectionBounds.top + ymax * selectionBounds.height,
             );
             
             final Color boxColor = _parseAiBoxColor(box['color']);
@@ -1140,8 +1192,12 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                 vertical: 120,
               ),
               alignment: Alignment.topCenter,
-              child: NotePaperBackground(
+              child: RepaintBoundary(
+                key: _canvasRepaintKey,
+                child: NotePaperBackground(
                 paperStyle: widget.paperStyle,
+                pdfDocument: widget.pdfDocument,
+                pdfPageIndex: widget.pdfPageIndex,
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
                   onPointerDown: _start,
@@ -1190,6 +1246,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             ),
           ),
         ),
+      ),
       ),
     );
 

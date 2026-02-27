@@ -407,6 +407,12 @@ class DrawingNoteController extends ChangeNotifier {
       return (targetIndex: targetIndex, removedPage: false);
     }
 
+    // Never auto-remove pages from PDF-backed notes, since their content
+    // comes from the PDF background, not from drawn strokes.
+    if (_note.pdfBackgroundPath != null) {
+      return (targetIndex: targetIndex, removedPage: false);
+    }
+
     _syncPageContentHistory();
 
     final List<NotePage> pages = List<NotePage>.of(_note.pages);

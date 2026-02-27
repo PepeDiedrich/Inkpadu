@@ -24,7 +24,7 @@ enum LocalSyncStatus {
 /// Lokaler Speicher für handschriftliche Notizen mit SQLite-Datenbank.
 class InkNotesLocalStorage {
   static const _dbName = 'inkpadu_local.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
 
   static const _notesTable = 'ink_notes';
   static const _queueTable = 'sync_queue';
@@ -52,7 +52,10 @@ class InkNotesLocalStorage {
             updated_at INTEGER NOT NULL,
             sync_status TEXT NOT NULL,
             remote_updated_at INTEGER,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            parent_id TEXT,
+            pdf_background_path TEXT,
+            pdf_file_id TEXT
           )
         ''');
 
@@ -67,24 +70,6 @@ class InkNotesLocalStorage {
             created_at INTEGER NOT NULL
           )
         ''');
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE $_notesTable ADD COLUMN last_opened_page INTEGER NOT NULL DEFAULT 0',
-          );
-        }
-        if (oldVersion < 3) {
-          await db.execute(
-            'ALTER TABLE $_queueTable ADD COLUMN changed_pages TEXT',
-          );
-        }
-        if (oldVersion < 4) {
-          await db.execute(
-            'ALTER TABLE $_notesTable ADD COLUMN parent_id TEXT',
-            // No longer used, but keeping migration history
-          );
-        }
       },
     );
   }
@@ -140,6 +125,8 @@ class InkNotesLocalStorage {
       'sync_status': status.name,
       'remote_updated_at': null,
       'created_at': createdAt,
+      'pdf_background_path': note.pdfBackgroundPath,
+      'pdf_file_id': note.pdfFileId,
     };
 
     await _db!.insert(_notesTable, map, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -171,6 +158,8 @@ class InkNotesLocalStorage {
       'sync_status': LocalSyncStatus.pending.name,
       'remote_updated_at': null,
       'created_at': createdAt,
+      'pdf_background_path': note.pdfBackgroundPath,
+      'pdf_file_id': note.pdfFileId,
     };
     await _db!.insert(_notesTable, map, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -226,6 +215,8 @@ class InkNotesLocalStorage {
         pages: bundle.pages,
         updatedAt: updatedAt.toUtc(),
         createdAt: createdAt,
+        pdfBackgroundPath: row['pdf_background_path'] as String?,
+        pdfFileId: row['pdf_file_id'] as String?,
       );
       return dto.toDomain();
     } catch (e) {

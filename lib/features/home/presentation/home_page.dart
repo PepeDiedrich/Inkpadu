@@ -1,6 +1,7 @@
 import 'package:ai_handwriting_app/features/ink/application/pdf_export_service.dart';
 import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
@@ -130,7 +131,8 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final service = PdfExportService();
-      final pdfBytes = await service.exportNoteToPdf(note);
+      final screenWidth = MediaQuery.of(context).size.width;
+      final pdfBytes = await service.exportNoteToPdf(note, canvasWidth: screenWidth);
       
       if (!mounted) return;
       // Schließe Ladeindikator
@@ -215,6 +217,12 @@ class _HomePageState extends State<HomePage> {
                 subtitle: Text(context.t.notes.emptyNoteSubtitle),
                 onTap: () => Navigator.of(context).pop('empty'),
               ),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: Text(context.t.pdf.import),
+                subtitle: Text(context.t.notes.createNew),
+                onTap: () => Navigator.of(context).pop('pdf'),
+              ),
               const SizedBox(height: 12),
             ],
           ),
@@ -227,6 +235,49 @@ class _HomePageState extends State<HomePage> {
       case 'empty':
         await _createAndOpen();
         break;
+      case 'pdf':
+        await _importPdf();
+        break;
+    }
+  }
+
+  Future<void> _importPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result != null && result.files.single.path != null) {
+      final path = result.files.single.path!;
+      final filename = result.files.single.name;
+      
+      if (!mounted) return;
+      final controller = InkNotesScope.of(context);
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 24),
+              Text(context.t.pdfDialog.processPdf),
+            ],
+          ),
+        ),
+      );
+
+      final note = await controller.createFromPdf(path, title: filename);
+      
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (note != null) {
+        _open(note.id);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.t.errors.unknownError)),
+        );
+      }
     }
   }
 

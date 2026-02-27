@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 
-/// Hintergrund der Zeichenfläche entsprechend des Papierstils.
+/// Hintergrund der Zeichenfläche entsprechend des Papierstils oder PDF-Hintergrunds.
 class NotePaperBackground extends StatelessWidget {
   /// Erstellt eine neue Hintergrundhülle für die Zeichenfläche.
   const NotePaperBackground({
     super.key,
     required this.paperStyle,
     required this.child,
+    this.pdfDocument,
+    this.pdfPageIndex,
   });
 
   /// Stil, nach dem der Hintergrund gezeichnet wird.
   final NotePaperStyle paperStyle;
 
-  /// Zeichenfläche, die oberhalb des Papiermusters dargestellt wird.
+  /// Optionales bereits geladenes PDF-Dokument.
+  final PdfDocument? pdfDocument;
+
+  /// Optionaler Index (0-basiert) der Seite im PDF.
+  final int? pdfPageIndex;
+
+  /// Zeichenfläche, die oberhalb des Papiermusters/PDFs dargestellt wird.
   final Widget child;
 
   @override
@@ -24,6 +33,26 @@ class NotePaperBackground extends StatelessWidget {
       alpha: 0.15,
     );
     final Color accentColor = colorScheme.outlineVariant.withValues(alpha: 0.5);
+
+    if (pdfDocument != null && pdfPageIndex != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          // PDF als Hintergrund
+          IgnorePointer(
+            // Prevent PDF view from swallowing touch events designed for drawing
+            child: PdfPageView(
+              document: pdfDocument!,
+              pageNumber: pdfPageIndex! + 1, // pdfrx verwendet 1-basierten Index
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          
+          // Die Zeichnung (child) darüber
+          child,
+        ],
+      );
+    }
 
     if (paperStyle == NotePaperStyle.plain) {
       return DecoratedBox(

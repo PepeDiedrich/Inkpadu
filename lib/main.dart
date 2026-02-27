@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/shell/presentation/app_shell.dart';
@@ -29,6 +31,12 @@ Future<void> main() async {
   
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
+
+  // Set the cache directory for pdfrx
+  Pdfrx.getCacheDirectory = () async {
+    final tempDir = await getTemporaryDirectory();
+    return tempDir.path;
+  };
 
   if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
     sqfliteFfiInit();

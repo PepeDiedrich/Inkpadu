@@ -20,6 +20,9 @@ class AppwriteConfig {
     defaultValue: '68de8b41001d59b1c2d0',
   );
 
+  /// Storage Bucket-ID für PDF-Hintergrunddateien.
+  static const String pdfBucketId = 'note-pdfs';
+
   /// Callback-Scheme für OAuth-Redirects (http, damit ein lokaler Redirect-Server genutzt werden kann).
   static const String callbackScheme = 'http';
 
@@ -44,4 +47,7 @@ class AppwriteConfig {
 
   /// Convenience Getter für [Account].
   static Account get account => Account(_client);
+
+  /// Convenience Getter für [Storage].
+  static Storage get storage => Storage(_client);
 }

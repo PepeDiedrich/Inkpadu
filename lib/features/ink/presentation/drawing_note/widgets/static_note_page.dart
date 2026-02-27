@@ -5,6 +5,7 @@ import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 /// Renders an inactive note page as a static preview.
 ///
@@ -16,6 +17,8 @@ class StaticNotePage extends StatelessWidget {
     super.key,
     required this.page,
     required this.paperStyle,
+    this.pdfDocument,
+    this.pdfPageIndex,
   });
 
   /// The page data to render.
@@ -23,6 +26,12 @@ class StaticNotePage extends StatelessWidget {
 
   /// The paper style (grid, lines, blank).
   final NotePaperStyle paperStyle;
+
+  /// Optional pre-loaded PDF document.
+  final PdfDocument? pdfDocument;
+
+  /// Optional PDF page index.
+  final int? pdfPageIndex;
 
   static const double _initialCanvasHeight = 1600;
   static const double _canvasBottomPadding = 600;
@@ -49,6 +58,8 @@ class StaticNotePage extends StatelessWidget {
         height: height,
         child: NotePaperBackground(
           paperStyle: paperStyle,
+          pdfDocument: pdfDocument,
+          pdfPageIndex: pdfPageIndex,
           child: RepaintBoundary(
             child: CustomPaint(
               painter: FinishedStrokesPainter(

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:appwrite/appwrite.dart';
 // ignore: implementation_imports
 import 'package:appwrite/src/enums.dart' show HttpMethod;
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
@@ -85,10 +87,13 @@ class InkNotesSyncService implements InkNotesSync {
     this.databaseId = 'inkpadu-db',
     this.collectionId = 'ink-notes',
     this.pagesCollectionId = 'ink-note-pages',
+    this.storageBucketId = AppwriteConfig.pdfBucketId,
   })  : _client = client ?? AppwriteConfig.client,
-        _realtime = realtime ?? Realtime(client ?? AppwriteConfig.client);
+        _realtime = realtime ?? Realtime(client ?? AppwriteConfig.client),
+        _storage = Storage(client ?? AppwriteConfig.client);
   final Client _client;
   final Realtime _realtime;
+  final Storage _storage;
 
   /// Appwrite Datenbank-ID zur Speicherung der Notizen.
   final String databaseId;
@@ -98,6 +103,9 @@ class InkNotesSyncService implements InkNotesSync {
 
   /// Appwrite Collection-ID für die einzelnen Notizseiten.
   final String pagesCollectionId;
+
+  /// Appwrite Storage Bucket-ID für PDF-Dateien.
+  final String storageBucketId;
 
   Uri _buildPath(String collection, {String? documentId}) {
     final collectionPath = '/databases/${Uri.encodeComponent(databaseId)}/collections/${Uri.encodeComponent(collection)}';
@@ -225,15 +233,17 @@ class InkNotesSyncService implements InkNotesSync {
     String userId, {
     Set<int>? changedPageIndices,
   }) async {
-    final metadata = _buildMetadataPayload(note, userId);
     final permissions = _buildPermissions(userId);
 
-    await _createOrUpdateDocument(
-      collection: collectionId,
-      documentId: note.id,
-      data: metadata,
-      permissions: permissions,
-    );
+    // Upload PDF to Storage if present and not yet uploaded
+    String? pdfFileId = note.pdfFileId;
+    if (note.pdfBackgroundPath != null && pdfFileId == null) {
+      pdfFileId = await _uploadPdfFile(
+        note.pdfBackgroundPath!,
+        note.id,
+        userId,
+      );
+    }
 
     final Set<int> pagesToUpload = _resolvePagesToUpload(
       note,
@@ -257,6 +267,18 @@ class InkNotesSyncService implements InkNotesSync {
     if (changedPageIndices == null) {
       await _deletePagesBeyond(note.id, note.pages.length);
     }
+
+    // Now update the main document metadata. Important to do this LAST so that
+    // when realtime events fire, the pages are already available, preventing
+    // premature fetches or loops.
+    final metadata = _buildMetadataPayload(note, userId, pdfFileId: pdfFileId);
+
+    await _createOrUpdateDocument(
+      collection: collectionId,
+      documentId: note.id,
+      data: metadata,
+      permissions: permissions,
+    );
   }
 
   /// Entfernt eine Notiz aus Appwrite für den angegebenen Nutzer.
@@ -304,6 +326,13 @@ class InkNotesSyncService implements InkNotesSync {
         (event) => event.contains('.collections.$pagesCollectionId.'),
       );
 
+      // We don't want to react to individual page events to prevent mass-fetching
+      // loops during uploads. The main document's updated_at change will trigger
+      // the fetch for the entire note perfectly.
+      if (isPageEvent) {
+        return;
+      }
+
       final String? noteId = isPageEvent
           ? payload['note_id'] as String?
           : payload[r'$id'] as String?;
@@ -345,6 +374,7 @@ class InkNotesSyncService implements InkNotesSync {
         data['updated_at'],
         fallback: rawDoc[r'$updatedAt'],
       );
+      final String? pdfFileId = data['pdf_file_id'] as String?;
 
       final List<NotePage> pages = await _fetchPagesForNote(
         rawDoc[r'$id'] as String,
@@ -357,6 +387,12 @@ class InkNotesSyncService implements InkNotesSync {
         fallback: 0,
       );
 
+      // Download PDF from Storage if file ID is set
+      String? pdfBackgroundPath;
+      if (pdfFileId != null) {
+        pdfBackgroundPath = await _downloadPdfFile(pdfFileId);
+      }
+
       return InkNote(
         id: rawDoc[r'$id'] as String,
         title: title,
@@ -368,6 +404,9 @@ class InkNotesSyncService implements InkNotesSync {
             : pages,
         lastOpenedPageIndex: pages.isEmpty ? 0 : lastOpenedIndex,
         paperStyle: _parsePaperStyle(paperStyleRaw),
+        pdfBackgroundPath: pdfBackgroundPath,
+        pdfFileId: pdfFileId,
+        pdfPageCount: pdfBackgroundPath != null ? pageCount : null,
       );
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -496,7 +535,11 @@ class InkNotesSyncService implements InkNotesSync {
     }
   }
 
-  Map<String, dynamic> _buildMetadataPayload(InkNote note, String userId) {
+  Map<String, dynamic> _buildMetadataPayload(
+    InkNote note,
+    String userId, {
+    String? pdfFileId,
+  }) {
     final DateTime updatedUtc = note.updatedAt.toUtc();
     return <String, dynamic>{
       'user_id': userId,
@@ -506,7 +549,80 @@ class InkNotesSyncService implements InkNotesSync {
       'last_opened_page': note.lastOpenedPageIndex + 1,
       'updated_at': updatedUtc.toIso8601String(),
       'created_at': updatedUtc.toIso8601String(),
+      if (pdfFileId != null) 'pdf_file_id': pdfFileId,
     };
+  }
+
+  /// Uploads a PDF file to Appwrite Storage. Returns the file ID.
+  Future<String?> _uploadPdfFile(
+    String localPath,
+    String noteId,
+    String userId,
+  ) async {
+    try {
+      final file = File(localPath);
+      if (!file.existsSync()) {
+        if (kDebugMode) {
+          debugPrint('InkNotesSyncService: PDF file not found: $localPath');
+        }
+        return null;
+      }
+      final String fileId = 'pdf_$noteId';
+      final result = await _storage.createFile(
+        bucketId: storageBucketId,
+        fileId: fileId,
+        file: InputFile.fromPath(path: localPath),
+        permissions: _buildPermissions(userId),
+      );
+      if (kDebugMode) {
+        debugPrint('InkNotesSyncService: PDF uploaded: ${result.$id}');
+      }
+      return result.$id;
+    } on AppwriteException catch (e) {
+      // 409 = file already exists → that's fine, return the expected ID
+      if (e.code == 409) {
+        return 'pdf_$noteId';
+      }
+      if (kDebugMode) {
+        debugPrint('InkNotesSyncService: PDF upload failed: ${e.message}');
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('InkNotesSyncService: PDF upload error: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Downloads a PDF file from Appwrite Storage to the local app directory.
+  /// Returns the local file path, or null if download fails.
+  Future<String?> _downloadPdfFile(String fileId) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final localFile = File('${dir.path}/pdfs/$fileId.pdf');
+
+      // If already cached locally, skip download
+      if (localFile.existsSync()) {
+        return localFile.path;
+      }
+
+      final bytes = await _storage.getFileDownload(
+        bucketId: storageBucketId,
+        fileId: fileId,
+      );
+      await localFile.parent.create(recursive: true);
+      await localFile.writeAsBytes(bytes);
+      if (kDebugMode) {
+        debugPrint('InkNotesSyncService: PDF downloaded to ${localFile.path}');
+      }
+      return localFile.path;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('InkNotesSyncService: PDF download failed: $e');
+      }
+      return null;
+    }
   }
 
   String _pageDocumentId(String noteId, int pageIndex) => '${noteId}_$pageIndex';
@@ -545,7 +661,9 @@ class InkNotesSyncService implements InkNotesSync {
     if (note.pages.isEmpty) {
       return const <int>{};
     }
-    if (changedPageIndices == null || changedPageIndices.isEmpty) {
+    // Only fallback to 'all pages' if it is literally null. 
+    // An empty set means 0 pages have changed, useful for new placeholder PDFs
+    if (changedPageIndices == null) {
       return Set<int>.from(
         Iterable<int>.generate(note.pages.length),
       );
