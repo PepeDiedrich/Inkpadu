@@ -73,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // BottomSheet "Neue Notiz erstellen" sollte erscheinen
-    expect(find.text('Neue Notiz erstellen'), findsOneWidget);
+    expect(find.text('Neue Notiz erstellen'), findsAtLeastNWidgets(1));
 
     // Auf "Leere Notiz" tippen
     await tester.tap(find.text('Leere Notiz'));

@@ -29,6 +29,13 @@ import 'package:ai_handwriting_app/i18n/translations.g.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  if (kReleaseMode) {
+    // 🛡️ Sentinel: Deaktiviert Logging im Release-Modus.
+    // Verhindert das Leaken von sensiblen Daten (z.B. OAuth-Tokens oder PII)
+    // in Logcat oder der System-Konsole auf dem Endgerät des Nutzers.
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   // Initialize localization with device locale
   await LocaleSettings.useDeviceLocale();
 
