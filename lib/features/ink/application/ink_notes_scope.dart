@@ -49,6 +49,7 @@ class InkNotesController extends ChangeNotifier {
             ..clear()
             ..addAll(await _repository.getLocalNotes())
             ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          _cachedNotes = null;
           _safelyNotifyListeners();
         }
       });
@@ -56,6 +57,7 @@ class InkNotesController extends ChangeNotifier {
   }
 
   final List<InkNote> _notes = [];
+  List<InkNote>? _cachedNotes;
   final InkNotesRepository _repository;
   final InkNotesAuth? _auth;
   // Debounce timers to avoid spamming the backend on rapid consecutive edits.
@@ -78,7 +80,7 @@ class InkNotesController extends ChangeNotifier {
   final Map<String, Map<int, double>> _scrollOffsets = <String, Map<int, double>>{};
 
   /// Unveränderliche Sicht auf alle Notizen.
-  List<InkNote> get notes => List.unmodifiable(_notes);
+  List<InkNote> get notes => _cachedNotes ??= List.unmodifiable(_notes);
 
   /// Liefert den zuletzt bekannten Scroll-Offset für [noteId] und [pageIndex].
   double? getScrollOffset(String noteId, int pageIndex) {
@@ -103,6 +105,7 @@ class InkNotesController extends ChangeNotifier {
       paperStyle: paperStyle,
     );
     _notes.insert(0, note);
+    _cachedNotes = null;
     _safelyNotifyListeners();
     _syncIfPossible(note, changedPageIndices: const <int>{0});
     return note;
@@ -132,6 +135,7 @@ class InkNotesController extends ChangeNotifier {
       );
 
       _notes.insert(0, note);
+    _cachedNotes = null;
       _safelyNotifyListeners();
       
       final Set<int> allPages = Iterable<int>.generate(pageCount).toSet();
@@ -153,14 +157,17 @@ class InkNotesController extends ChangeNotifier {
     final idx = _notes.indexWhere((n) => n.id == note.id);
     if (idx == -1) {
       _notes.add(note);
+      _cachedNotes = null;
     } else {
       if (!_applyingRemoteUpdate &&
           _notes[idx].updatedAt.isAfter(note.updatedAt)) {
         return;
       }
       _notes[idx] = note;
+      _cachedNotes = null;
     }
     _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    _cachedNotes = null;
     _safelyNotifyListeners();
     if (!fromRemote) {
       // Sofort lokal persistieren, damit z. B. lastOpenedPageIndex direkt gesichert ist.
@@ -173,6 +180,7 @@ class InkNotesController extends ChangeNotifier {
   void delete(String id, {bool fromRemote = false}) {
     final int before = _notes.length;
     _notes.removeWhere((n) => n.id == id);
+    _cachedNotes = null;
     if (_notes.length != before) {
       _pendingPageChanges.remove(id);
       _safelyNotifyListeners();
@@ -230,6 +238,7 @@ class InkNotesController extends ChangeNotifier {
       ..clear()
       ..addAll(await _repository.getLocalNotes())
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    _cachedNotes = null;
     _safelyNotifyListeners();
 
     // Trigger repository sync which will attempt to upload pending items and merge
@@ -240,6 +249,7 @@ class InkNotesController extends ChangeNotifier {
       ..clear()
       ..addAll(await _repository.getLocalNotes())
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    _cachedNotes = null;
     _safelyNotifyListeners();
 
     // If repository exposes underlying syncService, set up realtime if available
@@ -346,6 +356,7 @@ class InkNotesController extends ChangeNotifier {
         ..clear()
         ..addAll(await _repository.getLocalNotes())
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _cachedNotes = null;
       _safelyNotifyListeners();
     } catch (_) {
       // ignore
