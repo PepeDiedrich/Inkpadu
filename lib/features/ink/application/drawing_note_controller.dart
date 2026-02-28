@@ -42,9 +42,17 @@ class DrawingNoteController extends ChangeNotifier {
   /// Controller für die Zeichenfläche.
   final DrawingController drawingController;
 
-  late InkNote _note;
+  late InkNote __note;
+  List<NotePage>? _cachedPages;
+
+  InkNote get _note => __note;
+  set _note(InkNote value) {
+    __note = value;
+    _cachedPages = null;
+  }
   late int _currentPageIndex;
   List<DrawingTool> _tools = const [];
+  List<DrawingTool>? _cachedTools;
   late String _selectedToolId;
   bool _initialized = false;
   bool _toolsLoaded = false;
@@ -59,7 +67,7 @@ class DrawingNoteController extends ChangeNotifier {
   InkNote get note => _note;
 
   /// Alle Seiten der aktuellen Notiz.
-  List<NotePage> get pages => List<NotePage>.unmodifiable(_note.pages);
+  List<NotePage> get pages => _cachedPages ??= List<NotePage>.unmodifiable(_note.pages);
 
   /// Index der aktuell aktiven Seite.
   int get currentPageIndex => _currentPageIndex;
@@ -69,7 +77,7 @@ class DrawingNoteController extends ChangeNotifier {
       _strokesHaveContent(drawingController.strokes);
 
   /// Die verfügbaren Werkzeuge als unveränderliche Liste.
-  List<DrawingTool> get tools => List.unmodifiable(_tools);
+  List<DrawingTool> get tools => _cachedTools ??= List.unmodifiable(_tools);
 
   /// ID des aktuell ausgewählten Werkzeugs.
   String get selectedToolId => _selectedToolId;
@@ -156,6 +164,7 @@ class DrawingNoteController extends ChangeNotifier {
     drawingController.initialize(_note.pages[_currentPageIndex].strokes);
     _rebuildPageContentHistory(_note.pages);
     _tools = List<DrawingTool>.of(_defaultTools);
+    _cachedTools = null;
     _selectedToolId = _tools.first.id;
     _initialized = true;
     notifyListeners();
@@ -165,6 +174,7 @@ class DrawingNoteController extends ChangeNotifier {
     );
     if (persisted.isNotEmpty) {
       _tools = persisted;
+    _cachedTools = null;
     }
 
     final String? persistedSelection = await _toolPreferencesRepository
@@ -202,6 +212,7 @@ class DrawingNoteController extends ChangeNotifier {
     _tools = _tools
         .map((tool) => tool.id == updatedTool.id ? updatedTool : tool)
         .toList(growable: false);
+    _cachedTools = null;
     if (!_tools.any((tool) => tool.id == _selectedToolId)) {
       _selectedToolId = _tools.first.id;
       unawaited(
