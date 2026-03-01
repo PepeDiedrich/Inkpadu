@@ -4,7 +4,9 @@ import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widget
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+/// A panel that provides an overview of all pages in a note.
 class PageOverviewPanel extends StatefulWidget {
+  /// Creates a [PageOverviewPanel].
   const PageOverviewPanel({
     super.key,
     required this.pages,
@@ -139,7 +141,6 @@ class _PageOverviewPanelState extends State<PageOverviewPanel> {
                           aspectRatio: 1 / 1.414, // A4 ratio
                           child: IgnorePointer(
                             child: FittedBox(
-                              fit: BoxFit.contain,
                               alignment: Alignment.topCenter,
                               child: SizedBox(
                                 width: 1000,
