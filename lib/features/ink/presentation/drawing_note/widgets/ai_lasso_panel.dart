@@ -19,6 +19,7 @@ class AiLassoPanel extends StatefulWidget {
     required this.onClose,
     required this.onAiBoxesExtracted,
     required this.captureRegion,
+    this.onKeepHighlights,
   });
 
   /// The initial position where the panel should appear on the canvas.
@@ -36,6 +37,9 @@ class AiLassoPanel extends StatefulWidget {
   /// Callback to capture the selected region of the canvas as an image.
   final Future<({ui.Image image, Rect bounds})?> Function() captureRegion;
 
+  /// Optional callback triggered when the user wants to permanently keep the extracted AI highlights.
+  final VoidCallback? onKeepHighlights;
+
   @override
   State<AiLassoPanel> createState() => _AiLassoPanelState();
 }
@@ -44,6 +48,7 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
   late Offset _position;
   bool _loading = false;
   String? _answer;
+  int _boxCount = 0;
   final TextEditingController _chatController = TextEditingController();
 
   @override
@@ -192,6 +197,7 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
         setState(() {
           _loading = false;
           _answer = responseBody['text']?.toString() ?? 'No response';
+          _boxCount = parsedBoxes.length;
         });
         widget.onAiBoxesExtracted(parsedBoxes);
       } else {
@@ -255,112 +261,145 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
       left: _position.dx,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
-        child: Card(
-          elevation: 8,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                GestureDetector(
-                  onPanUpdate: (details) =>
-                      setState(() => _position += details.delta),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.drag_indicator, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.t.ai.helpMeTitle,
-                          style: Theme.of(context).textTheme.titleMedium,
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (_) {},
+          onPointerMove: (_) {},
+          onPointerUp: (_) {},
+          child: Card(
+            elevation: 8,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GestureDetector(
+                    onPanUpdate: (details) =>
+                        setState(() => _position += details.delta),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.drag_indicator, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            context.t.ai.helpMeTitle,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: context.t.common.close,
-                        onPressed: widget.onClose,
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final prompt in aiShortcuts)
-                      FilledButton.tonalIcon(
-                        onPressed: _loading
-                            ? null
-                            : () => _executeAiRequest(prompt),
-                        icon: const Icon(Icons.flash_on),
-                        label: Text(prompt.title),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (_loading)
-                  Row(
-                    children: [
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(context.t.ai.analyzingSelection)),
-                    ],
-                  )
-                else if (_answer != null)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 400),
-                    child: SingleChildScrollView(
-                      child: MathRichText(text: _answer!),
+                        IconButton(
+                          tooltip: context.t.common.close,
+                          onPressed: widget.onClose,
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
                     ),
                   ),
-                if (!_loading) ...[
-                  if (_answer != null) const SizedBox(height: 12),
-                  Row(
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _chatController,
-                          decoration: InputDecoration(
-                            hintText: context.t.ai.askFollowUp,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                      for (final prompt in aiShortcuts)
+                        FilledButton.tonalIcon(
+                          onPressed: _loading
+                              ? null
+                              : () => _executeAiRequest(prompt),
+                          icon: const Icon(Icons.flash_on),
+                          label: Text(prompt.title),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (!_loading &&
+                      _answer != null &&
+                      widget.onKeepHighlights != null &&
+                      _boxCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            widget.onKeepHighlights?.call();
+                            widget
+                                .onClose(); // Optional: Close panel after keeping
+                          },
+                          icon: const Icon(Icons.playlist_add_check),
+                          label: Text(context.t.common.apply),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.secondaryContainer,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSecondaryContainer,
                           ),
-                          onSubmitted: (value) {
-                            if (value.trim().isNotEmpty) {
-                              _executeAiRequest(null, value.trim());
+                        ),
+                      ),
+                    ),
+                  if (_loading)
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(context.t.ai.analyzingSelection)),
+                      ],
+                    )
+                  else if (_answer != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 400),
+                      child: SingleChildScrollView(
+                        child: MathRichText(text: _answer!),
+                      ),
+                    ),
+                  if (!_loading) ...[
+                    if (_answer != null) const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _chatController,
+                            decoration: InputDecoration(
+                              hintText: context.t.ai.askFollowUp,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            onSubmitted: (value) {
+                              if (value.trim().isNotEmpty) {
+                                _executeAiRequest(null, value.trim());
+                                _chatController.clear();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.send),
+                          color: Theme.of(context).colorScheme.primary,
+                          onPressed: () {
+                            final text = _chatController.text.trim();
+                            if (text.isNotEmpty) {
+                              _executeAiRequest(null, text);
                               _chatController.clear();
                             }
                           },
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.send),
-                        color: Theme.of(context).colorScheme.primary,
-                        onPressed: () {
-                          final text = _chatController.text.trim();
-                          if (text.isNotEmpty) {
-                            _executeAiRequest(null, text);
-                            _chatController.clear();
-                          }
-                        },
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

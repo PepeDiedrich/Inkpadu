@@ -585,9 +585,21 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           setState(() {
             _aiPanelOpen = true;
             _aiBoundingBoxes = const <AiBoundingBox>[];
-            _aiPanelPosition = _lassoPoints.isNotEmpty
-                ? _lassoPoints.first
-                : const Offset(16, 16);
+
+            // Constrain position to avoid overflow
+            final screenWidth = MediaQuery.of(context).size.width;
+            final double initialX = _lassoPoints.isNotEmpty
+                ? _lassoPoints.first.dx
+                : 16.0;
+            final double clampedX = math.min(
+              initialX,
+              math.max(16.0, screenWidth - 540.0),
+            );
+            final double initialY = _lassoPoints.isNotEmpty
+                ? _lassoPoints.first.dy
+                : 16.0;
+
+            _aiPanelPosition = Offset(clampedX, initialY);
           });
         }
       } else {
@@ -883,62 +895,119 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                   paperStyle: widget.paperStyle,
                   pdfDocument: widget.pdfDocument,
                   pdfPageIndex: widget.pdfPageIndex,
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: _start,
-                    onPointerMove: _update,
-                    onPointerUp: _end,
-                    onPointerCancel: _cancel,
-                    child: AnimatedBuilder(
-                      animation: widget.drawingController,
-                      builder: (context, child) => Stack(
-                        children: [
-                          RepaintBoundary(
-                            child: CustomPaint(
-                              painter: FinishedStrokesPainter(
-                                strokes: widget.drawingController.strokes,
-                                version:
-                                    widget.drawingController.strokesVersion,
-                              ),
-                            ),
-                          ),
-                          RepaintBoundary(
-                            child: CustomPaint(
-                              painter: CurrentStrokePainter(
-                                currentStroke:
-                                    widget.drawingController.currentStroke,
-                                pointCount:
-                                    widget
-                                        .drawingController
-                                        .currentStroke
-                                        ?.points
-                                        .length ??
-                                    0,
-                              ),
-                            ),
-                          ),
-                          if (!_isCapturingForAi)
-                            RepaintBoundary(
-                              child: CustomPaint(
-                                painter: _LassoSelectionPainter(
-                                  lassoPoints: _lassoPoints,
-                                  selectedStrokeBounds:
-                                      _aiPanelOpen &&
-                                          _selectedStrokeBounds.isEmpty &&
-                                          _lastAiLassoPoints.isNotEmpty
-                                      ? <Rect>[
-                                          _boundsOfOffsets(_lastAiLassoPoints),
-                                        ]
-                                      : _selectedStrokeBounds,
-                                  aiBoundingBoxes: _aiBoundingBoxes,
-                                  selectionColor: scheme.primary,
-                                  lassoColor: scheme.primary,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerDown: _start,
+                          onPointerMove: _update,
+                          onPointerUp: _end,
+                          onPointerCancel: _cancel,
+                          child: AnimatedBuilder(
+                            animation: widget.drawingController,
+                            builder: (context, child) => Stack(
+                              children: [
+                                RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter: FinishedStrokesPainter(
+                                      strokes: widget.drawingController.strokes,
+                                      version: widget
+                                          .drawingController
+                                          .strokesVersion,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter: CurrentStrokePainter(
+                                      currentStroke: widget
+                                          .drawingController
+                                          .currentStroke,
+                                      pointCount:
+                                          widget
+                                              .drawingController
+                                              .currentStroke
+                                              ?.points
+                                              .length ??
+                                          0,
+                                    ),
+                                  ),
+                                ),
+                                if (!_isCapturingForAi)
+                                  RepaintBoundary(
+                                    child: CustomPaint(
+                                      painter: _LassoSelectionPainter(
+                                        lassoPoints: _lassoPoints,
+                                        selectedStrokeBounds:
+                                            _aiPanelOpen &&
+                                                _selectedStrokeBounds.isEmpty &&
+                                                _lastAiLassoPoints.isNotEmpty
+                                            ? <Rect>[
+                                                _boundsOfOffsets(
+                                                  _lastAiLassoPoints,
+                                                ),
+                                              ]
+                                            : _selectedStrokeBounds,
+                                        aiBoundingBoxes: _aiBoundingBoxes,
+                                        selectionColor: scheme.primary,
+                                        lassoColor: scheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
+                          ),
+                        ),
                       ),
-                    ),
+                      if (_aiPanelOpen)
+                        AiLassoPanel(
+                          initialPosition: _aiPanelPosition,
+                          lassoPoints: _lastAiLassoPoints,
+                          onClose: () {
+                            if (mounted) {
+                              setState(() => _aiPanelOpen = false);
+                            }
+                          },
+                          onAiBoxesExtracted: (List<AiBoundingBox> boxes) {
+                            if (mounted) {
+                              setState(() => _aiBoundingBoxes = boxes);
+                            }
+                          },
+                          captureRegion: _captureCanvasRegion,
+                          onKeepHighlights: () {
+                            if (_aiBoundingBoxes.isEmpty) return;
+                            final newStrokes = <Stroke>[];
+                            for (final box in _aiBoundingBoxes) {
+                              // Make a horizontal highlighter stroke bridging the box
+                              final yCenter = box.rect.center.dy;
+                              final p1 = DrawingPoint(
+                                position: Offset(box.rect.left, yCenter),
+                              );
+                              final p2 = DrawingPoint(
+                                position: Offset(box.rect.right, yCenter),
+                              );
+                              newStrokes.add(
+                                Stroke(
+                                  points: [p1, p2],
+                                  color: box.color.withValues(alpha: 0.4),
+                                  baseWidth: math.max(4.0, box.rect.height),
+                                  isHighlighter: true,
+                                  isPerfectShape: true,
+                                ),
+                              );
+                            }
+                            widget.drawingController.addStrokes(newStrokes);
+                            widget.onPersistDrawing();
+                            _handleControllerChanged();
+                            setState(() {
+                              _aiBoundingBoxes = const <AiBoundingBox>[];
+                              _aiPanelOpen = false;
+                            });
+                          },
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -947,20 +1016,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         ),
       ),
     );
-    return Stack(
-      children: [
-        scrollableCanvas,
-        if (_aiPanelOpen)
-          AiLassoPanel(
-            initialPosition: _aiPanelPosition,
-            lassoPoints: _lastAiLassoPoints,
-            onClose: () => setState(() => _aiPanelOpen = false),
-            onAiBoxesExtracted: (List<AiBoundingBox> boxes) =>
-                setState(() => _aiBoundingBoxes = boxes),
-            captureRegion: _captureCanvasRegion,
-          ),
-      ],
-    );
+    return scrollableCanvas;
   }
 }
 
@@ -1014,9 +1070,8 @@ class _LassoSelectionPainter extends CustomPainter {
     if (aiBoundingBoxes.isNotEmpty) {
       for (final aiBox in aiBoundingBoxes) {
         final paint = Paint()
-          ..color = aiBox.color.withValues(alpha: 0.8)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3;
+          ..color = aiBox.color.withValues(alpha: 0.4)
+          ..style = PaintingStyle.fill;
         final rrect = RRect.fromRectAndRadius(
           aiBox.rect.inflate(4),
           const Radius.circular(8),

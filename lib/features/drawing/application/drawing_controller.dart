@@ -476,6 +476,15 @@ class DrawingController extends ChangeNotifier {
     return true;
   }
 
+  /// Adds multiple strokes directly to the canvas (e.g., AI highlights).
+  void addStrokes(List<Stroke> newStrokes) {
+    if (newStrokes.isEmpty) return;
+    _strokes = List<Stroke>.of(_strokes)..addAll(newStrokes);
+    _cachedStrokes = null;
+    _strokesVersion++;
+    notifyListeners();
+  }
+
   /// Bricht den aktuell entstehenden Strich ab, ohne ihn zu speichern.
   void cancelCurrentStroke() {
     if (_currentStroke == null) return;
