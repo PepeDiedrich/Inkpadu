@@ -452,6 +452,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     final kind = details.kind;
 
     if (kind == PointerDeviceKind.touch) {
+      _gestureRecognizer.handlePointerMove(details);
       if (_gestureRecognizer.maintainsMultipleTouches) {
         return;
       }
@@ -534,6 +535,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   void _end(PointerUpEvent details) {
     if (details.kind == PointerDeviceKind.touch) {
+      _gestureRecognizer.handlePointerUp(details);
       if (_gestureRecognizer.maintainsMultipleTouches) {
         return;
       }
@@ -542,21 +544,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     // Handle Right-Click navigation end
     if (_activeNavigationPointerId == details.pointer) {
       if (_horizontalNavigationDelta.abs() > _pagingThreshold) {
-        if (_horizontalNavigationDelta > 0) {
-          // Swipe Right -> Previous Page
-          if (widget.pdfPageIndex != null && widget.pdfPageIndex! > 0) {
-            // We don't have direct access to page switching here, but we can call widget.onPageChanged
-            // or similar if provided. Looking at DrawingNotePage, it uses a PageController.
-            // DrawingCanvas has onPageChanged in DrawingNotePage but not directly in DrawingCanvas.
-            // Wait, DrawingCanvas is wrapped in NotePageContent which has onPageChanged.
-            // BUT DrawingCanvas doesn't have it.
-          }
-          // Let's use a generic way or add the callback.
-          _handleRightClickPaging(_horizontalNavigationDelta > 0);
-        } else {
-          // Swipe Left -> Next Page
-          _handleRightClickPaging(_horizontalNavigationDelta > 0);
-        }
+        // Swipe Right (delta > 0) -> Previous Page (isNext: false)
+        // Swipe Left (delta < 0) -> Next Page (isNext: true)
+        _handleRightClickPaging(_horizontalNavigationDelta < 0);
       }
       _activeNavigationPointerId = null;
       _lastNavigationPosition = null;
