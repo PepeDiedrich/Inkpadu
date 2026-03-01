@@ -10,6 +10,7 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
 import 'package:flutter/foundation.dart';
 
 /// Verwaltet den Zustand einer geöffneten Zeichennotiz, inklusive Werkzeuge,
@@ -79,9 +80,10 @@ class DrawingNoteController extends ChangeNotifier {
   /// Index der aktuell aktiven Seite.
   int get currentPageIndex => _currentPageIndex;
 
-  /// Gibt an, ob die aktuelle Seite Striche enthält.
+  /// Gibt an, ob die aktuelle Seite Striche enthält oder Graphen hat.
   bool get currentPageHasContent =>
-      _strokesHaveContent(drawingController.strokes);
+      _strokesHaveContent(drawingController.strokes) ||
+      drawingController.webViewNodes.isNotEmpty;
 
   /// Die verfügbaren Werkzeuge als unveränderliche Liste.
   List<DrawingTool> get tools => _cachedTools ??= List.unmodifiable(_tools);
@@ -147,7 +149,10 @@ class DrawingNoteController extends ChangeNotifier {
         // Für die aktuelle Seite: Behalte die Striche aus dem DrawingController,
         // aber übernehme andere Felder aus der Quelle
         mergedPages.add(
-          sourceNote.pages[i].copyWith(strokes: drawingController.strokes),
+          sourceNote.pages[i].copyWith(
+            strokes: drawingController.strokes,
+            webViewNodes: drawingController.webViewNodes,
+          ),
         );
       } else {
         mergedPages.add(sourceNote.pages[i]);
@@ -176,7 +181,10 @@ class DrawingNoteController extends ChangeNotifier {
       );
     }
     _currentPageIndex = _normalizePageIndex(_note.lastOpenedPageIndex);
-    drawingController.initialize(_note.pages[_currentPageIndex].strokes);
+    drawingController.initialize(
+      _note.pages[_currentPageIndex].strokes,
+      _note.pages[_currentPageIndex].webViewNodes,
+    );
     _rebuildPageContentHistory(_note.pages);
     _tools = List<DrawingTool>.of(_defaultTools);
     _cachedTools = null;
@@ -320,7 +328,10 @@ class DrawingNoteController extends ChangeNotifier {
         title: 'Fehlende Notiz',
         updatedAt: DateTime.now(),
         pages: List<NotePage>.unmodifiable(<NotePage>[
-          NotePage(strokes: const <Stroke>[]),
+          NotePage(
+            strokes: const <Stroke>[],
+            webViewNodes: const <WebViewNode>[],
+          ),
         ]),
         paperStyle: NotePaperStyle.plain,
       );
@@ -355,7 +366,10 @@ class DrawingNoteController extends ChangeNotifier {
     }
 
     _currentPageIndex = normalizedIndex;
-    drawingController.initialize(_note.pages[_currentPageIndex].strokes);
+    drawingController.initialize(
+      _note.pages[_currentPageIndex].strokes,
+      _note.pages[_currentPageIndex].webViewNodes,
+    );
 
     _note = _note.copyWith(
       lastOpenedPageIndex: _currentPageIndex,
@@ -387,14 +401,23 @@ class DrawingNoteController extends ChangeNotifier {
     _syncPageContentHistory();
 
     final List<NotePage> updatedPages = List<NotePage>.of(_note.pages)
-      ..insert(_currentPageIndex + 1, NotePage(strokes: const <Stroke>[]));
+      ..insert(
+        _currentPageIndex + 1,
+        NotePage(
+          strokes: const <Stroke>[],
+          webViewNodes: const <WebViewNode>[],
+        ),
+      );
     _pageContentHistory.insert(_currentPageIndex + 1, false);
 
     _currentPageIndex = (_currentPageIndex + 1).clamp(
       0,
       updatedPages.length - 1,
     );
-    drawingController.initialize(updatedPages[_currentPageIndex].strokes);
+    drawingController.initialize(
+      updatedPages[_currentPageIndex].strokes,
+      updatedPages[_currentPageIndex].webViewNodes,
+    );
 
     _note = _note.copyWith(
       pages: List<NotePage>.unmodifiable(updatedPages),
@@ -413,8 +436,10 @@ class DrawingNoteController extends ChangeNotifier {
     final List<NotePage> updatedPages = List<NotePage>.of(_note.pages);
     final NotePage currentPage = updatedPages[_currentPageIndex];
     final List<Stroke> persistedStrokes = drawingController.strokes;
+    final List<WebViewNode> persistedWebViews = drawingController.webViewNodes;
 
-    final bool hasContent = _strokesHaveContent(persistedStrokes);
+    final bool hasContent =
+        _strokesHaveContent(persistedStrokes) || persistedWebViews.isNotEmpty;
 
     if (_pageContentHistory.length != updatedPages.length) {
       _rebuildPageContentHistory(updatedPages);
@@ -422,17 +447,17 @@ class DrawingNoteController extends ChangeNotifier {
     if (_currentPageIndex < _pageContentHistory.length) {
       _pageContentHistory[_currentPageIndex] = hasContent;
     }
-    final bool strokesChanged = !listEquals(
-      currentPage.strokes,
-      persistedStrokes,
-    );
+    final bool changed =
+        !listEquals(currentPage.strokes, persistedStrokes) ||
+        !listEquals(currentPage.webViewNodes, persistedWebViews);
 
-    if (!strokesChanged) {
+    if (!changed) {
       return;
     }
 
     updatedPages[_currentPageIndex] = currentPage.copyWith(
       strokes: persistedStrokes,
+      webViewNodes: persistedWebViews,
     );
 
     _note = _note.copyWith(pages: List<NotePage>.unmodifiable(updatedPages));
@@ -441,8 +466,9 @@ class DrawingNoteController extends ChangeNotifier {
   bool _strokesHaveContent(List<Stroke> strokes) =>
       strokes.any((Stroke stroke) => stroke.points.isNotEmpty);
 
-  /// Prüft, ob eine Seite relevanten Inhalt hat (Striche).
-  bool _pageHasContent(NotePage page) => _strokesHaveContent(page.strokes);
+  /// Prüft, ob eine Seite relevanten Inhalt hat (Striche oder WebViews).
+  bool _pageHasContent(NotePage page) =>
+      _strokesHaveContent(page.strokes) || page.webViewNodes.isNotEmpty;
 
   ({int targetIndex, bool removedPage}) _maybeRemoveCurrentPageIfEmpty(
     int targetIndex,

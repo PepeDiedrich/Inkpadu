@@ -20,6 +20,7 @@ class AiLassoPanel extends StatefulWidget {
     required this.onAiBoxesExtracted,
     required this.captureRegion,
     this.onKeepHighlights,
+    this.onGenerateGraph,
   });
 
   /// The initial position where the panel should appear on the canvas.
@@ -40,6 +41,9 @@ class AiLassoPanel extends StatefulWidget {
   /// Optional callback triggered when the user wants to permanently keep the extracted AI highlights.
   final VoidCallback? onKeepHighlights;
 
+  /// Optional callback when the AI generated an HTML block to insert as a graph.
+  final ValueChanged<String>? onGenerateGraph;
+
   @override
   State<AiLassoPanel> createState() => _AiLassoPanelState();
 }
@@ -49,6 +53,7 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
   bool _loading = false;
   String? _answer;
   int _boxCount = 0;
+  String? _generatedHtml;
   final TextEditingController _chatController = TextEditingController();
 
   @override
@@ -198,6 +203,23 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
           _loading = false;
           _answer = responseBody['text']?.toString() ?? 'No response';
           _boxCount = parsedBoxes.length;
+          _generatedHtml = null;
+
+          if (_answer != null) {
+            final htmlMatch = RegExp(
+              r'```(?:html|javascript|js)?\n(.*?)```',
+              dotAll: true,
+            ).firstMatch(_answer!);
+            if (htmlMatch != null) {
+              final htmlContent = htmlMatch.group(1);
+              if (htmlContent != null && htmlContent.trim().isNotEmpty) {
+                _generatedHtml = htmlContent;
+              }
+            } else if (_answer!.trim().startsWith('<') &&
+                _answer!.trim().endsWith('>')) {
+              _generatedHtml = _answer!.trim();
+            }
+          }
         });
         widget.onAiBoxesExtracted(parsedBoxes);
       } else {
@@ -308,9 +330,46 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
                           icon: const Icon(Icons.flash_on),
                           label: Text(prompt.title),
                         ),
+                      if (widget.onGenerateGraph != null)
+                        FilledButton.tonalIcon(
+                          onPressed: _loading
+                              ? null
+                              : () => _executeAiRequest(
+                                  null,
+                                  "Bitte analysiere den ausgewählten Bereich und generiere einen JavaScript und HTML basierten Graph, der den Inhalt repräsentiert. Antworte mit dem reinen HTML/JS Code in einem Markdown Block. Nutze keine externen Bibliotheken außer ggf. chart.js oder d3.js über ein CDN.",
+                                ),
+                          icon: const Icon(Icons.bar_chart),
+                          label: const Text(
+                            "Graph generieren",
+                          ), // text hardcoded for now or use t.common.apply
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),
+                  if (!_loading &&
+                      _generatedHtml != null &&
+                      widget.onGenerateGraph != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            widget.onGenerateGraph?.call(_generatedHtml!);
+                          },
+                          icon: const Icon(Icons.add_box),
+                          label: const Text('Graph zum Canvas hinzufügen'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.tertiaryContainer,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onTertiaryContainer,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (!_loading &&
                       _answer != null &&
                       widget.onKeepHighlights != null &&

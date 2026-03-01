@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 
@@ -39,12 +40,10 @@ class InkNotePageCodec {
   static const GZipDecoder _gzipDecoder = GZipDecoder();
 
   /// Kodiert eine Liste von Seiten nach Base64 (gzip-komprimiertes JSON).
-  static String encode(
-    List<NotePage> pages, {
-    int lastOpenedPageIndex = 0,
-  }) {
-    final List<NotePage> normalizedPages =
-        pages.isEmpty ? <NotePage>[NotePage(strokes: const <Stroke>[])] : pages;
+  static String encode(List<NotePage> pages, {int lastOpenedPageIndex = 0}) {
+    final List<NotePage> normalizedPages = pages.isEmpty
+        ? <NotePage>[NotePage(strokes: const <Stroke>[])]
+        : pages;
     final int clampedIndex = normalizedPages.isEmpty
         ? 0
         : lastOpenedPageIndex.clamp(0, normalizedPages.length - 1);
@@ -80,9 +79,9 @@ class InkNotePageCodec {
   static InkNotePageBundle decode(String data) {
     if (data.isEmpty) {
       return InkNotePageBundle(
-        pages: List<NotePage>.unmodifiable(
-          <NotePage>[NotePage(strokes: const <Stroke>[])],
-        ),
+        pages: List<NotePage>.unmodifiable(<NotePage>[
+          NotePage(strokes: const <Stroke>[]),
+        ]),
         lastOpenedPageIndex: 0,
       );
     }
@@ -105,24 +104,26 @@ class InkNotePageCodec {
         );
       }
 
-    final List<NotePage> pages =
-      (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
-        .whereType<Map<String, dynamic>>()
-        .map((pageData) => _decodePage(pageData, version: version))
-        .toList(growable: false);
+      final List<NotePage> pages =
+          (decoded['p'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map((pageData) => _decodePage(pageData, version: version))
+              .toList(growable: false);
       final meta = decoded['meta'];
-      final lastPageRaw =
-          meta is Map<String, dynamic> ? meta['lastPage'] : null;
+      final lastPageRaw = meta is Map<String, dynamic>
+          ? meta['lastPage']
+          : null;
       final int normalizedIndex = _parsePageIndex(
         lastPageRaw,
         pages.isEmpty ? 0 : pages.length - 1,
       );
 
-    final List<NotePage> ensuredPages = pages.isEmpty
-      ? <NotePage>[NotePage(strokes: const <Stroke>[])]
-      : pages;
-    final List<NotePage> immutablePages =
-      List<NotePage>.unmodifiable(ensuredPages);
+      final List<NotePage> ensuredPages = pages.isEmpty
+          ? <NotePage>[NotePage(strokes: const <Stroke>[])]
+          : pages;
+      final List<NotePage> immutablePages = List<NotePage>.unmodifiable(
+        ensuredPages,
+      );
       final int clampedIndex = ensuredPages.isEmpty
           ? 0
           : normalizedIndex.clamp(0, ensuredPages.length - 1);
@@ -136,9 +137,9 @@ class InkNotePageCodec {
       final legacy = jsonDecode(data);
       if (legacy is Map<String, dynamic>) {
         return InkNotePageBundle(
-          pages: List<NotePage>.unmodifiable(
-            <NotePage>[NotePage.fromJson(legacy)],
-          ),
+          pages: List<NotePage>.unmodifiable(<NotePage>[
+            NotePage.fromJson(legacy),
+          ]),
           lastOpenedPageIndex: 0,
         );
       }
@@ -147,9 +148,9 @@ class InkNotePageCodec {
       final legacy = jsonDecode(data);
       if (legacy is Map<String, dynamic>) {
         return InkNotePageBundle(
-          pages: List<NotePage>.unmodifiable(
-            <NotePage>[NotePage.fromJson(legacy)],
-          ),
+          pages: List<NotePage>.unmodifiable(<NotePage>[
+            NotePage.fromJson(legacy),
+          ]),
           lastOpenedPageIndex: 0,
         );
       }
@@ -158,22 +159,34 @@ class InkNotePageCodec {
   }
 
   static Map<String, dynamic> _encodePage(NotePage page) {
-    final List<Map<String, dynamic>> encodedStrokes =
-        page.strokes.map(_encodeStroke).toList(growable: false);
+    final List<Map<String, dynamic>> encodedStrokes = page.strokes
+        .map(_encodeStroke)
+        .toList(growable: false);
+    final List<Map<String, dynamic>> encodedWebViews = page.webViewNodes
+        .map((w) => w.toJson())
+        .toList(growable: false);
 
-    return <String, dynamic>{'s': encodedStrokes};
+    return <String, dynamic>{'s': encodedStrokes, 'w': encodedWebViews};
   }
 
-  static NotePage _decodePage(Map<String, dynamic> data, {required int version}) {
+  static NotePage _decodePage(
+    Map<String, dynamic> data, {
+    required int version,
+  }) {
     final strokes = (data['s'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
         .map(_decodeStroke)
         .toList(growable: false);
 
+    final webViews = (data['w'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(WebViewNode.fromJson)
+        .toList(growable: false);
+
     // Ab v3 konnten zusätzliche Kontextdaten (AI/PDF) unter 'ctx' vorhanden sein.
     // Diese Daten werden bewusst ignoriert, damit alte Notizen weiterhin
     // geladen werden können, ohne die entfernten Features zu unterstützen.
-    return NotePage(strokes: strokes);
+    return NotePage(strokes: strokes, webViewNodes: webViews);
   }
 
   static Map<String, dynamic> _encodeStroke(Stroke stroke) {

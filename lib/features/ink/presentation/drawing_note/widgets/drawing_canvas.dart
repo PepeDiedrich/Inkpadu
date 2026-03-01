@@ -10,6 +10,8 @@ import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter
 import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
+import 'package:ai_handwriting_app/features/drawing/presentation/cross_platform_webview.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
@@ -129,7 +131,13 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   final List<Offset> _lassoPoints = <Offset>[];
   final List<Offset> _lastAiLassoPoints = <Offset>[];
   final Set<int> _selectedStrokeIndices = <int>{};
+  final Set<String> _selectedWebViewIds = <String>{};
   List<Rect> _selectedStrokeBounds = const <Rect>[];
+  bool _isDraggingSelection = false;
+  bool _isResizingSelection = false;
+  String? _resizingWebViewId;
+  Offset? _lastDragPosition;
+
   bool _aiPanelOpen = false;
   bool _isCapturingForAi = false;
   Offset _aiPanelPosition = const Offset(16, 16);
@@ -146,6 +154,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   bool get _isAiLassoTool =>
       widget.currentTool.id == DrawingToolDefaults.aiLassoId;
+
+  bool get _isSelectionLassoTool =>
+      widget.currentTool.id == DrawingToolDefaults.selectionLassoId;
 
   final GlobalKey _canvasRepaintKey = GlobalKey();
 
@@ -191,7 +202,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       );
       // reset any gesture-related state
     } else if (oldWidget.currentTool.id != widget.currentTool.id) {
-      if (!_isLassoTool) {
+      if (!_isLassoTool && !_isSelectionLassoTool) {
         _clearLassoSelection(closeAiPanel: true);
       }
       setState(() {});
@@ -203,8 +214,13 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _lassoPoints.clear();
     _lastAiLassoPoints.clear();
     _selectedStrokeIndices.clear();
+    _selectedWebViewIds.clear();
     _selectedStrokeBounds = const <Rect>[];
     _aiBoundingBoxes = const <AiBoundingBox>[];
+    _isDraggingSelection = false;
+    _isResizingSelection = false;
+    _resizingWebViewId = null;
+    _lastDragPosition = null;
     if (closeAiPanel) {
       _aiPanelOpen = false;
     }
@@ -406,12 +422,70 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _activeToolDuringStrokeId = tool.id;
     _didEraseDuringDrag = false;
 
-    if (_isLassoTool) {
+    if (_isLassoTool || _isSelectionLassoTool) {
+      if (_isSelectionLassoTool &&
+          (_selectedStrokeIndices.isNotEmpty ||
+              _selectedWebViewIds.isNotEmpty)) {
+        // First check for resize handles of selected web views
+        for (final wv in widget.drawingController.webViewNodes) {
+          if (_selectedWebViewIds.contains(wv.id)) {
+            final resizeHandle = Rect.fromLTWH(
+              wv.rect.right - 20,
+              wv.rect.bottom - 20,
+              30,
+              30,
+            );
+            if (resizeHandle.inflate(10).contains(details.localPosition)) {
+              _isResizingSelection = true;
+              _resizingWebViewId = wv.id;
+              _lastDragPosition = details.localPosition;
+              _activeLassoPointerId = details.pointer;
+              widget.onRequestParentScrollLock?.call(true);
+              return;
+            }
+          }
+        }
+
+        // Then check if we tapped inside an existing selection to drag it.
+        bool hitSelection = false;
+        // Check bounds of selected strokes
+        if (_selectedStrokeBounds.isNotEmpty) {
+          Rect combined = _selectedStrokeBounds.first;
+          for (var b in _selectedStrokeBounds) {
+            combined = combined.expandToInclude(b);
+          }
+          if (combined.inflate(10).contains(details.localPosition))
+            hitSelection = true;
+        }
+        // Check bounds of selected webviews
+        if (!hitSelection) {
+          for (final wv in widget.drawingController.webViewNodes) {
+            if (_selectedWebViewIds.contains(wv.id) &&
+                wv.rect.contains(details.localPosition)) {
+              hitSelection = true;
+              break;
+            }
+          }
+        }
+
+        if (hitSelection) {
+          _isDraggingSelection = true;
+          _lastDragPosition = details.localPosition;
+          _activeLassoPointerId = details.pointer;
+          widget.onRequestParentScrollLock?.call(true);
+          return;
+        } else {
+          // Clicked outside, clear selection
+          _clearLassoSelection(closeAiPanel: false);
+        }
+      }
+
       _activeLassoPointerId = details.pointer;
       _lassoPoints
         ..clear()
         ..add(details.localPosition);
       _selectedStrokeIndices.clear();
+      _selectedWebViewIds.clear();
       _selectedStrokeBounds = const <Rect>[];
       _aiBoundingBoxes = const <AiBoundingBox>[];
       widget.onRequestParentScrollLock?.call(true);
@@ -489,6 +563,47 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
 
     if (_activeLassoPointerId == details.pointer && details.down) {
+      if (_isResizingSelection &&
+          _resizingWebViewId != null &&
+          _lastDragPosition != null) {
+        final delta = details.localPosition - _lastDragPosition!;
+        _lastDragPosition = details.localPosition;
+
+        final wvIndex = widget.drawingController.webViewNodes.indexWhere(
+          (n) => n.id == _resizingWebViewId,
+        );
+        if (wvIndex != -1) {
+          final wv = widget.drawingController.webViewNodes[wvIndex];
+          final newWidth = math.max(100.0, wv.rect.width + delta.dx);
+          final newHeight = math.max(100.0, wv.rect.height + delta.dy);
+          final newRect = Rect.fromLTWH(
+            wv.rect.left,
+            wv.rect.top,
+            newWidth,
+            newHeight,
+          );
+          widget.drawingController.updateWebViewNodeRect(wv.id, newRect);
+        }
+        return;
+      }
+
+      if (_isDraggingSelection && _lastDragPosition != null) {
+        final delta = details.localPosition - _lastDragPosition!;
+        _lastDragPosition = details.localPosition;
+        widget.drawingController.translateSelection(
+          delta,
+          _selectedStrokeIndices,
+          _selectedWebViewIds,
+        );
+
+        // update _selectedStrokeBounds by delta
+        _selectedStrokeBounds = _selectedStrokeBounds
+            .map((r) => r.shift(delta))
+            .toList();
+        setState(() {});
+        return;
+      }
+
       final Offset next = details.localPosition;
       final Offset? last = _lassoPoints.isNotEmpty ? _lassoPoints.last : null;
       if (last == null || (next - last).distanceSquared > 3) {
@@ -566,6 +681,23 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       _activeLassoPointerId = null;
       widget.onRequestParentScrollLock?.call(false);
 
+      if (_isResizingSelection) {
+        _isResizingSelection = false;
+        _resizingWebViewId = null;
+        _lastDragPosition = null;
+        widget.onPersistDrawing();
+        setState(() {});
+        return;
+      }
+
+      if (_isDraggingSelection) {
+        _isDraggingSelection = false;
+        _lastDragPosition = null;
+        widget.onPersistDrawing();
+        setState(() {});
+        return;
+      }
+
       final points = List<Offset>.unmodifiable(_lassoPoints);
       if (points.length >= 3) {
         final selection = _selectStrokesWithinLasso(
@@ -576,6 +708,17 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ..clear()
           ..addAll(selection.indices);
         _selectedStrokeBounds = selection.bounds;
+
+        if (_isSelectionLassoTool) {
+          // Also select web views
+          final lassoBounds = _boundsOfOffsets(points);
+          _selectedWebViewIds.clear();
+          for (final wv in widget.drawingController.webViewNodes) {
+            if (lassoBounds.overlaps(wv.rect)) {
+              _selectedWebViewIds.add(wv.id);
+            }
+          }
+        }
 
         if (_isAiLassoTool &&
             (_selectedStrokeIndices.isNotEmpty || _lassoPoints.length >= 3)) {
@@ -909,6 +1052,59 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                             animation: widget.drawingController,
                             builder: (context, child) => Stack(
                               children: [
+                                // Render WebViews
+                                ...widget.drawingController.webViewNodes.map(
+                                  (node) => Positioned(
+                                    left: node.rect.left,
+                                    top: node.rect.top,
+                                    width: node.rect.width,
+                                    height: node.rect.height,
+                                    child: Stack(
+                                      children: [
+                                        CrossPlatformWebView(node: node),
+                                        if (_selectedWebViewIds.contains(
+                                          node.id,
+                                        ))
+                                          Positioned.fill(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: scheme.primary,
+                                                  width: 2,
+                                                ),
+                                                color: scheme.primary
+                                                    .withValues(alpha: 0.1),
+                                              ),
+                                            ),
+                                          ),
+                                        if (_selectedWebViewIds.contains(
+                                          node.id,
+                                        ))
+                                          Positioned(
+                                            right: -8,
+                                            bottom: -8,
+                                            child: Container(
+                                              width: 24,
+                                              height: 24,
+                                              decoration: BoxDecoration(
+                                                color: scheme.primaryContainer,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: scheme.primary,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: Icon(
+                                                Icons.open_in_full,
+                                                size: 14,
+                                                color: scheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                                 RepaintBoundary(
                                   child: CustomPaint(
                                     painter: FinishedStrokesPainter(
@@ -1005,6 +1201,31 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                               _aiBoundingBoxes = const <AiBoundingBox>[];
                               _aiPanelOpen = false;
                             });
+                          },
+                          onGenerateGraph: (String htmlContent) {
+                            final Rect selectionBounds = _boundsOfOffsets(
+                              _lastAiLassoPoints,
+                            );
+                            final Rect nodeRect = selectionBounds.isEmpty
+                                ? Rect.fromLTWH(
+                                    _aiPanelPosition.dx,
+                                    _aiPanelPosition.dy + 60,
+                                    400,
+                                    300,
+                                  )
+                                : selectionBounds.inflate(24);
+
+                            final node = WebViewNode(
+                              rect: nodeRect,
+                              htmlContent: htmlContent,
+                            );
+                            widget.drawingController.addWebViewNode(node);
+                            widget.onPersistDrawing();
+                            if (mounted) {
+                              setState(() {
+                                _aiPanelOpen = false;
+                              });
+                            }
                           },
                         ),
                     ],

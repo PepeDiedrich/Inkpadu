@@ -6,6 +6,7 @@ import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifie
     as async_simpl;
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
 import 'package:flutter/material.dart';
 
 /// Verwaltet den Zustand der Zeichenfläche und stellt Undo/Redo-Funktionen bereit.
@@ -15,6 +16,9 @@ class DrawingController extends ChangeNotifier {
 
   /// Zwischengespeicherte, unveränderliche Ansicht der Striche.
   List<Stroke>? _cachedStrokes;
+
+  /// Aktuelle WebView-Knoten auf dem Canvas.
+  List<WebViewNode> _webViewNodes = const [];
 
   /// Version der Strichliste. Erhöht sich bei jeder strukturellen Änderung
   /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
@@ -45,6 +49,9 @@ class DrawingController extends ChangeNotifier {
   /// Liefert eine unveränderliche Sicht auf alle gespeicherten Striche.
   List<Stroke> get strokes => _cachedStrokes ??= List.unmodifiable(_strokes);
 
+  /// Liefert eine unveränderliche Sicht auf alle WebView-Knoten.
+  List<WebViewNode> get webViewNodes => List.unmodifiable(_webViewNodes);
+
   /// Liefert die aktuelle Versionsnummer der Strichliste.
   int get strokesVersion => _strokesVersion;
 
@@ -61,8 +68,14 @@ class DrawingController extends ChangeNotifier {
   bool get canRedo => _redoStack.isNotEmpty;
 
   /// Übernimmt eine bestehende Liste von Strichen in den Controller.
-  void initialize(List<Stroke> initialStrokes) {
+  void initialize(
+    List<Stroke> initialStrokes, [
+    List<WebViewNode>? initialWebViews,
+  ]) {
     _strokes = List<Stroke>.of(initialStrokes);
+    _webViewNodes = initialWebViews != null
+        ? List<WebViewNode>.of(initialWebViews)
+        : const [];
     _cachedStrokes = null;
     _strokesVersion++; // Initialisierung zählt als Änderung.
     _currentStroke = null;
@@ -286,23 +299,32 @@ class DrawingController extends ChangeNotifier {
   ///
   /// Nutzt Bounding-Box-Vorfilterung für bessere Performance bei vielen Strichen.
   bool eraseAt(Offset position, {required double radius}) {
-    if (_strokes.isEmpty) {
+    if (_strokes.isEmpty && _webViewNodes.isEmpty) {
       return false;
     }
 
     final double radiusSquared = radius * radius;
-    final List<Stroke> retained = <Stroke>[];
+    final List<Stroke> retainedStrokes = <Stroke>[];
+    final List<WebViewNode> retainedWebViews = <WebViewNode>[];
     var removedAny = false;
 
     // Eraser-Kreis als Rect für schnellen Bounding-Box-Test
     final Rect eraserRect = Rect.fromCircle(center: position, radius: radius);
+
+    for (final node in _webViewNodes) {
+      if (eraserRect.overlaps(node.rect)) {
+        removedAny = true;
+      } else {
+        retainedWebViews.add(node);
+      }
+    }
 
     for (final stroke in _strokes) {
       // Schneller Bounding-Box-Check: Überschneidet sich überhaupt?
       final Rect strokeBounds = stroke.boundingBox;
       if (!eraserRect.overlaps(strokeBounds)) {
         // Keine Überschneidung -> Strich bleibt sicher erhalten
-        retained.add(stroke);
+        retainedStrokes.add(stroke);
         continue;
       }
 
@@ -327,7 +349,7 @@ class DrawingController extends ChangeNotifier {
       if (shouldRemove) {
         removedAny = true;
       } else {
-        retained.add(stroke);
+        retainedStrokes.add(stroke);
       }
     }
 
@@ -335,7 +357,8 @@ class DrawingController extends ChangeNotifier {
       return false;
     }
 
-    _strokes = List<Stroke>.of(retained);
+    _strokes = List<Stroke>.of(retainedStrokes);
+    _webViewNodes = List<WebViewNode>.of(retainedWebViews);
     _cachedStrokes = null;
     _redoStack.clear();
     _strokesVersion++;
@@ -464,10 +487,11 @@ class DrawingController extends ChangeNotifier {
 
   /// Entfernt alle Striche und setzt den Controller zurück.
   bool clear() {
-    if (_strokes.isEmpty && _currentStroke == null) {
+    if (_strokes.isEmpty && _currentStroke == null && _webViewNodes.isEmpty) {
       return false;
     }
     _strokes = const [];
+    _webViewNodes = const [];
     _cachedStrokes = null;
     _currentStroke = null;
     _redoStack.clear();
@@ -483,6 +507,80 @@ class DrawingController extends ChangeNotifier {
     _cachedStrokes = null;
     _strokesVersion++;
     notifyListeners();
+  }
+
+  /// Fügt einen WebView-Knoten hinzu.
+  void addWebViewNode(WebViewNode node) {
+    _webViewNodes = List<WebViewNode>.of(_webViewNodes)..add(node);
+    notifyListeners();
+  }
+
+  /// Aktualisiert das Rechteck (Position/Größe) eines WebView-Knotens.
+  void updateWebViewNodeRect(String id, Rect newRect) {
+    final index = _webViewNodes.indexWhere((node) => node.id == id);
+    if (index != -1) {
+      final updatedNode = _webViewNodes[index].copyWith(rect: newRect);
+      _webViewNodes = List<WebViewNode>.of(_webViewNodes)
+        ..[index] = updatedNode;
+      notifyListeners();
+    }
+  }
+
+  /// Entfernt einen WebView-Knoten anhand seiner ID.
+  void removeWebViewNode(String id) {
+    _webViewNodes = List<WebViewNode>.of(_webViewNodes)
+      ..removeWhere((node) => node.id == id);
+    notifyListeners();
+  }
+
+  /// Verschiebt ausgewählte Striche und WebViews um [delta].
+  void translateSelection(
+    Offset delta,
+    Set<int> strokeIndices,
+    Set<String> webViewIds,
+  ) {
+    bool changed = false;
+
+    if (strokeIndices.isNotEmpty) {
+      final updatedStrokes = List<Stroke>.of(_strokes);
+      for (final index in strokeIndices) {
+        if (index >= 0 && index < updatedStrokes.length) {
+          final stroke = updatedStrokes[index];
+          final newPoints = stroke.points.map((point) {
+            return DrawingPoint(
+              position: point.position + delta,
+              pressure: point.pressure,
+            );
+          }).toList();
+          // Invalidiere Cached Paths und Bounds durch ein neues Objekt
+          updatedStrokes[index] = stroke.copyWith(points: newPoints);
+          changed = true;
+        }
+      }
+      if (changed) {
+        _strokes = updatedStrokes;
+        _cachedStrokes = null;
+        _strokesVersion++;
+      }
+    }
+
+    if (webViewIds.isNotEmpty) {
+      final updatedNodes = List<WebViewNode>.of(_webViewNodes);
+      for (var i = 0; i < updatedNodes.length; i++) {
+        if (webViewIds.contains(updatedNodes[i].id)) {
+          final node = updatedNodes[i];
+          updatedNodes[i] = node.copyWith(rect: node.rect.shift(delta));
+          changed = true;
+        }
+      }
+      if (changed) {
+        _webViewNodes = updatedNodes;
+      }
+    }
+
+    if (changed) {
+      notifyListeners();
+    }
   }
 
   /// Bricht den aktuell entstehenden Strich ab, ohne ihn zu speichern.

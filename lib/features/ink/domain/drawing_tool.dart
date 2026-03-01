@@ -83,7 +83,7 @@ class DrawingTool {
       fontPackage: json['iconFontPackage'] as String?,
       matchTextDirection: json['iconMatchTextDirection'] as bool? ?? false,
     ),
-  color: Color((json['color'] as int?) ?? Colors.black.toARGB32()),
+    color: Color((json['color'] as int?) ?? Colors.black.toARGB32()),
     baseWidth: (json['baseWidth'] as num?)?.toDouble() ?? 4.0,
     isHighlighter: json['isHighlighter'] as bool? ?? false,
     isEraser: json['isEraser'] as bool? ?? false,
@@ -151,8 +151,19 @@ class DrawingToolDefaults {
       baseWidth: 2,
       usePressure: false,
     ),
+    DrawingTool(
+      id: 'selection-lasso',
+      label: 'Auswahl',
+      icon: Icons.highlight_alt,
+      color: Colors.blueGrey,
+      baseWidth: 2,
+      usePressure: false,
+    ),
   ];
 
   /// ID des KI-Lasso-Tools.
   static const String aiLassoId = 'ai-lasso';
+
+  /// ID des Standard-Auswahl-Lassos.
+  static const String selectionLassoId = 'selection-lasso';
 }
