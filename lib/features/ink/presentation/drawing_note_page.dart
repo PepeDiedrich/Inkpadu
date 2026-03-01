@@ -7,6 +7,7 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_pref
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/floating_tool_window.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
+import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/page_overview_panel.dart';
 import 'package:flutter/material.dart';
 
 /// Editor-Seite zum Bearbeiten einer handschriftlichen Notiz.
@@ -29,6 +30,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   PageController? _pageController;
   bool _creatingPage = false;
   bool _pageScrollLocked = false;
+  bool _isPageOverviewOpen = false;
 
   @override
   void didChangeDependencies() {
@@ -94,11 +96,15 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
       return;
     }
 
-    if (index < controller.pages.length && index != controller.currentPageIndex) {
+    if (index < controller.pages.length &&
+        index != controller.currentPageIndex) {
       notesScope.setScrollOffset(
         controller.note.id,
         controller.currentPageIndex,
-        notesScope.getScrollOffset(controller.note.id, controller.currentPageIndex) ??
+        notesScope.getScrollOffset(
+              controller.note.id,
+              controller.currentPageIndex,
+            ) ??
             0.0,
       );
       controller.setCurrentPage(index);
@@ -125,9 +131,7 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     if (controller == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return AnimatedBuilder(
@@ -139,7 +143,9 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           );
         }
 
-        _pageController ??= PageController(initialPage: controller.currentPageIndex);
+        _pageController ??= PageController(
+          initialPage: controller.currentPageIndex,
+        );
         final notesScope = InkNotesScope.of(context);
 
         return PopScope(
@@ -157,43 +163,74 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
           child: Scaffold(
             body: Stack(
               children: [
-                NotePageContent(
-                  noteId: controller.note.id,
-                  pages: controller.pages,
-                  currentPageIndex: controller.currentPageIndex,
-                  pageController: _pageController!,
-                  pageScrollLocked: _pageScrollLocked,
-                  drawingController: controller.drawingController,
-                  currentTool: controller.currentTool,
-                  resolveTool: controller.resolveTool,
-                  eraserRadiusFor: controller.eraserRadiusFor,
-                  onPersistDrawing: controller.persistDrawing,
-                  onTwoFingerUndo: _handleUndo,
-                  onThreeFingerRedo: _handleRedo,
-                  paperStyle: controller.note.paperStyle,
-                  pdfBackgroundPath: controller.note.pdfBackgroundPath,
-                  onRequestParentScrollLock: (lock) =>
-                      setState(() => _pageScrollLocked = lock),
-                  initScrollOffset: notesScope.getScrollOffset(
-                    controller.note.id,
-                    controller.currentPageIndex,
-                  ),
-                  onScrollOffsetChanged: (offset) => notesScope.setScrollOffset(
-                    controller.note.id,
-                    controller.currentPageIndex,
-                    offset,
-                  ),
-                  onPageChanged: (index) => _handlePageChanged(index, controller),
-                  onFocusPage: (index) {
-                    controller.setCurrentPage(index);
-                    _pageController?.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                    );
+                Listener(
+                  onPointerDown: (_) {
+                    if (_isPageOverviewOpen) {
+                      setState(() {
+                        _isPageOverviewOpen = false;
+                      });
+                    }
                   },
-                  canCreateNewPage: controller.currentPageHasContent,
+                  child: NotePageContent(
+                    noteId: controller.note.id,
+                    pages: controller.pages,
+                    currentPageIndex: controller.currentPageIndex,
+                    pageController: _pageController!,
+                    pageScrollLocked: _pageScrollLocked,
+                    drawingController: controller.drawingController,
+                    currentTool: controller.currentTool,
+                    resolveTool: controller.resolveTool,
+                    eraserRadiusFor: controller.eraserRadiusFor,
+                    onPersistDrawing: controller.persistDrawing,
+                    onTwoFingerUndo: _handleUndo,
+                    onThreeFingerRedo: _handleRedo,
+                    paperStyle: controller.note.paperStyle,
+                    pdfBackgroundPath: controller.note.pdfBackgroundPath,
+                    onRequestParentScrollLock: (lock) =>
+                        setState(() => _pageScrollLocked = lock),
+                    initScrollOffset: notesScope.getScrollOffset(
+                      controller.note.id,
+                      controller.currentPageIndex,
+                    ),
+                    onScrollOffsetChanged: (offset) =>
+                        notesScope.setScrollOffset(
+                          controller.note.id,
+                          controller.currentPageIndex,
+                          offset,
+                        ),
+                    onPageChanged: (index) =>
+                        _handlePageChanged(index, controller),
+                    onFocusPage: (index) {
+                      controller.setCurrentPage(index);
+                      _pageController?.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                      );
+                    },
+                    canCreateNewPage: controller.currentPageHasContent,
+                  ),
                 ),
+                if (_isPageOverviewOpen)
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    right: 0,
+                    child: PageOverviewPanel(
+                      pages: controller.pages,
+                      currentPageIndex: controller.currentPageIndex,
+                      paperStyle: controller.note.paperStyle,
+                      pdfBackgroundPath: controller.note.pdfBackgroundPath,
+                      onPageSelected: (index) {
+                        controller.setCurrentPage(index);
+                        _pageController?.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                        );
+                      },
+                    ),
+                  ),
                 Positioned(
                   bottom: 24,
                   left: 0,
@@ -204,6 +241,11 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                       selectedToolId: controller.selectedToolId,
                       onToolSelected: controller.selectTool,
                       onToolLongPress: _openToolConfigurator,
+                      onTogglePageOverview: () {
+                        setState(() {
+                          _isPageOverviewOpen = !_isPageOverviewOpen;
+                        });
+                      },
                       onBackPressed: () => Navigator.of(context).pop(),
                     ),
                   ),

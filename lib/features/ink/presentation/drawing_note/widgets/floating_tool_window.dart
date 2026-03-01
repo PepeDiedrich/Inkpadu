@@ -11,6 +11,7 @@ class FloatingToolWindow extends StatelessWidget {
     required this.selectedToolId,
     required this.onToolSelected,
     required this.onToolLongPress,
+    required this.onTogglePageOverview,
     required this.onBackPressed,
   });
 
@@ -25,6 +26,9 @@ class FloatingToolWindow extends StatelessWidget {
 
   /// Callback when a tool is long-pressed for configuration.
   final ValueChanged<DrawingTool> onToolLongPress;
+
+  /// Callback when the page overview should be toggled.
+  final VoidCallback onTogglePageOverview;
 
   /// Callback when the back button is pressed.
   final VoidCallback onBackPressed;
@@ -55,13 +59,9 @@ class FloatingToolWindow extends StatelessWidget {
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: onBackPressed,
             ),
-            
+
             const SizedBox(width: 8),
-            Container(
-              height: 24,
-              width: 1,
-              color: colorScheme.outlineVariant,
-            ),
+            Container(height: 24, width: 1, color: colorScheme.outlineVariant),
             const SizedBox(width: 8),
 
             // Tool Palette
@@ -78,6 +78,14 @@ class FloatingToolWindow extends StatelessWidget {
                   onToolLongPress(tool);
                 },
               ),
+            ),
+            const SizedBox(width: 8),
+            Container(height: 24, width: 1, color: colorScheme.outlineVariant),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.grid_view_rounded),
+              onPressed: onTogglePageOverview,
+              tooltip: 'Seitenübersicht',
             ),
           ],
         ),
