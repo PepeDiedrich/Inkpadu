@@ -131,6 +131,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   final Set<int> _selectedStrokeIndices = <int>{};
   List<Rect> _selectedStrokeBounds = const <Rect>[];
   bool _aiPanelOpen = false;
+  bool _isCapturingForAi = false;
   Offset _aiPanelPosition = const Offset(16, 16);
   List<AiBoundingBox> _aiBoundingBoxes = const <AiBoundingBox>[];
 
@@ -757,15 +758,27 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return inside;
   }
 
-  Future<ui.Image?> _captureCanvasRegion() async {
+  Future<({ui.Image image, Rect bounds})?> _captureCanvasRegion() async {
     try {
+      // Hide overlays to ensure the AI doesn't see blue highlighter boxes
+      setState(() => _isCapturingForAi = true);
+      // Wait for the next frame to let the UI update
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
       final boundary =
           _canvasRepaintKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
-      if (boundary == null) return null;
+      if (boundary == null) {
+        setState(() => _isCapturingForAi = false);
+        return null;
+      }
 
-      final ui.Image fullImage = await boundary.toImage(pixelRatio: 2.0);
-      final Rect selectionBounds = _boundsOfOffsets(_lastAiLassoPoints);
+      final ui.Image fullImage = await boundary.toImage(pixelRatio: 1.5);
+
+      // Calculate bounds and add padding so the AI has context around the text
+      final Rect selectionBounds = _boundsOfOffsets(
+        _lastAiLassoPoints,
+      ).inflate(24.0);
 
       // Crop the image
       final recorder = ui.PictureRecorder();
@@ -773,29 +786,33 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
       // We need to scale the bounds by the pixelRatio
       final src = Rect.fromLTWH(
-        selectionBounds.left * 2.0,
-        selectionBounds.top * 2.0,
-        selectionBounds.width * 2.0,
-        selectionBounds.height * 2.0,
+        selectionBounds.left * 1.5,
+        selectionBounds.top * 1.5,
+        selectionBounds.width * 1.5,
+        selectionBounds.height * 1.5,
       );
       final dst = Rect.fromLTWH(
         0,
         0,
-        selectionBounds.width * 2.0,
-        selectionBounds.height * 2.0,
+        selectionBounds.width * 1.5,
+        selectionBounds.height * 1.5,
       );
 
       canvas.drawImageRect(fullImage, src, dst, Paint());
       final picture = recorder.endRecording();
 
-      final croppedImage = await picture.toImage(
-        (selectionBounds.width * 2.0).toInt(),
-        (selectionBounds.height * 2.0).toInt(),
-      );
+      final int cropWidth = (selectionBounds.width * 1.5).ceil();
+      final int cropHeight = (selectionBounds.height * 1.5).ceil();
 
-      return croppedImage;
+      final croppedImage = await picture.toImage(cropWidth, cropHeight);
+
+      setState(() => _isCapturingForAi = false);
+      return (image: croppedImage, bounds: selectionBounds);
     } catch (e) {
       debugPrint('Error capturing canvas: $e');
+      if (mounted) {
+        setState(() => _isCapturingForAi = false);
+      }
       return null;
     }
   }
@@ -900,24 +917,25 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                               ),
                             ),
                           ),
-                          RepaintBoundary(
-                            child: CustomPaint(
-                              painter: _LassoSelectionPainter(
-                                lassoPoints: _lassoPoints,
-                                selectedStrokeBounds:
-                                    _aiPanelOpen &&
-                                        _selectedStrokeBounds.isEmpty &&
-                                        _lastAiLassoPoints.isNotEmpty
-                                    ? <Rect>[
-                                        _boundsOfOffsets(_lastAiLassoPoints),
-                                      ]
-                                    : _selectedStrokeBounds,
-                                aiBoundingBoxes: _aiBoundingBoxes,
-                                selectionColor: scheme.primary,
-                                lassoColor: scheme.primary,
+                          if (!_isCapturingForAi)
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                painter: _LassoSelectionPainter(
+                                  lassoPoints: _lassoPoints,
+                                  selectedStrokeBounds:
+                                      _aiPanelOpen &&
+                                          _selectedStrokeBounds.isEmpty &&
+                                          _lastAiLassoPoints.isNotEmpty
+                                      ? <Rect>[
+                                          _boundsOfOffsets(_lastAiLassoPoints),
+                                        ]
+                                      : _selectedStrokeBounds,
+                                  aiBoundingBoxes: _aiBoundingBoxes,
+                                  selectionColor: scheme.primary,
+                                  lassoColor: scheme.primary,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),

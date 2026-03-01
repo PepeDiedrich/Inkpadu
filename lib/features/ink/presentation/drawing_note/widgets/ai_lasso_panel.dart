@@ -34,7 +34,7 @@ class AiLassoPanel extends StatefulWidget {
   final ValueChanged<List<AiBoundingBox>> onAiBoxesExtracted;
 
   /// Callback to capture the selected region of the canvas as an image.
-  final Future<ui.Image?> Function() captureRegion;
+  final Future<({ui.Image image, Rect bounds})?> Function() captureRegion;
 
   @override
   State<AiLassoPanel> createState() => _AiLassoPanelState();
@@ -81,7 +81,9 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
       final int? rgb = int.tryParse(hex, radix: 16);
       if (rgb != null) {
         final Color color = Color(0xFF000000 | rgb);
-        return color.toARGB32() == Colors.white.toARGB32() ? Colors.black : color;
+        return color.toARGB32() == Colors.white.toARGB32()
+            ? Colors.black
+            : color;
       }
     }
 
@@ -89,39 +91,42 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
       final int? argb = int.tryParse(hex, radix: 16);
       if (argb != null) {
         final Color color = Color(argb);
-        return color.toARGB32() == Colors.white.toARGB32() ? Colors.black : color;
+        return color.toARGB32() == Colors.white.toARGB32()
+            ? Colors.black
+            : color;
       }
     }
 
     switch (normalized) {
-      case 'green': return Colors.green;
-      case 'blue': return Colors.blue;
-      case 'yellow': return Colors.yellow;
-      case 'orange': return Colors.orange;
-      case 'purple': return Colors.purple;
-      case 'pink': return Colors.pink;
-      case 'cyan': return Colors.cyan;
-      case 'magenta': return const Color(0xFFFF00FF);
+      case 'green':
+        return Colors.green;
+      case 'blue':
+        return Colors.blue;
+      case 'yellow':
+        return Colors.yellow;
+      case 'orange':
+        return Colors.orange;
+      case 'purple':
+        return Colors.purple;
+      case 'pink':
+        return Colors.pink;
+      case 'cyan':
+        return Colors.cyan;
+      case 'magenta':
+        return const Color(0xFFFF00FF);
       case 'black':
-      case 'white': return Colors.black;
+      case 'white':
+        return Colors.black;
       case 'red':
-      default: return Colors.red;
+      default:
+        return Colors.red;
     }
   }
 
-  Rect _boundsOfOffsets(List<Offset> points) {
-    var minX = double.infinity, minY = double.infinity, maxX = -double.infinity, maxY = -double.infinity;
-    for (final p in points) {
-      if (p.dx < minX) minX = p.dx;
-      if (p.dy < minY) minY = p.dy;
-      if (p.dx > maxX) maxX = p.dx;
-      if (p.dy > maxY) maxY = p.dy;
-    }
-    if (!minX.isFinite || !minY.isFinite || !maxX.isFinite || !maxY.isFinite) return Rect.zero;
-    return Rect.fromLTRB(minX, minY, maxX, maxY);
-  }
-
-  Future<void> _executeAiRequest(AiPrompt? prompt, [String? customPrompt]) async {
+  Future<void> _executeAiRequest(
+    AiPrompt? prompt, [
+    String? customPrompt,
+  ]) async {
     setState(() {
       _loading = true;
       _answer = null;
@@ -129,21 +134,29 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
     widget.onAiBoxesExtracted([]);
 
     final editorSettings = EditorSettingsScope.of(context);
-    final String selectedPrompt = customPrompt ?? prompt?.prompt ?? 'Please analyze this handwriting or drawing and provide a helpful response.';
+    final String selectedPrompt =
+        customPrompt ??
+        prompt?.prompt ??
+        'Please analyze this handwriting or drawing and provide a helpful response.';
     final String systemPrompt = editorSettings.aiSystemPrompt.trim();
     final String effectivePrompt = systemPrompt.isEmpty
         ? selectedPrompt
         : 'System instruction:\n$systemPrompt\n\nUser request:\n$selectedPrompt';
 
     try {
-      final ui.Image? capturedImage = await widget.captureRegion();
-      if (capturedImage == null) throw Exception('Could not render canvas to image');
-      
-      final byteData = await capturedImage.toByteData(format: ui.ImageByteFormat.png);
+      final capturedResult = await widget.captureRegion();
+      if (capturedResult == null) {
+        throw Exception('Could not capture canvas region');
+      }
+      final ui.Image capturedImage = capturedResult.image;
+      final Rect selectionBounds = capturedResult.bounds;
+
+      final byteData = await capturedImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       if (byteData == null) throw Exception('Could not encode image data');
-      
+
       final base64Image = base64Encode(byteData.buffer.asUint8List());
-      final Rect selectionBounds = _boundsOfOffsets(widget.lassoPoints);
 
       final functions = appwrite.Functions(AppwriteConfig.client);
       final execution = await functions.createExecution(
@@ -156,21 +169,24 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
       if (execution.status.name == 'completed') {
         final responseBody = jsonDecode(execution.responseBody);
         final List<AiBoundingBox> parsedBoxes = [];
-        if (responseBody['boxes'] != null && responseBody['boxes'] is Iterable) {
+        if (responseBody['boxes'] != null &&
+            responseBody['boxes'] is Iterable) {
           for (final box in responseBody['boxes'] as Iterable) {
             final ymin = (box['ymin'] as num).toDouble() / 1000.0;
             final xmin = (box['xmin'] as num).toDouble() / 1000.0;
             final ymax = (box['ymax'] as num).toDouble() / 1000.0;
             final xmax = (box['xmax'] as num).toDouble() / 1000.0;
-            
+
             final rect = Rect.fromLTRB(
               selectionBounds.left + xmin * selectionBounds.width,
               selectionBounds.top + ymin * selectionBounds.height,
               selectionBounds.left + xmax * selectionBounds.width,
               selectionBounds.top + ymax * selectionBounds.height,
             );
-            
-            parsedBoxes.add(AiBoundingBox(rect, _parseAiBoxColor(box['color'])));
+
+            parsedBoxes.add(
+              AiBoundingBox(rect, _parseAiBoxColor(box['color'])),
+            );
           }
         }
         setState(() {
@@ -179,21 +195,37 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
         });
         widget.onAiBoxesExtracted(parsedBoxes);
       } else {
-        throw Exception('Function execution failed: ${execution.responseBody}');
+        final errorMsg = execution.responseBody.isNotEmpty
+            ? execution.responseBody
+            : 'Execution status: ${execution.status.name}';
+        throw Exception('AI Function Error: $errorMsg');
       }
     } catch (e) {
       if (!mounted) return;
+      debugPrint('AI Request failed: $e');
       setState(() {
         _loading = false;
-        _answer = 'Error: $e';
+        _answer = 'Error: ${e.toString().replaceAll('Exception: ', '')}';
       });
     }
   }
 
   List<AiPrompt> _defaultAiShortcuts() => <AiPrompt>[
-    AiPrompt(id: 'ai-shortcut-1', title: context.t.editor.aiShortcut(index: 1), prompt: context.t.editor.aiShortcutPrompt1),
-    AiPrompt(id: 'ai-shortcut-2', title: context.t.editor.aiShortcut(index: 2), prompt: context.t.editor.aiShortcutPrompt2),
-    AiPrompt(id: 'ai-shortcut-3', title: context.t.editor.aiShortcut(index: 3), prompt: context.t.editor.aiShortcutPrompt3),
+    AiPrompt(
+      id: 'ai-shortcut-1',
+      title: context.t.editor.aiShortcut(index: 1),
+      prompt: context.t.editor.aiShortcutPrompt1,
+    ),
+    AiPrompt(
+      id: 'ai-shortcut-2',
+      title: context.t.editor.aiShortcut(index: 2),
+      prompt: context.t.editor.aiShortcutPrompt2,
+    ),
+    AiPrompt(
+      id: 'ai-shortcut-3',
+      title: context.t.editor.aiShortcut(index: 3),
+      prompt: context.t.editor.aiShortcutPrompt3,
+    ),
   ];
 
   List<AiPrompt> _resolveAiShortcuts(List<AiPrompt> source) {
@@ -202,8 +234,12 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
     for (var i = 0; i < 3; i++) {
       final fallback = defaults[i];
       final existing = i < source.length ? source[i] : fallback;
-      final title = existing.title.trim().isEmpty ? fallback.title : existing.title;
-      final prompt = existing.prompt.trim().isEmpty ? fallback.prompt : existing.prompt;
+      final title = existing.title.trim().isEmpty
+          ? fallback.title
+          : existing.title;
+      final prompt = existing.prompt.trim().isEmpty
+          ? fallback.prompt
+          : existing.prompt;
       result.add(AiPrompt(id: fallback.id, title: title, prompt: prompt));
     }
     return result;
@@ -228,13 +264,17 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 GestureDetector(
-                  onPanUpdate: (details) => setState(() => _position += details.delta),
+                  onPanUpdate: (details) =>
+                      setState(() => _position += details.delta),
                   child: Row(
                     children: [
                       const Icon(Icons.drag_indicator, color: Colors.grey),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(context.t.ai.helpMeTitle, style: Theme.of(context).textTheme.titleMedium),
+                        child: Text(
+                          context.t.ai.helpMeTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
                       IconButton(
                         tooltip: context.t.common.close,
@@ -251,7 +291,9 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
                   children: [
                     for (final prompt in aiShortcuts)
                       FilledButton.tonalIcon(
-                        onPressed: _loading ? null : () => _executeAiRequest(prompt),
+                        onPressed: _loading
+                            ? null
+                            : () => _executeAiRequest(prompt),
                         icon: const Icon(Icons.flash_on),
                         label: Text(prompt.title),
                       ),
@@ -261,7 +303,11 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
                 if (_loading)
                   Row(
                     children: [
-                      const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(child: Text(context.t.ai.analyzingSelection)),
                     ],
@@ -269,7 +315,9 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
                 else if (_answer != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 400),
-                    child: SingleChildScrollView(child: MathRichText(text: _answer!)),
+                    child: SingleChildScrollView(
+                      child: MathRichText(text: _answer!),
+                    ),
                   ),
                 if (!_loading) ...[
                   if (_answer != null) const SizedBox(height: 12),
@@ -281,8 +329,13 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
                           decoration: InputDecoration(
                             hintText: context.t.ai.askFollowUp,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           ),
                           onSubmitted: (value) {
                             if (value.trim().isNotEmpty) {
