@@ -11,8 +11,8 @@ List<DrawingPoint> simplifyStrokePoints(
   final length = points.length;
   if (length < 3) return List<DrawingPoint>.of(points);
 
-  final sqTolerance = tolerance.isNaN || tolerance <= 0.0 
-      ? 0.0 
+  final sqTolerance = tolerance.isNaN || tolerance <= 0.0
+      ? 0.0
       : tolerance * tolerance;
 
   // Ein boolesches Array dient als hochperformante Maske für zu erhaltende Punkte.
@@ -25,15 +25,12 @@ List<DrawingPoint> simplifyStrokePoints(
   // Kompakte und elegante Extraktion der maskierten Punkte.
   return [
     for (var i = 0; i < length; i++)
-      if (keepPoint[i]) points[i]
+      if (keepPoint[i]) points[i],
   ];
 }
 
 /// Vereinfacht einen [Stroke] durch Reduktion des Punkt-Sets.
-Stroke simplifyStroke(
-  Stroke stroke, {
-  double tolerance = 1.0,
-}) =>
+Stroke simplifyStroke(Stroke stroke, {double tolerance = 1.0}) =>
     stroke.copyWith(
       points: simplifyStrokePoints(stroke.points, tolerance: tolerance),
     );
@@ -56,9 +53,20 @@ void _rdpOptimize(
   final dy = end.dy - start.dy;
   final lineSqLength = dx * dx + dy * dy;
 
+  // For nearly closed loops, the distance calculation to the "line" (which is practically a point)
+  // should use the distance to that point.
+  final isClosedLoop = lineSqLength < sqTolerance * 0.1;
+
   for (var i = startIndex + 1; i < endIndex; i++) {
     final point = points[i].position;
-    final sqDistance = _sqPerpendicularDistance(point, start, dx, dy, lineSqLength);
+    final double sqDistance;
+    if (isClosedLoop) {
+      final pdx = point.dx - start.dx;
+      final pdy = point.dy - start.dy;
+      sqDistance = pdx * pdx + pdy * pdy;
+    } else {
+      sqDistance = _sqPerpendicularDistance(point, start, dx, dy, lineSqLength);
+    }
 
     if (sqDistance > maxSqDistance) {
       maxSqDistance = sqDistance;

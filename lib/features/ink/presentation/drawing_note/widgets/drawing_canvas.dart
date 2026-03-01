@@ -375,6 +375,13 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       if (!touchAllowsDrawing) {
         return;
       }
+
+      final width = context.size?.width ?? double.infinity;
+      // Handle edge swipe: ignore touch near screen edges so PageView can swipe
+      if (details.localPosition.dx < 40 ||
+          details.localPosition.dx > width - 40) {
+        return;
+      }
     }
 
     // Handle Right-Click (Secondary Button) for navigation

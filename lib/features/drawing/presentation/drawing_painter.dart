@@ -26,18 +26,23 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
   final path = Path();
   path.moveTo(stroke.points[0].position.dx, stroke.points[0].position.dy);
 
-  for (var i = 0; i < stroke.points.length - 1; i++) {
-    final p1 = stroke.points[i].position;
-    final p2 = stroke.points[i + 1].position;
+  if (stroke.isPerfectShape) {
+    for (var i = 1; i < stroke.points.length; i++) {
+      path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
+    }
+  } else {
+    for (var i = 0; i < stroke.points.length - 1; i++) {
+      final p1 = stroke.points[i].position;
+      final p2 = stroke.points[i + 1].position;
 
-    // We use quadratic Bézier curves for smoothing.
-    // The control point is p1, and the end point is the midpoint between p1 and p2.
-    final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-    path.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
+      // We use quadratic Bézier curves for smoothing.
+      // The control point is p1, and the end point is the midpoint between p1 and p2.
+      final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
+      path.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
+    }
+    // Connect to the last point
+    path.lineTo(stroke.points.last.position.dx, stroke.points.last.position.dy);
   }
-
-  // Connect to the last point
-  path.lineTo(stroke.points.last.position.dx, stroke.points.last.position.dy);
 
   canvas.drawPath(path, paint);
 }

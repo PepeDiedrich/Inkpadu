@@ -203,9 +203,15 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
                           final targetIndex = isNext
                               ? controller.currentPageIndex + 1
                               : controller.currentPageIndex - 1;
-                          if (targetIndex >= 0 &&
-                              targetIndex < controller.pages.length) {
-                            controller.setCurrentPage(targetIndex);
+
+                          final maxIndex = controller.currentPageHasContent
+                              ? controller.pages.length
+                              : controller.pages.length - 1;
+
+                          if (targetIndex >= 0 && targetIndex <= maxIndex) {
+                            if (targetIndex < controller.pages.length) {
+                              controller.setCurrentPage(targetIndex);
+                            }
                             _pageController?.animateToPage(
                               targetIndex,
                               duration: const Duration(milliseconds: 220),

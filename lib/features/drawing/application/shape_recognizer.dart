@@ -8,10 +8,13 @@ import 'package:flutter/material.dart';
 enum ShapeType {
   /// Eine gerade Linie.
   line,
+
   /// Ein Dreieck.
   triangle,
+
   /// Ein Rechteck (inkl. Quadrat).
   rectangle,
+
   /// Ein Kreis oder eine Ellipse.
   ellipse,
 }
@@ -32,7 +35,7 @@ class ShapeMatch {
 class LineMatch extends ShapeMatch {
   /// Erstellt ein [LineMatch].
   LineMatch({required List<DrawingPoint> points})
-      : super(type: ShapeType.line, correctedPoints: points);
+    : super(type: ShapeType.line, correctedPoints: points);
 }
 
 /// Ein erkanntes Dreieck.
@@ -41,16 +44,15 @@ class TriangleMatch extends ShapeMatch {
   final List<Offset> vertices;
 
   /// Erstellt ein [TriangleMatch].
-  TriangleMatch({
-    required this.vertices,
-    required super.correctedPoints,
-  }) : super(type: ShapeType.triangle);
+  TriangleMatch({required this.vertices, required super.correctedPoints})
+    : super(type: ShapeType.triangle);
 }
 
 /// Ein erkanntes Rechteck.
 class RectangleMatch extends ShapeMatch {
   /// Das zugrundeliegende Rechteck.
   final Rect rect;
+
   /// Der Rotationswinkel (Standard: 0.0).
   final double angle;
 
@@ -68,10 +70,8 @@ class EllipseMatch extends ShapeMatch {
   final Rect boundingBox;
 
   /// Erstellt ein [EllipseMatch].
-  EllipseMatch({
-    required this.boundingBox,
-    required super.correctedPoints,
-  }) : super(type: ShapeType.ellipse);
+  EllipseMatch({required this.boundingBox, required super.correctedPoints})
+    : super(type: ShapeType.ellipse);
 }
 
 /// Eine Hilfsklasse zur Erkennung von geometrischen Formen aus einer Liste von Punkten.
@@ -80,13 +80,16 @@ class ShapeRecognizer {
   ///
   /// [tolerance] gibt den maximal erlaubten durchschnittlichen oder absoluten Abstand
   /// der Punkte zur idealen Form an.
-  static ShapeMatch? recognizeShape(List<DrawingPoint> points, double tolerance) {
+  static ShapeMatch? recognizeShape(
+    List<DrawingPoint> points,
+    double tolerance,
+  ) {
     if (points.length < 3) {
       if (points.length == 2) {
-         // Maybe a line?
-         if (_isLine(points, tolerance)) {
-            return LineMatch(points: [points.first, points.last]);
-         }
+        // Maybe a line?
+        if (_isLine(points, tolerance)) {
+          return LineMatch(points: [points.first, points.last]);
+        }
       }
       return null;
     }
@@ -99,11 +102,15 @@ class ShapeRecognizer {
     }
 
     // Für geschlossene Formen prüfen wir, ob Start und Ende nah beieinander liegen.
-    final bool isClosed = (points.first.position - points.last.position).distance < tolerance * 4;
+    final bool isClosed =
+        (points.first.position - points.last.position).distance < tolerance * 4;
 
     // Vereinfachen der Punkte, um Ecken zu finden.
     // Wir nutzen hier eine etwas aggressive Toleranz für die Eckenerkennung.
-    final simplified = simplifyStrokePoints(points, tolerance: tolerance * 1.5);
+    final simplified = simplifyStrokePoints(
+      points,
+      tolerance: tolerance * 1.25,
+    );
     final int corners = isClosed
         ? (simplified.length > 2 ? simplified.length - 1 : simplified.length)
         : simplified.length;
@@ -126,7 +133,7 @@ class ShapeRecognizer {
 
     // 3. Check for Rectangle (4 corners + closed)
     // Wir erlauben auch 5 Punkte, falls RDP einen kleinen Punkt extra lässt, aber 4 ist ideal.
-    if (isClosed && corners == 4) {
+    if (isClosed && (corners == 4 || corners == 5)) {
       // Prüfen, ob es ein Rechteck ist (Winkel ~90 Grad).
       // Für jetzt nehmen wir an, wenn es 4 Ecken hat und geschlossen ist, ist es ein Viereck.
       // Wir snappen es zu einem axis-aligned Rechteck (Bounding Box) oder einem rotierten Rechteck.
@@ -161,6 +168,9 @@ class ShapeRecognizer {
     // Wenn es geschlossen ist, aber RDP viele Punkte übrig lässt (rund), oder RDP sehr aggressiv war?
     // Einfacher Check: Passt es in eine Ellipse?
     if (isClosed) {
+      // Wenn wir bereits viele Ecken gefunden haben (simplified points), ist es vermutlich kein Kreis
+      // außer die Punkte sind sehr nah an der Ellipse.
+
       // Berechne Bounding Box
       double minX = double.infinity, maxX = -double.infinity;
       double minY = double.infinity, maxY = -double.infinity;
@@ -171,6 +181,12 @@ class ShapeRecognizer {
         if (p.position.dy > maxY) maxY = p.position.dy;
       }
       final rect = Rect.fromLTRB(minX, minY, maxX, maxY);
+
+      // Don't recognize tiny shapes as ellipses
+      if (rect.width < tolerance * 2 || rect.height < tolerance * 2) {
+        return null;
+      }
+
       final center = rect.center;
       final a = rect.width / 2;
       final b = rect.height / 2;
@@ -187,11 +203,12 @@ class ShapeRecognizer {
       final avgError = totalError / points.length;
 
       // Wenn der Fehler klein genug ist -> Ellipse
-      if (avgError < 0.2) { // Heuristik
-         return EllipseMatch(
-           boundingBox: rect,
-           correctedPoints: generateEllipsePoints(rect, points.first.pressure),
-         );
+      // Wir senken die Toleranz von 0.2 auf 0.15, um Polygons weniger oft fälschlich zu erkennen.
+      if (avgError < 0.15) {
+        return EllipseMatch(
+          boundingBox: rect,
+          correctedPoints: generateEllipsePoints(rect, points.first.pressure),
+        );
       }
     }
 
@@ -210,7 +227,11 @@ class ShapeRecognizer {
     double maxDistance = 0.0;
 
     for (final point in points) {
-      final double distance = _distanceToLineSegment(point.position, start, end);
+      final double distance = _distanceToLineSegment(
+        point.position,
+        start,
+        end,
+      );
       if (distance > maxDistance) {
         maxDistance = distance;
       }
@@ -223,7 +244,8 @@ class ShapeRecognizer {
     final double l2 = (b - a).distanceSquared;
     if (l2 == 0) return (p - a).distance;
 
-    final double t = ((p.dx - a.dx) * (b.dx - a.dx) + (p.dy - a.dy) * (b.dy - a.dy)) / l2;
+    final double t =
+        ((p.dx - a.dx) * (b.dx - a.dx) + (p.dy - a.dy) * (b.dy - a.dy)) / l2;
     final double tClamped = t.clamp(0.0, 1.0);
 
     final double projectionX = a.dx + tClamped * (b.dx - a.dx);
@@ -236,7 +258,10 @@ class ShapeRecognizer {
   }
 
   /// Generiert Punkte für ein Polygon aus den gegebenen [vertices].
-  static List<DrawingPoint> generatePolygonPoints(List<Offset> vertices, double pressure) {
+  static List<DrawingPoint> generatePolygonPoints(
+    List<Offset> vertices,
+    double pressure,
+  ) {
     if (vertices.isEmpty) return [];
     final points = <DrawingPoint>[];
     for (int i = 0; i < vertices.length; i++) {
@@ -249,12 +274,12 @@ class ShapeRecognizer {
 
   /// Generiert Punkte für ein Rechteck [rect].
   static List<DrawingPoint> generateRectPoints(Rect rect, double pressure) => [
-      DrawingPoint(position: rect.topLeft, pressure: pressure),
-      DrawingPoint(position: rect.topRight, pressure: pressure),
-      DrawingPoint(position: rect.bottomRight, pressure: pressure),
-      DrawingPoint(position: rect.bottomLeft, pressure: pressure),
-      DrawingPoint(position: rect.topLeft, pressure: pressure),
-    ];
+    DrawingPoint(position: rect.topLeft, pressure: pressure),
+    DrawingPoint(position: rect.topRight, pressure: pressure),
+    DrawingPoint(position: rect.bottomRight, pressure: pressure),
+    DrawingPoint(position: rect.bottomLeft, pressure: pressure),
+    DrawingPoint(position: rect.topLeft, pressure: pressure),
+  ];
 
   /// Generiert Punkte für eine Ellipse in [rect].
   static List<DrawingPoint> generateEllipsePoints(Rect rect, double pressure) {
@@ -268,10 +293,12 @@ class ShapeRecognizer {
       final double t = (i / steps) * 2 * math.pi;
       final double dx = a * math.cos(t);
       final double dy = b * math.sin(t);
-      points.add(DrawingPoint(
-        position: Offset(center.dx + dx, center.dy + dy),
-        pressure: pressure,
-      ));
+      points.add(
+        DrawingPoint(
+          position: Offset(center.dx + dx, center.dy + dy),
+          pressure: pressure,
+        ),
+      );
     }
     return points;
   }

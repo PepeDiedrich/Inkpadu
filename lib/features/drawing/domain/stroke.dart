@@ -19,6 +19,10 @@ class Stroke {
   /// Kennzeichnet, ob es sich um einen Textmarker-Strich handelt.
   final bool isHighlighter;
 
+  /// Kennzeichnet, ob der Strich eine perfekte geometrische Form ist,
+  /// die ohne Glättung (Smoothing) gezeichnet werden soll.
+  final bool isPerfectShape;
+
   /// Gecachte Bounding Box für schnelle Hit-Tests.
   Rect? _cachedBoundingBox;
 
@@ -82,6 +86,7 @@ class Stroke {
     this.color = Colors.black,
     this.baseWidth = 4.0,
     this.isHighlighter = false,
+    this.isPerfectShape = false,
     String? id,
   }) : id = id ?? const Uuid().v4();
 
@@ -91,6 +96,7 @@ class Stroke {
     Color? color,
     double? baseWidth,
     bool? isHighlighter,
+    bool? isPerfectShape,
     String? id,
   }) => Stroke(
     id: id ?? this.id,
@@ -98,6 +104,7 @@ class Stroke {
     color: color ?? this.color,
     baseWidth: baseWidth ?? this.baseWidth,
     isHighlighter: isHighlighter ?? this.isHighlighter,
+    isPerfectShape: isPerfectShape ?? this.isPerfectShape,
   );
 
   /// Wandelt den Strich in eine JSON-Map um.
@@ -107,6 +114,7 @@ class Stroke {
     'color': color.toARGB32(),
     'width': baseWidth,
     'isHighlighter': isHighlighter,
+    'isPerfectShape': isPerfectShape,
   };
 
   /// Erstellt einen Strich aus einer JSON-Map.
@@ -119,6 +127,7 @@ class Stroke {
         ? (json['width'] as num).toDouble()
         : 4.0;
     final bool resolvedHighlighter = json['isHighlighter'] as bool? ?? false;
+    final bool resolvedPerfectShape = json['isPerfectShape'] as bool? ?? false;
 
     return Stroke(
       id: json['id'] as String?,
@@ -129,6 +138,7 @@ class Stroke {
       color: resolvedColor,
       baseWidth: resolvedWidth,
       isHighlighter: resolvedHighlighter,
+      isPerfectShape: resolvedPerfectShape,
     );
   }
 }
