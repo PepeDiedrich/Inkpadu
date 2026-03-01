@@ -161,96 +161,149 @@ class _DrawingNotePageState extends State<DrawingNotePage> {
             );
           },
           child: Scaffold(
-            body: Stack(
-              children: [
-                Listener(
-                  onPointerDown: (_) {
-                    if (_isPageOverviewOpen) {
-                      setState(() {
-                        _isPageOverviewOpen = false;
-                      });
-                    }
-                  },
-                  child: NotePageContent(
-                    noteId: controller.note.id,
-                    pages: controller.pages,
-                    currentPageIndex: controller.currentPageIndex,
-                    pageController: _pageController!,
-                    pageScrollLocked: _pageScrollLocked,
-                    drawingController: controller.drawingController,
-                    currentTool: controller.currentTool,
-                    resolveTool: controller.resolveTool,
-                    eraserRadiusFor: controller.eraserRadiusFor,
-                    onPersistDrawing: controller.persistDrawing,
-                    onTwoFingerUndo: _handleUndo,
-                    onThreeFingerRedo: _handleRedo,
-                    paperStyle: controller.note.paperStyle,
-                    pdfBackgroundPath: controller.note.pdfBackgroundPath,
-                    onRequestParentScrollLock: (lock) =>
-                        setState(() => _pageScrollLocked = lock),
-                    initScrollOffset: notesScope.getScrollOffset(
-                      controller.note.id,
-                      controller.currentPageIndex,
-                    ),
-                    onScrollOffsetChanged: (offset) =>
-                        notesScope.setScrollOffset(
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final savedPos = controller.toolbarPosition;
+                // Default to top-center if no position is saved
+                final pos =
+                    savedPos ?? Offset((constraints.maxWidth - 300) / 2, 20);
+
+                return Stack(
+                  children: [
+                    Listener(
+                      onPointerDown: (_) {
+                        if (_isPageOverviewOpen) {
+                          setState(() {
+                            _isPageOverviewOpen = false;
+                          });
+                        }
+                      },
+                      child: NotePageContent(
+                        noteId: controller.note.id,
+                        pages: controller.pages,
+                        currentPageIndex: controller.currentPageIndex,
+                        pageController: _pageController!,
+                        pageScrollLocked: _pageScrollLocked,
+                        drawingController: controller.drawingController,
+                        currentTool: controller.currentTool,
+                        resolveTool: controller.resolveTool,
+                        eraserRadiusFor: controller.eraserRadiusFor,
+                        onPersistDrawing: controller.persistDrawing,
+                        onTwoFingerUndo: _handleUndo,
+                        onThreeFingerRedo: _handleRedo,
+                        paperStyle: controller.note.paperStyle,
+                        pdfBackgroundPath: controller.note.pdfBackgroundPath,
+                        onRequestParentScrollLock: (lock) =>
+                            setState(() => _pageScrollLocked = lock),
+                        initScrollOffset: notesScope.getScrollOffset(
                           controller.note.id,
                           controller.currentPageIndex,
-                          offset,
                         ),
-                    onPageChanged: (index) =>
-                        _handlePageChanged(index, controller),
-                    onFocusPage: (index) {
-                      controller.setCurrentPage(index);
-                      _pageController?.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                      );
-                    },
-                    canCreateNewPage: controller.currentPageHasContent,
-                  ),
-                ),
-                if (_isPageOverviewOpen)
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    right: 0,
-                    child: PageOverviewPanel(
-                      pages: controller.pages,
-                      currentPageIndex: controller.currentPageIndex,
-                      paperStyle: controller.note.paperStyle,
-                      pdfBackgroundPath: controller.note.pdfBackgroundPath,
-                      onPageSelected: (index) {
-                        controller.setCurrentPage(index);
-                        _pageController?.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                        );
-                      },
+                        onPageNavigation: (isNext) {
+                          final targetIndex = isNext
+                              ? controller.currentPageIndex + 1
+                              : controller.currentPageIndex - 1;
+                          if (targetIndex >= 0 &&
+                              targetIndex < controller.pages.length) {
+                            controller.setCurrentPage(targetIndex);
+                            _pageController?.animateToPage(
+                              targetIndex,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                            );
+                          }
+                        },
+                        onScrollOffsetChanged: (offset) =>
+                            notesScope.setScrollOffset(
+                              controller.note.id,
+                              controller.currentPageIndex,
+                              offset,
+                            ),
+                        onPageChanged: (index) =>
+                            _handlePageChanged(index, controller),
+                        onFocusPage: (index) {
+                          controller.setCurrentPage(index);
+                          _pageController?.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                        canCreateNewPage: controller.currentPageHasContent,
+                      ),
                     ),
-                  ),
-                Positioned(
-                  bottom: 24,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: FloatingToolWindow(
-                      tools: controller.tools,
-                      selectedToolId: controller.selectedToolId,
-                      onToolSelected: controller.selectTool,
-                      onToolLongPress: _openToolConfigurator,
-                      onTogglePageOverview: () {
-                        setState(() {
-                          _isPageOverviewOpen = !_isPageOverviewOpen;
-                        });
-                      },
-                      onBackPressed: () => Navigator.of(context).pop(),
+                    if (_isPageOverviewOpen)
+                      Positioned(
+                        top: 0,
+                        bottom: 0,
+                        right: 0,
+                        child: PageOverviewPanel(
+                          pages: controller.pages,
+                          currentPageIndex: controller.currentPageIndex,
+                          paperStyle: controller.note.paperStyle,
+                          pdfBackgroundPath: controller.note.pdfBackgroundPath,
+                          onPageSelected: (index) {
+                            controller.setCurrentPage(index);
+                            _pageController?.animateToPage(
+                              index,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                            );
+                          },
+                        ),
+                      ),
+                    Positioned(
+                      left: pos.dx,
+                      top: pos.dy,
+                      child: GestureDetector(
+                        onPanUpdate: (details) {
+                          final currentPos = controller.toolbarPosition ?? pos;
+                          final currentOrientation =
+                              controller.toolbarOrientation;
+
+                          final newPos = Offset(
+                            (currentPos.dx + details.delta.dx).clamp(
+                              0,
+                              constraints.maxWidth - 60,
+                            ),
+                            (currentPos.dy + details.delta.dy).clamp(
+                              0,
+                              constraints.maxHeight - 60,
+                            ),
+                          );
+                          controller.updateToolbarPosition(newPos);
+
+                          // Auto-orientation logic
+                          final bool isNearEdge =
+                              newPos.dx < 80 ||
+                              newPos.dx > constraints.maxWidth - 140;
+                          final targetOrientation = isNearEdge
+                              ? Axis.vertical
+                              : Axis.horizontal;
+                          if (targetOrientation != currentOrientation) {
+                            controller.updateToolbarOrientation(
+                              targetOrientation,
+                            );
+                          }
+                        },
+                        child: FloatingToolWindow(
+                          tools: controller.tools,
+                          selectedToolId: controller.selectedToolId,
+                          orientation: controller.toolbarOrientation,
+                          onToolSelected: controller.selectTool,
+                          onToolLongPress: _openToolConfigurator,
+                          onTogglePageOverview: () {
+                            setState(() {
+                              _isPageOverviewOpen = !_isPageOverviewOpen;
+                            });
+                          },
+                          onBackPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         );

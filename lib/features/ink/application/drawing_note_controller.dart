@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
@@ -50,6 +51,7 @@ class DrawingNoteController extends ChangeNotifier {
     __note = value;
     _cachedPages = null;
   }
+
   late int _currentPageIndex;
   List<DrawingTool> _tools = const [];
   List<DrawingTool>? _cachedTools;
@@ -58,8 +60,12 @@ class DrawingNoteController extends ChangeNotifier {
   bool _toolsLoaded = false;
   List<bool> _pageContentHistory = <bool>[];
 
+  Offset? _toolbarPosition;
+  Axis _toolbarOrientation = Axis.horizontal;
+
   /// Gibt an, ob der Controller vollständig initialisiert wurde.
   bool get isInitialized => _initialized;
+
   /// Gibt an, ob die Werkzeuge aus dem Repository geladen wurden.
   bool get toolsLoaded => _toolsLoaded;
 
@@ -67,7 +73,8 @@ class DrawingNoteController extends ChangeNotifier {
   InkNote get note => _note;
 
   /// Alle Seiten der aktuellen Notiz.
-  List<NotePage> get pages => _cachedPages ??= List<NotePage>.unmodifiable(_note.pages);
+  List<NotePage> get pages =>
+      _cachedPages ??= List<NotePage>.unmodifiable(_note.pages);
 
   /// Index der aktuell aktiven Seite.
   int get currentPageIndex => _currentPageIndex;
@@ -81,6 +88,12 @@ class DrawingNoteController extends ChangeNotifier {
 
   /// ID des aktuell ausgewählten Werkzeugs.
   String get selectedToolId => _selectedToolId;
+
+  /// Die aktuelle Position der Toolbar.
+  Offset? get toolbarPosition => _toolbarPosition;
+
+  /// Die aktuelle Ausrichtung der Toolbar.
+  Axis get toolbarOrientation => _toolbarOrientation;
 
   /// Liefert das aktuell verwendete Werkzeug.
   DrawingTool get currentTool => resolveTool(_selectedToolId);
@@ -111,7 +124,7 @@ class DrawingNoteController extends ChangeNotifier {
     final InkNote? sourceNote = _inkNotesController.notes
         .where((n) => n.id == noteId)
         .firstOrNull;
-    
+
     if (sourceNote == null) {
       return false;
     }
@@ -123,7 +136,9 @@ class DrawingNoteController extends ChangeNotifier {
 
     debugPrint('[DrawingNoteController] Refreshing note from source');
     debugPrint('[DrawingNoteController] Old updatedAt: ${_note.updatedAt}');
-    debugPrint('[DrawingNoteController] New updatedAt: ${sourceNote.updatedAt}');
+    debugPrint(
+      '[DrawingNoteController] New updatedAt: ${sourceNote.updatedAt}',
+    );
 
     // Aktualisiere die Notiz, aber behalte die aktuellen Striche der aktiven Seite
     final List<NotePage> mergedPages = <NotePage>[];
@@ -131,9 +146,9 @@ class DrawingNoteController extends ChangeNotifier {
       if (i == _currentPageIndex) {
         // Für die aktuelle Seite: Behalte die Striche aus dem DrawingController,
         // aber übernehme andere Felder aus der Quelle
-        mergedPages.add(sourceNote.pages[i].copyWith(
-          strokes: drawingController.strokes,
-        ));
+        mergedPages.add(
+          sourceNote.pages[i].copyWith(strokes: drawingController.strokes),
+        );
       } else {
         mergedPages.add(sourceNote.pages[i]);
       }
@@ -142,10 +157,10 @@ class DrawingNoteController extends ChangeNotifier {
     _note = sourceNote.copyWith(
       pages: List<NotePage>.unmodifiable(mergedPages),
     );
-    
+
     _rebuildPageContentHistory(_note.pages);
     notifyListeners();
-    
+
     debugPrint('[DrawingNoteController] Note refreshed successfully');
     return true;
   }
@@ -155,9 +170,9 @@ class DrawingNoteController extends ChangeNotifier {
     _note = _ensureNote();
     if (_note.pages.isEmpty) {
       _note = _note.copyWith(
-        pages: List<NotePage>.unmodifiable(
-          <NotePage>[NotePage(strokes: const <Stroke>[])],
-        ),
+        pages: List<NotePage>.unmodifiable(<NotePage>[
+          NotePage(strokes: const <Stroke>[]),
+        ]),
       );
     }
     _currentPageIndex = _normalizePageIndex(_note.lastOpenedPageIndex);
@@ -174,7 +189,7 @@ class DrawingNoteController extends ChangeNotifier {
     );
     if (persisted.isNotEmpty) {
       _tools = persisted;
-    _cachedTools = null;
+      _cachedTools = null;
     }
 
     final String? persistedSelection = await _toolPreferencesRepository
@@ -186,6 +201,15 @@ class DrawingNoteController extends ChangeNotifier {
       _selectedToolId = _tools.first.id;
     }
     _toolsLoaded = true;
+
+    // Toolbar-Voreinstellungen laden
+    final Offset? pos = await _toolPreferencesRepository.loadToolbarPosition();
+    if (pos != null) {
+      _toolbarPosition = pos;
+    }
+    _toolbarOrientation = await _toolPreferencesRepository
+        .loadToolbarOrientation();
+
     notifyListeners();
   }
 
@@ -233,6 +257,22 @@ class DrawingNoteController extends ChangeNotifier {
   Future<void> saveTools() =>
       _toolPreferencesRepository.save(_tools, selectedToolId: _selectedToolId);
 
+  /// Aktualisiert die Toolbar-Position und persistiert sie.
+  void updateToolbarPosition(Offset position) {
+    if (_toolbarPosition == position) return;
+    _toolbarPosition = position;
+    notifyListeners();
+    _toolPreferencesRepository.saveToolbarPosition(position);
+  }
+
+  /// Aktualisiert die Toolbar-Ausrichtung und persistiert sie.
+  void updateToolbarOrientation(Axis orientation) {
+    if (_toolbarOrientation == orientation) return;
+    _toolbarOrientation = orientation;
+    notifyListeners();
+    _toolPreferencesRepository.saveToolbarOrientation(orientation);
+  }
+
   /// Persistiert den aktuellen Zeichenstand in der Notizsammlung.
   void persistDrawing() {
     _persistCurrentPageStrokes();
@@ -240,10 +280,7 @@ class DrawingNoteController extends ChangeNotifier {
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
-    _inkNotesController.upsert(
-      _note,
-      changedPageIndices: {_currentPageIndex},
-    );
+    _inkNotesController.upsert(_note, changedPageIndices: {_currentPageIndex});
     notifyListeners();
   }
 
@@ -267,10 +304,7 @@ class DrawingNoteController extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
 
-    _inkNotesController.upsert(
-      updatedNote,
-      changedPageIndices: const <int>{},
-    );
+    _inkNotesController.upsert(updatedNote, changedPageIndices: const <int>{});
     _note = updatedNote;
     notifyListeners();
   }
@@ -285,9 +319,9 @@ class DrawingNoteController extends ChangeNotifier {
         id: noteId,
         title: 'Fehlende Notiz',
         updatedAt: DateTime.now(),
-        pages: List<NotePage>.unmodifiable(
-          <NotePage>[NotePage(strokes: const <Stroke>[])],
-        ),
+        pages: List<NotePage>.unmodifiable(<NotePage>[
+          NotePage(strokes: const <Stroke>[]),
+        ]),
         paperStyle: NotePaperStyle.plain,
       );
       _inkNotesController.upsert(
@@ -329,8 +363,9 @@ class DrawingNoteController extends ChangeNotifier {
     );
     _inkNotesController.upsert(
       _note,
-      changedPageIndices:
-          result.removedPage ? {_currentPageIndex} : const <int>{},
+      changedPageIndices: result.removedPage
+          ? {_currentPageIndex}
+          : const <int>{},
     );
     notifyListeners();
   }
@@ -355,8 +390,10 @@ class DrawingNoteController extends ChangeNotifier {
       ..insert(_currentPageIndex + 1, NotePage(strokes: const <Stroke>[]));
     _pageContentHistory.insert(_currentPageIndex + 1, false);
 
-    _currentPageIndex =
-        (_currentPageIndex + 1).clamp(0, updatedPages.length - 1);
+    _currentPageIndex = (_currentPageIndex + 1).clamp(
+      0,
+      updatedPages.length - 1,
+    );
     drawingController.initialize(updatedPages[_currentPageIndex].strokes);
 
     _note = _note.copyWith(
@@ -364,10 +401,7 @@ class DrawingNoteController extends ChangeNotifier {
       lastOpenedPageIndex: _currentPageIndex,
       updatedAt: DateTime.now(),
     );
-    _inkNotesController.upsert(
-      _note,
-      changedPageIndices: {_currentPageIndex},
-    );
+    _inkNotesController.upsert(_note, changedPageIndices: {_currentPageIndex});
     notifyListeners();
     return _currentPageIndex;
   }
@@ -388,8 +422,10 @@ class DrawingNoteController extends ChangeNotifier {
     if (_currentPageIndex < _pageContentHistory.length) {
       _pageContentHistory[_currentPageIndex] = hasContent;
     }
-    final bool strokesChanged =
-        !listEquals(currentPage.strokes, persistedStrokes);
+    final bool strokesChanged = !listEquals(
+      currentPage.strokes,
+      persistedStrokes,
+    );
 
     if (!strokesChanged) {
       return;
@@ -399,14 +435,11 @@ class DrawingNoteController extends ChangeNotifier {
       strokes: persistedStrokes,
     );
 
-    _note = _note.copyWith(
-      pages: List<NotePage>.unmodifiable(updatedPages),
-    );
+    _note = _note.copyWith(pages: List<NotePage>.unmodifiable(updatedPages));
   }
 
-  bool _strokesHaveContent(List<Stroke> strokes) => strokes.any(
-        (Stroke stroke) => stroke.points.isNotEmpty,
-      );
+  bool _strokesHaveContent(List<Stroke> strokes) =>
+      strokes.any((Stroke stroke) => stroke.points.isNotEmpty);
 
   /// Prüft, ob eine Seite relevanten Inhalt hat (Striche).
   bool _pageHasContent(NotePage page) => _strokesHaveContent(page.strokes);
@@ -448,10 +481,7 @@ class DrawingNoteController extends ChangeNotifier {
       nextTarget = math.max(0, targetIndex - 1);
     }
 
-    _note = _note.copyWith(
-      pages: nextPages,
-      updatedAt: DateTime.now(),
-    );
+    _note = _note.copyWith(pages: nextPages, updatedAt: DateTime.now());
 
     if (_currentPageIndex >= nextPages.length) {
       _currentPageIndex = nextPages.length - 1;

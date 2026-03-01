@@ -13,6 +13,7 @@ class FloatingToolWindow extends StatelessWidget {
     required this.onToolLongPress,
     required this.onTogglePageOverview,
     required this.onBackPressed,
+    this.orientation = Axis.horizontal,
   });
 
   /// Available drawing tools.
@@ -33,6 +34,9 @@ class FloatingToolWindow extends StatelessWidget {
   /// Callback when the back button is pressed.
   final VoidCallback onBackPressed;
 
+  /// The orientation of the toolbar.
+  final Axis orientation;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -50,38 +54,58 @@ class FloatingToolWindow extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
       color: colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
+        padding: orientation == Axis.horizontal
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Flex(
+          direction: orientation,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag Handle
+            const IconButton(
+              icon: Icon(Icons.drag_indicator_rounded),
+              onPressed: null,
+              tooltip: 'Verschieben',
+            ),
+
+            const SizedBox(width: 4, height: 4),
+
             // Back Button
             IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: onBackPressed,
+              tooltip: 'Zurück',
             ),
 
-            const SizedBox(width: 8),
-            Container(height: 24, width: 1, color: colorScheme.outlineVariant),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4, height: 4),
+            _Divider(
+              orientation: orientation,
+              color: colorScheme.outlineVariant,
+            ),
+            const SizedBox(width: 4, height: 4),
 
             // Tool Palette
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 40),
-              child: DrawingToolPalette(
-                tools: tools,
-                selectedToolId: selectedToolId,
-                onToolSelected: onToolSelected,
-                onToolEdit: onToolLongPress,
-                onToolDelete: (toolId) {
-                  final tool = findToolById(toolId);
-                  if (tool == null) return;
-                  onToolLongPress(tool);
-                },
-              ),
+            DrawingToolPalette(
+              tools: tools,
+              selectedToolId: selectedToolId,
+              direction: orientation,
+              onToolSelected: onToolSelected,
+              onToolEdit: onToolLongPress,
+              onToolDelete: (toolId) {
+                final tool = findToolById(toolId);
+                if (tool == null) return;
+                onToolLongPress(tool);
+              },
             ),
-            const SizedBox(width: 8),
-            Container(height: 24, width: 1, color: colorScheme.outlineVariant),
-            const SizedBox(width: 8),
+
+            const SizedBox(width: 4, height: 4),
+            _Divider(
+              orientation: orientation,
+              color: colorScheme.outlineVariant,
+            ),
+            const SizedBox(width: 4, height: 4),
+
+            // Page Overview
             IconButton(
               icon: const Icon(Icons.grid_view_rounded),
               onPressed: onTogglePageOverview,
@@ -91,5 +115,18 @@ class FloatingToolWindow extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider({required this.orientation, required this.color});
+  final Axis orientation;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return orientation == Axis.horizontal
+        ? Container(height: 24, width: 1, color: color)
+        : Container(height: 1, width: 24, color: color);
   }
 }

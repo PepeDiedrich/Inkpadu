@@ -39,6 +39,7 @@ class NotePageContent extends StatefulWidget {
     required this.onScrollOffsetChanged,
     required this.onPageChanged,
     required this.onFocusPage,
+    required this.onPageNavigation,
     required this.canCreateNewPage,
   });
 
@@ -99,6 +100,9 @@ class NotePageContent extends StatefulWidget {
   /// Callback to focus a specific page.
   final ValueChanged<int> onFocusPage;
 
+  /// Callback when page navigation (next/prev) is requested.
+  final ValueChanged<bool> onPageNavigation;
+
   /// Whether a new page can be created.
   final bool canCreateNewPage;
 
@@ -157,8 +161,11 @@ class _NotePageContentState extends State<NotePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    final int placeholderIndex = widget.canCreateNewPage ? widget.pages.length : -1;
-    final int pageCount = widget.pages.length + (widget.canCreateNewPage ? 1 : 0);
+    final int placeholderIndex = widget.canCreateNewPage
+        ? widget.pages.length
+        : -1;
+    final int pageCount =
+        widget.pages.length + (widget.canCreateNewPage ? 1 : 0);
 
     return PageView.builder(
       key: PageStorageKey('note_${widget.noteId}_page_view'),
@@ -201,6 +208,7 @@ class _NotePageContentState extends State<NotePageContent> {
                     ),
                     initScrollOffset: widget.initScrollOffset,
                     onScrollOffsetChanged: widget.onScrollOffsetChanged,
+                    onPageNavigation: widget.onPageNavigation,
                   ),
                 ),
               ],

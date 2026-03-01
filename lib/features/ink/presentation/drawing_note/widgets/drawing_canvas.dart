@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -48,6 +49,7 @@ class DrawingCanvas extends StatefulWidget {
     this.scrollKey,
     this.initScrollOffset,
     this.onScrollOffsetChanged,
+    this.onPageNavigation,
     this.initialCanvasHeight = 1600,
     this.canvasBottomPadding = 600,
     this.onRequestParentScrollLock,
@@ -92,6 +94,9 @@ class DrawingCanvas extends StatefulWidget {
   /// Optionaler Callback, der bei Scroll-Änderungen den aktuellen Offset liefert.
   final ValueChanged<double>? onScrollOffsetChanged;
 
+  /// Optionaler Callback zum Wechseln der Seite (true = nächste, false = vorherige).
+  final ValueChanged<bool>? onPageNavigation;
+
   /// Mindesthöhe der Zeichenfläche.
   final double initialCanvasHeight;
 
@@ -113,28 +118,35 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
   double? _desiredInitialOffset;
   double _lastScrollExpansionTrigger = -1;
   late final CanvasGestureRecognizer _gestureRecognizer;
+  Timer? _shapeDetectionTimer;
 
   int? _activeDrawingPointerId;
   String? _activeToolDuringStrokeId;
   bool _didEraseDuringDrag = false;
   int _lastObservedVersion = 0;
 
-    int? _activeLassoPointerId;
-    final List<Offset> _lassoPoints = <Offset>[];
-    final List<Offset> _lastAiLassoPoints = <Offset>[];
-    final Set<int> _selectedStrokeIndices = <int>{};
-    List<Rect> _selectedStrokeBounds = const <Rect>[];
-    bool _aiPanelOpen = false;
-    Offset _aiPanelPosition = const Offset(16, 16);
-    List<AiBoundingBox> _aiBoundingBoxes = const <AiBoundingBox>[];
+  int? _activeLassoPointerId;
+  final List<Offset> _lassoPoints = <Offset>[];
+  final List<Offset> _lastAiLassoPoints = <Offset>[];
+  final Set<int> _selectedStrokeIndices = <int>{};
+  List<Rect> _selectedStrokeBounds = const <Rect>[];
+  bool _aiPanelOpen = false;
+  Offset _aiPanelPosition = const Offset(16, 16);
+  List<AiBoundingBox> _aiBoundingBoxes = const <AiBoundingBox>[];
 
-    bool get _isLassoTool =>
+  // Right-click navigation state
+  int? _activeNavigationPointerId;
+  Offset? _lastNavigationPosition;
+  double _horizontalNavigationDelta = 0;
+  static const double _pagingThreshold = 150.0;
+
+  bool get _isLassoTool =>
       widget.currentTool.id == DrawingToolDefaults.aiLassoId;
 
-    bool get _isAiLassoTool =>
+  bool get _isAiLassoTool =>
       widget.currentTool.id == DrawingToolDefaults.aiLassoId;
 
-    final GlobalKey _canvasRepaintKey = GlobalKey();
+  final GlobalKey _canvasRepaintKey = GlobalKey();
 
   @override
   void initState() {
@@ -199,6 +211,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
   @override
   void dispose() {
+    _shapeDetectionTimer?.cancel();
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
     super.dispose();
@@ -299,6 +312,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
     _activeDrawingPointerId = null;
     _activeToolDuringStrokeId = null;
+    _shapeDetectionTimer?.cancel();
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
@@ -349,7 +363,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 
     if (kind == PointerDeviceKind.touch) {
       _gestureRecognizer.handlePointerDown(details);
-      
+
       if (_gestureRecognizer.currentTouchCount >= 3) {
         _abortDrawing();
         touchAllowsDrawing = false;
@@ -358,15 +372,23 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         touchAllowsDrawing = false;
       }
 
-      if (!touchAllowsDrawing && !settings.accept(kind)) {
-        return;
-      }
       if (!touchAllowsDrawing) {
         return;
       }
     }
 
-    if (!settings.accept(kind)) {
+    // Handle Right-Click (Secondary Button) for navigation
+    if (kind == PointerDeviceKind.mouse &&
+        details.buttons == kSecondaryButton) {
+      _activeNavigationPointerId = details.pointer;
+      _lastNavigationPosition = details.localPosition;
+      _horizontalNavigationDelta = 0;
+      return;
+    }
+
+    if (!settings.accept(kind) ||
+        (kind == PointerDeviceKind.mouse &&
+            details.buttons != kPrimaryButton)) {
       return;
     }
 
@@ -430,10 +452,31 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     final kind = details.kind;
 
     if (kind == PointerDeviceKind.touch) {
-      _gestureRecognizer.handlePointerMove(details);
       if (_gestureRecognizer.maintainsMultipleTouches) {
         return;
       }
+    }
+
+    // Handle Right-Click navigation
+    if (_activeNavigationPointerId == details.pointer) {
+      if (_lastNavigationPosition != null &&
+          _canvasScrollController.hasClients) {
+        final delta = details.localPosition - _lastNavigationPosition!;
+
+        // Vertical scrolling
+        if (delta.dy != 0) {
+          final target = (_canvasScrollController.offset - delta.dy).clamp(
+            0.0,
+            _canvasScrollController.position.maxScrollExtent,
+          );
+          _canvasScrollController.jumpTo(target);
+        }
+
+        // Horizontal paging accumulation
+        _horizontalNavigationDelta += delta.dx;
+      }
+      _lastNavigationPosition = details.localPosition;
+      return;
     }
 
     if (_activeLassoPointerId == details.pointer && details.down) {
@@ -473,14 +516,52 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _ensureCanvasHeightForPosition(newPoint.position.dy);
 
     widget.drawingController.updateStroke(newPoint);
+
+    // Shape Detection: Restart timer on significant movement
+    final double dist = (details.delta).distanceSquared;
+    if (dist > 1.0) {
+      _shapeDetectionTimer?.cancel();
+      _shapeDetectionTimer = Timer(const Duration(milliseconds: 600), () {
+        if (_activeDrawingPointerId == details.pointer) {
+          final snapped = widget.drawingController.trySnapToShape();
+          if (snapped) {
+            Feedback.forTap(context);
+          }
+        }
+      });
+    }
   }
 
   void _end(PointerUpEvent details) {
     if (details.kind == PointerDeviceKind.touch) {
-      _gestureRecognizer.handlePointerUp(details);
       if (_gestureRecognizer.maintainsMultipleTouches) {
         return;
       }
+    }
+
+    // Handle Right-Click navigation end
+    if (_activeNavigationPointerId == details.pointer) {
+      if (_horizontalNavigationDelta.abs() > _pagingThreshold) {
+        if (_horizontalNavigationDelta > 0) {
+          // Swipe Right -> Previous Page
+          if (widget.pdfPageIndex != null && widget.pdfPageIndex! > 0) {
+            // We don't have direct access to page switching here, but we can call widget.onPageChanged
+            // or similar if provided. Looking at DrawingNotePage, it uses a PageController.
+            // DrawingCanvas has onPageChanged in DrawingNotePage but not directly in DrawingCanvas.
+            // Wait, DrawingCanvas is wrapped in NotePageContent which has onPageChanged.
+            // BUT DrawingCanvas doesn't have it.
+          }
+          // Let's use a generic way or add the callback.
+          _handleRightClickPaging(_horizontalNavigationDelta > 0);
+        } else {
+          // Swipe Left -> Next Page
+          _handleRightClickPaging(_horizontalNavigationDelta > 0);
+        }
+      }
+      _activeNavigationPointerId = null;
+      _lastNavigationPosition = null;
+      _horizontalNavigationDelta = 0;
+      return;
     }
 
     if (_activeLassoPointerId == details.pointer) {
@@ -497,25 +578,28 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ..clear()
           ..addAll(selection.indices);
         _selectedStrokeBounds = selection.bounds;
-        
-        if (_isAiLassoTool && (_selectedStrokeIndices.isNotEmpty || _lassoPoints.length >= 3)) {
+
+        if (_isAiLassoTool &&
+            (_selectedStrokeIndices.isNotEmpty || _lassoPoints.length >= 3)) {
           _lastAiLassoPoints
             ..clear()
             ..addAll(_lassoPoints);
           setState(() {
             _aiPanelOpen = true;
             _aiBoundingBoxes = const <AiBoundingBox>[];
-            _aiPanelPosition = _lassoPoints.isNotEmpty ? _lassoPoints.first : const Offset(16, 16);
+            _aiPanelPosition = _lassoPoints.isNotEmpty
+                ? _lassoPoints.first
+                : const Offset(16, 16);
           });
         }
       } else {
         _selectedStrokeIndices.clear();
         _selectedStrokeBounds = const <Rect>[];
       }
-      
+
       // Clear lasso points so the drawn circle disappears
       _lassoPoints.clear();
-      
+
       setState(() {});
       return;
     }
@@ -541,6 +625,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     }
 
     _didEraseDuringDrag = false;
+    _shapeDetectionTimer?.cancel();
 
     final editorSettings = EditorSettingsScope.of(context);
     widget.drawingController.updateSimplifierSettings(
@@ -570,13 +655,22 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       }
       _activeDrawingPointerId = null;
       _activeToolDuringStrokeId = null;
+      _shapeDetectionTimer?.cancel();
     }
 
     if (_activeLassoPointerId == details.pointer) {
-      _activeLassoPointerId = null;
-      widget.onRequestParentScrollLock?.call(false);
       setState(() {});
     }
+
+    if (_activeNavigationPointerId == details.pointer) {
+      _activeNavigationPointerId = null;
+      _lastNavigationPosition = null;
+      _horizontalNavigationDelta = 0;
+    }
+  }
+
+  void _handleRightClickPaging(bool isNext) {
+    widget.onPageNavigation?.call(isNext);
   }
 
   ({Set<int> indices, List<Rect> bounds}) _selectStrokesWithinLasso(
@@ -657,18 +751,20 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       final bool intersect =
           ((yi > point.dy) != (yj > point.dy)) &&
           (point.dx <
-              (xj - xi) * (point.dy - yi) / ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
+              (xj - xi) *
+                      (point.dy - yi) /
+                      ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
                   xi);
       if (intersect) inside = !inside;
     }
     return inside;
   }
 
-
-
   Future<ui.Image?> _captureCanvasRegion() async {
     try {
-      final boundary = _canvasRepaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          _canvasRepaintKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) return null;
 
       final ui.Image fullImage = await boundary.toImage(pixelRatio: 2.0);
@@ -677,7 +773,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       // Crop the image
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      
+
       // We need to scale the bounds by the pixelRatio
       final src = Rect.fromLTWH(
         selectionBounds.left * 2.0,
@@ -685,16 +781,21 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         selectionBounds.width * 2.0,
         selectionBounds.height * 2.0,
       );
-      final dst = Rect.fromLTWH(0, 0, selectionBounds.width * 2.0, selectionBounds.height * 2.0);
-      
+      final dst = Rect.fromLTWH(
+        0,
+        0,
+        selectionBounds.width * 2.0,
+        selectionBounds.height * 2.0,
+      );
+
       canvas.drawImageRect(fullImage, src, dst, Paint());
       final picture = recorder.endRecording();
-      
+
       final croppedImage = await picture.toImage(
         (selectionBounds.width * 2.0).toInt(),
         (selectionBounds.height * 2.0).toInt(),
       );
-      
+
       return croppedImage;
     } catch (e) {
       debugPrint('Error capturing canvas: $e');
@@ -746,7 +847,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         child: SingleChildScrollView(
           key: widget.scrollKey,
           controller: _canvasScrollController,
-          physics: const ClampingScrollPhysics(),
+          physics: _activeDrawingPointerId != null
+              ? const NeverScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
           padding: EdgeInsets.zero,
           child: SizedBox(
             width: double.infinity,
@@ -763,52 +866,63 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
               child: RepaintBoundary(
                 key: _canvasRepaintKey,
                 child: NotePaperBackground(
-                paperStyle: widget.paperStyle,
-                pdfDocument: widget.pdfDocument,
-                pdfPageIndex: widget.pdfPageIndex,
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  onPointerDown: _start,
-                  onPointerMove: _update,
-                  onPointerUp: _end,
-                  onPointerCancel: _cancel,
-                  child: AnimatedBuilder(
-                    animation: widget.drawingController,
-                    builder: (context, child) => Stack(
-                      children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: FinishedStrokesPainter(
-                              strokes: widget.drawingController.strokes,
-                              version: widget.drawingController.strokesVersion,
+                  paperStyle: widget.paperStyle,
+                  pdfDocument: widget.pdfDocument,
+                  pdfPageIndex: widget.pdfPageIndex,
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: _start,
+                    onPointerMove: _update,
+                    onPointerUp: _end,
+                    onPointerCancel: _cancel,
+                    child: AnimatedBuilder(
+                      animation: widget.drawingController,
+                      builder: (context, child) => Stack(
+                        children: [
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: FinishedStrokesPainter(
+                                strokes: widget.drawingController.strokes,
+                                version:
+                                    widget.drawingController.strokesVersion,
+                              ),
                             ),
                           ),
-                        ),
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: CurrentStrokePainter(
-                              currentStroke:
-                                  widget.drawingController.currentStroke,
-                              pointCount: widget.drawingController.currentStroke
-                                      ?.points.length ??
-                                  0,
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: CurrentStrokePainter(
+                                currentStroke:
+                                    widget.drawingController.currentStroke,
+                                pointCount:
+                                    widget
+                                        .drawingController
+                                        .currentStroke
+                                        ?.points
+                                        .length ??
+                                    0,
+                              ),
                             ),
                           ),
-                        ),
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: _LassoSelectionPainter(
-                              lassoPoints: _lassoPoints,
-                              selectedStrokeBounds: _aiPanelOpen && _selectedStrokeBounds.isEmpty && _lastAiLassoPoints.isNotEmpty
-                                  ? <Rect>[_boundsOfOffsets(_lastAiLassoPoints)]
-                                  : _selectedStrokeBounds,
-                              aiBoundingBoxes: _aiBoundingBoxes,
-                              selectionColor: scheme.primary,
-                              lassoColor: scheme.primary,
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _LassoSelectionPainter(
+                                lassoPoints: _lassoPoints,
+                                selectedStrokeBounds:
+                                    _aiPanelOpen &&
+                                        _selectedStrokeBounds.isEmpty &&
+                                        _lastAiLassoPoints.isNotEmpty
+                                    ? <Rect>[
+                                        _boundsOfOffsets(_lastAiLassoPoints),
+                                      ]
+                                    : _selectedStrokeBounds,
+                                aiBoundingBoxes: _aiBoundingBoxes,
+                                selectionColor: scheme.primary,
+                                lassoColor: scheme.primary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -816,7 +930,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             ),
           ),
         ),
-      ),
       ),
     );
     return Stack(
@@ -827,7 +940,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
             initialPosition: _aiPanelPosition,
             lassoPoints: _lastAiLassoPoints,
             onClose: () => setState(() => _aiPanelOpen = false),
-            onAiBoxesExtracted: (List<AiBoundingBox> boxes) => setState(() => _aiBoundingBoxes = boxes),
+            onAiBoxesExtracted: (List<AiBoundingBox> boxes) =>
+                setState(() => _aiBoundingBoxes = boxes),
             captureRegion: _captureCanvasRegion,
           ),
       ],
@@ -842,9 +956,9 @@ class _LassoSelectionPainter extends CustomPainter {
     required List<AiBoundingBox> aiBoundingBoxes,
     required this.selectionColor,
     required this.lassoColor,
-  })  : lassoPoints = List<Offset>.unmodifiable(lassoPoints),
-        selectedStrokeBounds = List<Rect>.unmodifiable(selectedStrokeBounds),
-        aiBoundingBoxes = List<AiBoundingBox>.unmodifiable(aiBoundingBoxes);
+  }) : lassoPoints = List<Offset>.unmodifiable(lassoPoints),
+       selectedStrokeBounds = List<Rect>.unmodifiable(selectedStrokeBounds),
+       aiBoundingBoxes = List<AiBoundingBox>.unmodifiable(aiBoundingBoxes);
 
   final List<Offset> lassoPoints;
   final List<Rect> selectedStrokeBounds;
@@ -859,7 +973,7 @@ class _LassoSelectionPainter extends CustomPainter {
         ..color = selectionColor.withValues(alpha: 0.55)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
-      
+
       double minX = double.infinity;
       double minY = double.infinity;
       double maxX = double.negativeInfinity;
@@ -922,6 +1036,8 @@ class _DrawingScrollBehavior extends MaterialScrollBehavior {
   const _DrawingScrollBehavior();
 
   @override
-  Set<PointerDeviceKind> get dragDevices =>
-      const {PointerDeviceKind.mouse, PointerDeviceKind.unknown};
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.unknown,
+  };
 }
