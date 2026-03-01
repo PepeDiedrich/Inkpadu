@@ -454,8 +454,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           for (var b in _selectedStrokeBounds) {
             combined = combined.expandToInclude(b);
           }
-          if (combined.inflate(10).contains(details.localPosition))
+          if (combined.inflate(10).contains(details.localPosition)) {
             hitSelection = true;
+          }
         }
         // Check bounds of selected webviews
         if (!hitSelection) {

@@ -9,9 +9,11 @@ import 'package:webview_windows/webview_windows.dart' as ww;
 /// A cross-platform webview that uses `webview_windows` on Desktop Windows,
 /// and `webview_flutter` elsewhere.
 class CrossPlatformWebView extends StatefulWidget {
+  /// The webview node data to display in this widget.
   final WebViewNode node;
 
-  const CrossPlatformWebView({Key? key, required this.node}) : super(key: key);
+  /// Creates a cross-platform webview widget for the given [node].
+  const CrossPlatformWebView({super.key, required this.node});
 
   @override
   State<CrossPlatformWebView> createState() => _CrossPlatformWebViewState();

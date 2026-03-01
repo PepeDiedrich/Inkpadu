@@ -330,7 +330,6 @@ class DrawingNoteController extends ChangeNotifier {
         pages: List<NotePage>.unmodifiable(<NotePage>[
           NotePage(
             strokes: const <Stroke>[],
-            webViewNodes: const <WebViewNode>[],
           ),
         ]),
         paperStyle: NotePaperStyle.plain,
@@ -405,7 +404,6 @@ class DrawingNoteController extends ChangeNotifier {
         _currentPageIndex + 1,
         NotePage(
           strokes: const <Stroke>[],
-          webViewNodes: const <WebViewNode>[],
         ),
       );
     _pageContentHistory.insert(_currentPageIndex + 1, false);

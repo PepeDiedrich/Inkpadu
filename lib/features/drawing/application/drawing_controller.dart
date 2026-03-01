@@ -546,12 +546,10 @@ class DrawingController extends ChangeNotifier {
       for (final index in strokeIndices) {
         if (index >= 0 && index < updatedStrokes.length) {
           final stroke = updatedStrokes[index];
-          final newPoints = stroke.points.map((point) {
-            return DrawingPoint(
+          final newPoints = stroke.points.map((point) => DrawingPoint(
               position: point.position + delta,
               pressure: point.pressure,
-            );
-          }).toList();
+            )).toList();
           // Invalidiere Cached Paths und Bounds durch ein neues Objekt
           updatedStrokes[index] = stroke.copyWith(points: newPoints);
           changed = true;

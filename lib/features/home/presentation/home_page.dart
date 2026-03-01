@@ -8,6 +8,7 @@ import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.
 class HomePage extends StatefulWidget {
@@ -19,7 +20,6 @@ class HomePage extends StatefulWidget {
 }
 
 enum _NoteAction { open, metadata, exportPdf, delete }
-
 
 class _HomePageState extends State<HomePage> {
   Future<void> _showNoteActions(InkNote note) async {
@@ -41,8 +41,10 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                 child: Row(
                   children: [
-                    Icon(Icons.note_alt_outlined,
-                        color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.note_alt_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -132,22 +134,22 @@ class _HomePageState extends State<HomePage> {
     try {
       final service = PdfExportService();
       final screenWidth = MediaQuery.of(context).size.width;
-      final pdfBytes = await service.exportNoteToPdf(note, canvasWidth: screenWidth);
-      
+      final pdfBytes = await service.exportNoteToPdf(
+        note,
+        canvasWidth: screenWidth,
+      );
+
       if (!mounted) return;
       // Schließe Ladeindikator
       Navigator.of(context).pop();
 
       // Teile/Speichere das PDF
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: '${note.title}.pdf',
-      );
+      await Printing.sharePdf(bytes: pdfBytes, filename: '${note.title}.pdf');
     } catch (e) {
       if (!mounted) return;
       // Schließe Ladeindikator
       Navigator.of(context).pop();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.t.pdf.exportFailed(error: e.toString())),
@@ -171,8 +173,9 @@ class _HomePageState extends State<HomePage> {
     }
 
     final String trimmedTitle = result.title.trim();
-    final String nextTitle =
-        trimmedTitle.isEmpty ? InkNote.generateTitle() : trimmedTitle;
+    final String nextTitle = trimmedTitle.isEmpty
+        ? InkNote.generateTitle()
+        : trimmedTitle;
     final InkNote updated = note.copyWith(
       title: nextTitle,
       paperStyle: result.paperStyle,
@@ -184,7 +187,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _showCreateOptions() async {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     final String? choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: colorScheme.surface,
@@ -192,41 +195,41 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                child: Row(
-                  children: [
-                    Icon(Icons.add_circle_outline, color: colorScheme.primary),
-                    const SizedBox(width: 12),
-                    Text(
-                      context.t.notes.createNew,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.add_circle_outline, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Text(
+                    context.t.notes.createNew,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              ListTile(
-                leading: const Icon(Icons.note_add_outlined),
-                title: Text(context.t.notes.emptyNote),
-                subtitle: Text(context.t.notes.emptyNoteSubtitle),
-                onTap: () => Navigator.of(context).pop('empty'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf_outlined),
-                title: Text(context.t.pdf.import),
-                subtitle: Text(context.t.notes.createNew),
-                onTap: () => Navigator.of(context).pop('pdf'),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.note_add_outlined),
+              title: Text(context.t.notes.emptyNote),
+              subtitle: Text(context.t.notes.emptyNoteSubtitle),
+              onTap: () => Navigator.of(context).pop('empty'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: Text(context.t.pdf.import),
+              subtitle: Text(context.t.notes.createNew),
+              onTap: () => Navigator.of(context).pop('pdf'),
+            ),
+            const SizedBox(height: 12),
+          ],
         ),
+      ),
     );
 
     if (!mounted || choice == null) return;
@@ -249,7 +252,7 @@ class _HomePageState extends State<HomePage> {
     if (result != null && result.files.single.path != null) {
       final path = result.files.single.path!;
       final filename = result.files.single.name;
-      
+
       if (!mounted) return;
       final controller = InkNotesScope.of(context);
       showDialog<void>(
@@ -267,16 +270,16 @@ class _HomePageState extends State<HomePage> {
       );
 
       final note = await controller.createFromPdf(path, title: filename);
-      
+
       if (!mounted) return;
       Navigator.of(context).pop();
 
       if (note != null) {
         _open(note.id);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.t.errors.unknownError)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.t.errors.unknownError)));
       }
     }
   }
@@ -337,10 +340,26 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-  final notes = InkNotesScope.of(context).notes;
-  final theme = Theme.of(context);
+    final notes = InkNotesScope.of(context).notes;
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(context.t.notes.title)),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            SvgPicture.asset(
+              'assets/logo.svg',
+              height: 32,
+              width: 32,
+              colorFilter: ColorFilter.mode(
+                theme.colorScheme.primary,
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(context.t.notes.title),
+          ],
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateOptions(),
         icon: const Icon(Icons.add),
@@ -348,8 +367,8 @@ class _HomePageState extends State<HomePage> {
       ),
       body: notes.isEmpty
           ? Center(child: Text(context.t.notes.noNotes))
-      : ListView.builder(
-        key: const PageStorageKey('home_list'),
+          : ListView.builder(
+              key: const PageStorageKey('home_list'),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               itemCount: notes.length,
               itemBuilder: (context, index) {

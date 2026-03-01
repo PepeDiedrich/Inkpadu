@@ -21,12 +21,15 @@ class AppColors {
   /// CRITICAL: Use this for any text or icon on primaryAccent background.
   static const Color onPrimary = Color(0xFF011F4B);
 
-  /// Intense sky blue primary accent color.
-  static const Color primaryAccent = Color(0xFF4FC3F7);
+  /// Intense sky blue primary accent color (from logo gradient).
+  static const Color primaryAccent = Color(0xFF38BDF8);
 
   /// Very light sky blue for hover states (10% opacity feel).
   static const Color primaryHover = Color(0xFFE3F6FD);
 
-  /// Soft teal secondary accent color.
-  static const Color secondaryAccent = Color(0xFF26C6DA);
+  /// Soft indigo secondary accent color (from logo gradient).
+  static const Color secondaryAccent = Color(0xFF818CF8);
+
+  /// Cyan gradient start from logo.
+  static const Color accentGradientStart = Color(0xFF00F2FE);
 }
