@@ -143,8 +143,8 @@ void main() {
   });
 
   group('DrawingToolDefaults', () {
-    test('palette contains 7 tools', () {
-      expect(DrawingToolDefaults.palette, hasLength(7));
+    test('palette contains 8 tools', () {
+      expect(DrawingToolDefaults.palette, hasLength(8));
     });
 
     test('palette has unique ids', () {
