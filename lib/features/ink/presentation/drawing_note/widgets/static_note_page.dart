@@ -11,7 +11,9 @@ import 'package:pdfrx/pdfrx.dart';
 ///
 /// Uses [CustomPaint] with [FinishedStrokesPainter] to display strokes
 /// without interactive editing capabilities.
-class StaticNotePage extends StatelessWidget {
+/// Uses [CustomPaint] with [FinishedStrokesPainter] to display strokes
+/// without interactive editing capabilities.
+class StaticNotePage extends StatefulWidget {
   /// Creates a static note page preview.
   const StaticNotePage({
     super.key,
@@ -36,16 +38,32 @@ class StaticNotePage extends StatelessWidget {
   static const double _initialCanvasHeight = 1600;
   static const double _canvasBottomPadding = 600;
 
+  @override
+  State<StaticNotePage> createState() => _StaticNotePageState();
+}
+
+class _StaticNotePageState extends State<StaticNotePage> {
+  final StrokesPictureCache _pictureCache = StrokesPictureCache();
+
+  @override
+  void dispose() {
+    _pictureCache.dispose();
+    super.dispose();
+  }
+
   double _requiredCanvasHeight() {
     var maxY = 0.0;
-    for (final stroke in page.strokes) {
+    for (final stroke in widget.page.strokes) {
       for (final point in stroke.points) {
         if (point.position.dy > maxY) {
           maxY = point.position.dy;
         }
       }
     }
-    return math.max(_initialCanvasHeight, maxY + _canvasBottomPadding);
+    return math.max(
+      StaticNotePage._initialCanvasHeight,
+      maxY + StaticNotePage._canvasBottomPadding,
+    );
   }
 
   @override
@@ -57,14 +75,15 @@ class StaticNotePage extends StatelessWidget {
         width: double.infinity,
         height: height,
         child: NotePaperBackground(
-          paperStyle: paperStyle,
-          pdfDocument: pdfDocument,
-          pdfPageIndex: pdfPageIndex,
+          paperStyle: widget.paperStyle,
+          pdfDocument: widget.pdfDocument,
+          pdfPageIndex: widget.pdfPageIndex,
           child: RepaintBoundary(
             child: CustomPaint(
               painter: FinishedStrokesPainter(
-                strokes: page.strokes,
-                version: page.strokes.hashCode,
+                strokes: widget.page.strokes,
+                cache: _pictureCache,
+                version: widget.page.strokes.hashCode,
               ),
             ),
           ),

@@ -159,6 +159,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       widget.currentTool.id == DrawingToolDefaults.selectionLassoId;
 
   final GlobalKey _canvasRepaintKey = GlobalKey();
+  final StrokesPictureCache _pictureCache = StrokesPictureCache();
 
   @override
   void initState() {
@@ -231,6 +232,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     _shapeDetectionTimer?.cancel();
     widget.drawingController.removeListener(_handleControllerChanged);
     _canvasScrollController.dispose();
+    _pictureCache.dispose();
     super.dispose();
   }
 
@@ -1110,6 +1112,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                                   child: CustomPaint(
                                     painter: FinishedStrokesPainter(
                                       strokes: widget.drawingController.strokes,
+                                      cache: _pictureCache,
                                       version: widget
                                           .drawingController
                                           .strokesVersion,

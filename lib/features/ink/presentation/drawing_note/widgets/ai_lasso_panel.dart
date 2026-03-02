@@ -161,7 +161,31 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
       final ui.Image capturedImage = capturedResult.image;
       final Rect selectionBounds = capturedResult.bounds;
 
-      final byteData = await capturedImage.toByteData(
+      ui.Image imageToEncode = capturedImage;
+      const double maxDimension = 1024.0;
+      if (capturedImage.width > maxDimension ||
+          capturedImage.height > maxDimension) {
+        final double scale = capturedImage.width > capturedImage.height
+            ? maxDimension / capturedImage.width
+            : maxDimension / capturedImage.height;
+        final int targetWidth = (capturedImage.width * scale).toInt();
+        final int targetHeight = (capturedImage.height * scale).toInt();
+
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.scale(scale, scale);
+        // FilterQuality.medium provides a good balance between quality and performance
+        canvas.drawImage(
+          capturedImage,
+          Offset.zero,
+          Paint()..filterQuality = FilterQuality.medium,
+        );
+
+        final picture = recorder.endRecording();
+        imageToEncode = await picture.toImage(targetWidth, targetHeight);
+      }
+
+      final byteData = await imageToEncode.toByteData(
         format: ui.ImageByteFormat.png,
       );
       if (byteData == null) throw Exception('Could not encode image data');
@@ -239,20 +263,23 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
   }
 
   List<AiPrompt> _defaultAiShortcuts() => <AiPrompt>[
-    AiPrompt(
+    const AiPrompt(
       id: 'ai-shortcut-1',
-      title: context.t.editor.aiShortcut(index: 1),
-      prompt: context.t.editor.aiShortcutPrompt1,
+      title: 'Graph & Visuell',
+      prompt:
+          'Bitte analysiere den ausgewählten Bereich und generiere einen JavaScript und HTML basierten Graph, der den Inhalt repräsentiert. Antworte mit dem reinen HTML/JS Code in einem Markdown Block. Nutze keine externen Bibliotheken.',
     ),
-    AiPrompt(
+    const AiPrompt(
       id: 'ai-shortcut-2',
-      title: context.t.editor.aiShortcut(index: 2),
-      prompt: context.t.editor.aiShortcutPrompt2,
+      title: 'Fehler markieren',
+      prompt:
+          'Bitte analysiere diese Notizen. Markiere alle Fehler, die du findest, mit roten Bounding Boxes. Erkläre kurz, was falsch ist.',
     ),
-    AiPrompt(
+    const AiPrompt(
       id: 'ai-shortcut-3',
-      title: context.t.editor.aiShortcut(index: 3),
-      prompt: context.t.editor.aiShortcutPrompt3,
+      title: 'Sokratischer Tutor',
+      prompt:
+          'Bitte verhalte dich wie ein sokratischer Tutor. Hilf mir, diesen Inhalt zu verstehen, indem du Fragen stellst und Hinweise gibst, anstatt nur die direkte Lösung zu verraten.',
     ),
   ];
 
@@ -273,6 +300,61 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
     return result;
   }
 
+  void _showEditPromptDialog(AiPrompt currentPrompt, int index) {
+    final titleController = TextEditingController(text: currentPrompt.title);
+    final promptController = TextEditingController(text: currentPrompt.prompt);
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Shortcut ${index + 1} bearbeiten'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Titel'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: promptController,
+                decoration: const InputDecoration(labelText: 'Prompt'),
+                maxLines: 4,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(context.t.common.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                final newPrompt = AiPrompt(
+                  id: currentPrompt.id,
+                  title: titleController.text.trim(),
+                  prompt: promptController.text.trim(),
+                );
+
+                final editorSettings = EditorSettingsScope.of(context);
+                final currentPrompts = _resolveAiShortcuts(
+                  editorSettings.aiPrompts,
+                );
+                currentPrompts[index] = newPrompt;
+                editorSettings.update(aiPrompts: currentPrompts);
+
+                Navigator.of(context).pop();
+                setState(() {}); // Trigger rebuild to show new title
+              },
+              child: Text(context.t.common.save),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final editorSettings = EditorSettingsScope.of(context);
@@ -288,176 +370,205 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
           onPointerDown: (_) {},
           onPointerMove: (_) {},
           onPointerUp: (_) {},
-          child: Card(
-            elevation: 8,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  GestureDetector(
-                    onPanUpdate: (details) =>
-                        setState(() => _position += details.delta),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.drag_indicator, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            context.t.ai.helpMeTitle,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: context.t.common.close,
-                          onPressed: widget.onClose,
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
-                    ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Card(
+                elevation: 4,
+                margin: EdgeInsets.zero,
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  side: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withOpacity(0.5),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (final prompt in aiShortcuts)
-                        FilledButton.tonalIcon(
-                          onPressed: _loading
-                              ? null
-                              : () => _executeAiRequest(prompt),
-                          icon: const Icon(Icons.flash_on),
-                          label: Text(prompt.title),
-                        ),
-                      if (widget.onGenerateGraph != null)
-                        FilledButton.tonalIcon(
-                          onPressed: _loading
-                              ? null
-                              : () => _executeAiRequest(
-                                  null,
-                                  "Bitte analysiere den ausgewählten Bereich und generiere einen JavaScript und HTML basierten Graph, der den Inhalt repräsentiert. Antworte mit dem reinen HTML/JS Code in einem Markdown Block. Nutze keine externen Bibliotheken außer ggf. chart.js oder d3.js über ein CDN.",
-                                ),
-                          icon: const Icon(Icons.bar_chart),
-                          label: const Text(
-                            "Graph generieren",
-                          ), // text hardcoded for now or use t.common.apply
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (!_loading &&
-                      _generatedHtml != null &&
-                      widget.onGenerateGraph != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            widget.onGenerateGraph?.call(_generatedHtml!);
-                          },
-                          icon: const Icon(Icons.add_box),
-                          label: const Text('Graph zum Canvas hinzufügen'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.tertiaryContainer,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onTertiaryContainer,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (!_loading &&
-                      _answer != null &&
-                      widget.onKeepHighlights != null &&
-                      _boxCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            widget.onKeepHighlights?.call();
-                            widget
-                                .onClose(); // Optional: Close panel after keeping
-                          },
-                          icon: const Icon(Icons.playlist_add_check),
-                          label: Text(context.t.common.apply),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.secondaryContainer,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_loading)
-                    Row(
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(context.t.ai.analyzingSelection)),
-                      ],
-                    )
-                  else if (_answer != null)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 400),
-                      child: SingleChildScrollView(
-                        child: MathRichText(text: _answer!),
-                      ),
-                    ),
-                  if (!_loading) ...[
-                    if (_answer != null) const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _chatController,
-                            decoration: InputDecoration(
-                              hintText: context.t.ai.askFollowUp,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanUpdate: (details) =>
+                            setState(() => _position += details.delta),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 20,
                               ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  context.t.ai.helpMeTitle,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (var i = 0; i < aiShortcuts.length; i++)
+                            FilledButton.tonalIcon(
+                              onPressed: _loading
+                                  ? null
+                                  : () => _executeAiRequest(aiShortcuts[i]),
+                              onLongPress: () =>
+                                  _showEditPromptDialog(aiShortcuts[i], i),
+                              icon: const Icon(Icons.flash_on, size: 16),
+                              label: Text(aiShortcuts[i].title),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                             ),
-                            onSubmitted: (value) {
-                              if (value.trim().isNotEmpty) {
-                                _executeAiRequest(null, value.trim());
-                                _chatController.clear();
-                              }
-                            },
+                          if (widget.onGenerateGraph != null)
+                            FilledButton.tonalIcon(
+                              onPressed: _loading
+                                  ? null
+                                  : () => _executeAiRequest(
+                                      null,
+                                      "Bitte analysiere den ausgewählten Bereich und generiere einen JavaScript und HTML basierten Graph, der den Inhalt repräsentiert. Antworte mit dem reinen HTML/JS Code in einem Markdown Block. Nutze keine externen Bibliotheken außer ggf. chart.js oder d3.js über ein CDN.",
+                                    ),
+                              icon: const Icon(Icons.bar_chart),
+                              label: const Text(
+                                "Graph generieren",
+                              ), // text hardcoded for now or use t.common.apply
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (!_loading &&
+                          _generatedHtml != null &&
+                          widget.onGenerateGraph != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                widget.onGenerateGraph?.call(_generatedHtml!);
+                              },
+                              icon: const Icon(Icons.add_box),
+                              label: const Text('Graph zum Canvas hinzufügen'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.tertiaryContainer,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onTertiaryContainer,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.send),
-                          color: Theme.of(context).colorScheme.primary,
-                          onPressed: () {
-                            final text = _chatController.text.trim();
-                            if (text.isNotEmpty) {
-                              _executeAiRequest(null, text);
-                              _chatController.clear();
-                            }
-                          },
+                      if (!_loading &&
+                          _answer != null &&
+                          widget.onKeepHighlights != null &&
+                          _boxCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                widget.onKeepHighlights?.call();
+                                widget
+                                    .onClose(); // Optional: Close panel after keeping
+                              },
+                              icon: const Icon(Icons.playlist_add_check),
+                              label: Text(context.t.common.apply),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.secondaryContainer,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_loading)
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(context.t.ai.analyzingSelection),
+                            ),
+                          ],
+                        )
+                      else if (_answer != null)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 400),
+                          child: SingleChildScrollView(
+                            child: MathRichText(text: _answer!),
+                          ),
+                        ),
+                      if (!_loading) ...[
+                        if (_answer != null) const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _chatController,
+                                decoration: InputDecoration(
+                                  hintText: context.t.ai.askFollowUp,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                onSubmitted: (value) {
+                                  if (value.trim().isNotEmpty) {
+                                    _executeAiRequest(null, value.trim());
+                                    _chatController.clear();
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.send),
+                              color: Theme.of(context).colorScheme.primary,
+                              onPressed: () {
+                                final text = _chatController.text.trim();
+                                if (text.isNotEmpty) {
+                                  _executeAiRequest(null, text);
+                                  _chatController.clear();
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

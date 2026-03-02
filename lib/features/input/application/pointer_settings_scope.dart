@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 
 /// Konfiguration der erlaubten Eingabegeräte.
 /// Verwaltet welche Eingabegeräte akzeptiert werden und Stylus-Lock Logik.
@@ -16,6 +17,7 @@ class PointerSettings extends ChangeNotifier {
   /// Aktiviert den automatischen Stylus-Lock nach erster Nutzung.
   bool autoLockOnStylus;
   bool _stylusLocked = false;
+  Timer? _stylusLockTimer;
 
   /// Erstellt eine neue [PointerSettings]-Instanz.
   PointerSettings({
@@ -31,6 +33,7 @@ class PointerSettings extends ChangeNotifier {
   /// Hebt den Stylus-Lock auf.
   void resetStylusLock() {
     _stylusLocked = false;
+    _stylusLockTimer?.cancel();
     notifyListeners();
   }
 
@@ -60,12 +63,23 @@ class PointerSettings extends ChangeNotifier {
 
   /// Registriert eine Pointer-Nutzung (für Auto-Lock Stylus).
   void register(PointerDeviceKind kind) {
-    if (autoLockOnStylus &&
-        !_stylusLocked &&
-        kind == PointerDeviceKind.stylus) {
-      _stylusLocked = true;
-      notifyListeners();
+    if (autoLockOnStylus && kind == PointerDeviceKind.stylus) {
+      if (!_stylusLocked) {
+        _stylusLocked = true;
+        notifyListeners();
+      }
+      _stylusLockTimer?.cancel();
+      _stylusLockTimer = Timer(const Duration(seconds: 10), () {
+        _stylusLocked = false;
+        notifyListeners();
+      });
     }
+  }
+
+  @override
+  void dispose() {
+    _stylusLockTimer?.cancel();
+    super.dispose();
   }
 }
 

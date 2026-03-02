@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
@@ -23,6 +25,11 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
     return;
   }
 
+  if (stroke.cachedPath != null) {
+    canvas.drawPath(stroke.cachedPath!, paint);
+    return;
+  }
+
   final path = Path();
   path.moveTo(stroke.points[0].position.dx, stroke.points[0].position.dy);
 
@@ -44,17 +51,24 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
     path.lineTo(stroke.points.last.position.dx, stroke.points.last.position.dy);
   }
 
+  stroke.cachedPath = path;
   canvas.drawPath(path, paint);
 }
 
 /// Malt alle abgeschlossenen Striche. Repaint nur wenn sich die Version ändert.
 class FinishedStrokesPainter extends CustomPainter {
   /// Erstellt einen Painter für bereits abgeschlossene Striche.
-  FinishedStrokesPainter({required List<Stroke> strokes, required this.version})
-    : strokes = List<Stroke>.unmodifiable(strokes);
+  FinishedStrokesPainter({
+    required List<Stroke> strokes,
+    required this.cache,
+    required this.version,
+  }) : strokes = List<Stroke>.unmodifiable(strokes);
 
   /// Alle abgeschlossenen Striche auf der Seite.
   final List<Stroke> strokes;
+
+  /// Cache object to hold the rendered picture.
+  final StrokesPictureCache cache;
 
   /// Version der Strichliste. Erhöht sich bei jeder strukturellen Änderung
   /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
@@ -63,14 +77,43 @@ class FinishedStrokesPainter extends CustomPainter {
   /// Zeichnet alle abgeschlossenen Striche auf die Leinwand.
   @override
   void paint(Canvas canvas, Size size) {
-    for (final stroke in strokes) {
-      _paintStroke(canvas, stroke);
+    if (cache.version != version || cache.picture == null) {
+      final recorder = ui.PictureRecorder();
+      final recordCanvas = Canvas(recorder);
+
+      for (final stroke in strokes) {
+        _paintStroke(recordCanvas, stroke);
+      }
+
+      cache.picture?.dispose();
+      cache.picture = recorder.endRecording();
+      cache.version = version;
+    }
+
+    if (cache.picture != null) {
+      canvas.drawPicture(cache.picture!);
     }
   }
 
   @override
   bool shouldRepaint(covariant FinishedStrokesPainter oldDelegate) =>
       oldDelegate.version != version;
+}
+
+/// A cache object to hold an offscreen rendered picture of strokes.
+class StrokesPictureCache {
+  /// The cached rendered picture.
+  ui.Picture? picture;
+
+  /// The version of the strokes this picture represents.
+  int version = -1;
+
+  /// Cleans up resources held by the picture cache.
+  void dispose() {
+    picture?.dispose();
+    picture = null;
+    version = -1;
+  }
 }
 
 /// Malt den aktuell entstehenden Strich. Repaint nur bei neuem Objekt oder

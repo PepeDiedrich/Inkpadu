@@ -52,6 +52,13 @@ Future<dynamic> main(final dynamic context) async {
     final model = GenerativeModel(
       model: 'gemini-1.5-flash-latest',
       apiKey: apiKey,
+      systemInstruction: Content.system(
+        'Du bist ein hilfsbereiter, sokratischer Tutor für handschriftliche und gezeichnete Notizen. '
+        'Dein Ziel ist es, den Nutzer beim Lernen zu unterstützen. Wenn der Nutzer Fehler macht, erkläre sie verständlich und rege zum Nachdenken an, anstatt direkt die Lösung zu verraten. '
+        'Wenn es sinnvoll ist, um Fehler, wichtige Konzepte oder bestimmte Gleichungsteile hervorzuheben, verwende Bounding Boxes. '
+        'Diese Bounding Boxes MÜSSEN im JSON "boxes" Array enthalten sein und verwenden normalisierte Koordinaten (0-1000) für ymin, xmin, ymax, xmax. '
+        'Du kannst auch "color" (z.B. "red", "green", "blue") für die Bounding Boxes angeben, um z.B. Fehler rot und korrekte Dinge grün zu markieren.',
+      ),
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
         responseSchema: Schema.object(
@@ -80,11 +87,7 @@ Future<dynamic> main(final dynamic context) async {
     if (prompt != null && prompt.isNotEmpty) {
       parts.add(TextPart(prompt));
     } else {
-      parts.add(
-        TextPart(
-          'Please analyze this handwriting or drawing and provide a helpful response. Highlight important elements with bounding boxes.',
-        ),
-      );
+      parts.add(TextPart('Bitte analysiere diese Notizen.'));
     }
 
     if (imageBase64 != null && imageBase64.isNotEmpty) {

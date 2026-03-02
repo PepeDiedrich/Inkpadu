@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Legt fest, auf welcher Seite das Editor-Seitenpanel angezeigt wird.
 enum EditorSidebarSide {
@@ -28,15 +30,15 @@ class AiPrompt {
 
   /// Erstellt einen [AiPrompt] aus einem JSON-Format.
   factory AiPrompt.fromJson(Map<String, dynamic> json) => AiPrompt(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        prompt: json['prompt'] as String,
-      );
+    id: json['id'] as String,
+    title: json['title'] as String,
+    prompt: json['prompt'] as String,
+  );
 }
 
 /// Einstellungen für den Notiz-Editor.
 class EditorSettings extends ChangeNotifier {
-  /// Erstellt neue [EditorSettings] mit optionalen Vorgaben.
+  /// Erstellt neue [EditorSettings] mit optionalen Vorgaben und lädt vom Speicher.
   EditorSettings({
     this.sidebarSide = EditorSidebarSide.right,
     this.lineSimplifierEnabled = true,
@@ -45,7 +47,11 @@ class EditorSettings extends ChangeNotifier {
     this.debugModeEnabled = false,
     this.aiSystemPrompt = '',
     this.aiPrompts = const [],
-  });
+  }) {
+    _loadFromPrefs();
+  }
+
+  static const String _prefKeyDb = 'editor_settings_';
 
   /// `true`, wenn Debug-Overlays im Editor angezeigt werden sollen.
   bool debugModeEnabled;
@@ -75,6 +81,82 @@ class EditorSettings extends ChangeNotifier {
 
   /// Convenience: `true`, wenn das Panel rechts erscheinen soll.
   bool get isPanelOnRight => sidebarSide == EditorSidebarSide.right;
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final sideIndex = prefs.getInt('${_prefKeyDb}sidebarSide');
+      if (sideIndex != null &&
+          sideIndex >= 0 &&
+          sideIndex < EditorSidebarSide.values.length) {
+        sidebarSide = EditorSidebarSide.values[sideIndex];
+      }
+
+      lineSimplifierEnabled =
+          prefs.getBool('${_prefKeyDb}lineSimplifierEnabled') ??
+          lineSimplifierEnabled;
+      lineSimplifierStrength =
+          prefs.getDouble('${_prefKeyDb}lineSimplifierStrength') ??
+          lineSimplifierStrength;
+      lineSimplifierMinTolerance =
+          prefs.getDouble('${_prefKeyDb}lineSimplifierMinTolerance') ??
+          lineSimplifierMinTolerance;
+      debugModeEnabled =
+          prefs.getBool('${_prefKeyDb}debugModeEnabled') ?? debugModeEnabled;
+      aiSystemPrompt =
+          prefs.getString('${_prefKeyDb}aiSystemPrompt') ?? aiSystemPrompt;
+
+      final aiPromptsJson = prefs.getStringList('${_prefKeyDb}aiPrompts');
+      if (aiPromptsJson != null) {
+        aiPrompts = aiPromptsJson
+            .map((jsonStr) {
+              try {
+                return AiPrompt.fromJson(
+                  jsonDecode(jsonStr) as Map<String, dynamic>,
+                );
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<AiPrompt>()
+            .toList();
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load EditorSettings: $e');
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      await prefs.setInt('${_prefKeyDb}sidebarSide', sidebarSide.index);
+      await prefs.setBool(
+        '${_prefKeyDb}lineSimplifierEnabled',
+        lineSimplifierEnabled,
+      );
+      await prefs.setDouble(
+        '${_prefKeyDb}lineSimplifierStrength',
+        lineSimplifierStrength,
+      );
+      await prefs.setDouble(
+        '${_prefKeyDb}lineSimplifierMinTolerance',
+        lineSimplifierMinTolerance,
+      );
+      await prefs.setBool('${_prefKeyDb}debugModeEnabled', debugModeEnabled);
+      await prefs.setString('${_prefKeyDb}aiSystemPrompt', aiSystemPrompt);
+
+      final aiPromptsJsonList = aiPrompts
+          .map((p) => jsonEncode(p.toJson()))
+          .toList();
+      await prefs.setStringList('${_prefKeyDb}aiPrompts', aiPromptsJsonList);
+    } catch (e) {
+      debugPrint('Failed to save EditorSettings: $e');
+    }
+  }
 
   /// Aktualisiert einzelne Properties und benachrichtigt Listener.
   void update({
@@ -122,6 +204,7 @@ class EditorSettings extends ChangeNotifier {
       hasChanged = true;
     }
     if (hasChanged) {
+      _saveToPrefs();
       notifyListeners();
     }
   }
