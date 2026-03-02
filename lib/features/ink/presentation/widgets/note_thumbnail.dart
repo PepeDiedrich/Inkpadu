@@ -50,18 +50,18 @@ class NoteThumbnail extends StatelessWidget {
 
   Widget _buildStrokesPreview(BuildContext context) {
     // Calculate bounding box to scale strokes appropriately
+    // ⚡ Bolt Optimization: Use cached `boundingBox` to avoid O(Strokes * Points) calculation
     double minX = double.infinity;
     double minY = double.infinity;
     double maxX = double.negativeInfinity;
     double maxY = double.negativeInfinity;
 
     for (final stroke in page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dx < minX) minX = point.position.dx;
-        if (point.position.dy < minY) minY = point.position.dy;
-        if (point.position.dx > maxX) maxX = point.position.dx;
-        if (point.position.dy > maxY) maxY = point.position.dy;
-      }
+      final bounds = stroke.boundingBox;
+      if (bounds.left < minX) minX = bounds.left;
+      if (bounds.top < minY) minY = bounds.top;
+      if (bounds.right > maxX) maxX = bounds.right;
+      if (bounds.bottom > maxY) maxY = bounds.bottom;
     }
 
     final contentWidth = maxX - minX;
@@ -80,14 +80,17 @@ class NoteThumbnail extends StatelessWidget {
       availableSize / contentHeight,
     );
 
-    return CustomPaint(
-      size: Size(size, size),
-      painter: _ThumbnailPainter(
-        strokes: page.strokes,
-        offsetX: -minX,
-        offsetY: -minY,
-        scale: scale,
-        padding: padding,
+    // ⚡ Bolt Optimization: Wrap with RepaintBoundary to cache rasterized strokes
+    return RepaintBoundary(
+      child: CustomPaint(
+        size: Size(size, size),
+        painter: _ThumbnailPainter(
+          strokes: page.strokes,
+          offsetX: -minX,
+          offsetY: -minY,
+          scale: scale,
+          padding: padding,
+        ),
       ),
     );
   }
