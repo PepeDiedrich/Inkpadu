@@ -20,6 +20,9 @@ class DrawingController extends ChangeNotifier {
   /// Aktuelle WebView-Knoten auf dem Canvas.
   List<WebViewNode> _webViewNodes = const [];
 
+  /// Zwischengespeicherte, unveränderliche Ansicht der WebView-Knoten.
+  List<WebViewNode>? _cachedWebViewNodes;
+
   /// Version der Strichliste. Erhöht sich bei jeder strukturellen Änderung
   /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
   int _strokesVersion = 0;
@@ -50,7 +53,8 @@ class DrawingController extends ChangeNotifier {
   List<Stroke> get strokes => _cachedStrokes ??= List.unmodifiable(_strokes);
 
   /// Liefert eine unveränderliche Sicht auf alle WebView-Knoten.
-  List<WebViewNode> get webViewNodes => List.unmodifiable(_webViewNodes);
+  List<WebViewNode> get webViewNodes =>
+      _cachedWebViewNodes ??= List.unmodifiable(_webViewNodes);
 
   /// Liefert die aktuelle Versionsnummer der Strichliste.
   int get strokesVersion => _strokesVersion;
@@ -76,6 +80,7 @@ class DrawingController extends ChangeNotifier {
     _webViewNodes = initialWebViews != null
         ? List<WebViewNode>.of(initialWebViews)
         : const [];
+    _cachedWebViewNodes = null;
     _cachedStrokes = null;
     _strokesVersion++; // Initialisierung zählt als Änderung.
     _currentStroke = null;
@@ -359,6 +364,7 @@ class DrawingController extends ChangeNotifier {
 
     _strokes = List<Stroke>.of(retainedStrokes);
     _webViewNodes = List<WebViewNode>.of(retainedWebViews);
+    _cachedWebViewNodes = null;
     _cachedStrokes = null;
     _redoStack.clear();
     _strokesVersion++;
@@ -492,6 +498,7 @@ class DrawingController extends ChangeNotifier {
     }
     _strokes = const [];
     _webViewNodes = const [];
+    _cachedWebViewNodes = null;
     _cachedStrokes = null;
     _currentStroke = null;
     _redoStack.clear();
@@ -512,6 +519,7 @@ class DrawingController extends ChangeNotifier {
   /// Fügt einen WebView-Knoten hinzu.
   void addWebViewNode(WebViewNode node) {
     _webViewNodes = List<WebViewNode>.of(_webViewNodes)..add(node);
+    _cachedWebViewNodes = null;
     notifyListeners();
   }
 
@@ -522,6 +530,7 @@ class DrawingController extends ChangeNotifier {
       final updatedNode = _webViewNodes[index].copyWith(rect: newRect);
       _webViewNodes = List<WebViewNode>.of(_webViewNodes)
         ..[index] = updatedNode;
+      _cachedWebViewNodes = null;
       notifyListeners();
     }
   }
@@ -530,6 +539,7 @@ class DrawingController extends ChangeNotifier {
   void removeWebViewNode(String id) {
     _webViewNodes = List<WebViewNode>.of(_webViewNodes)
       ..removeWhere((node) => node.id == id);
+    _cachedWebViewNodes = null;
     notifyListeners();
   }
 
@@ -573,6 +583,7 @@ class DrawingController extends ChangeNotifier {
       }
       if (changed) {
         _webViewNodes = updatedNodes;
+        _cachedWebViewNodes = null;
       }
     }
 
