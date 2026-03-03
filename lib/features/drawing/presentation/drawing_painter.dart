@@ -153,9 +153,8 @@ class StrokesPictureCache {
   }
 
   /// Returns the cache for a specific tile, creating it if necessary.
-  TileCache getTile(int x, int y) {
-    return _tiles.putIfAbsent((x, y), () => TileCache());
-  }
+  TileCache getTile(int x, int y) =>
+      _tiles.putIfAbsent((x, y), () => TileCache());
 
   /// Removes tiles that are far outside the current viewport to free up memory.
   void purgeOutside(Rect viewportRect) {

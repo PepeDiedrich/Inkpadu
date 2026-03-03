@@ -156,6 +156,18 @@ class _TranslationsNotesEn extends TranslationsNotesDe {
 	@override String get adjustTitlePaper => 'Adjust title & paper';
 	@override String get emptyNote => 'Empty note';
 	@override String get emptyNoteSubtitle => 'Start with a blank page';
+	@override String get gridView => 'Grid view';
+	@override String get listView => 'List view';
+	@override String get sortByDate => 'Sort by date';
+	@override String get sortByName => 'Sort by name';
+	@override String get selectAll => 'Select all';
+	@override String get deselectAll => 'Deselect all';
+	@override String selectedCount({required Object count}) => '${count} selected';
+	@override String get deleteSelected => 'Delete selected';
+	@override String get exportSelected => 'Export selected';
+	@override String get searchNotes => 'Search notes...';
+	@override String pagesCount({required Object count}) => '${count} page(s)';
+	@override String strokesCount({required Object count}) => '${count} stroke(s)';
 }
 
 // Path: drawing
@@ -474,6 +486,18 @@ extension on TranslationsEn {
 			'notes.adjustTitlePaper' => 'Adjust title & paper',
 			'notes.emptyNote' => 'Empty note',
 			'notes.emptyNoteSubtitle' => 'Start with a blank page',
+			'notes.gridView' => 'Grid view',
+			'notes.listView' => 'List view',
+			'notes.sortByDate' => 'Sort by date',
+			'notes.sortByName' => 'Sort by name',
+			'notes.selectAll' => 'Select all',
+			'notes.deselectAll' => 'Deselect all',
+			'notes.selectedCount' => ({required Object count}) => '${count} selected',
+			'notes.deleteSelected' => 'Delete selected',
+			'notes.exportSelected' => 'Export selected',
+			'notes.searchNotes' => 'Search notes...',
+			'notes.pagesCount' => ({required Object count}) => '${count} page(s)',
+			'notes.strokesCount' => ({required Object count}) => '${count} stroke(s)',
 			'drawing.pen' => 'Pen',
 			'drawing.pencil' => 'Pencil',
 			'drawing.highlighter' => 'Highlighter',

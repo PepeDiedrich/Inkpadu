@@ -1,4 +1,5 @@
 import 'package:ai_handwriting_app/features/ink/application/pdf_export_service.dart';
+import 'package:ai_handwriting_app/features/home/presentation/widgets/home_widgets.dart';
 import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -21,7 +22,126 @@ class HomePage extends StatefulWidget {
 
 enum _NoteAction { open, metadata, exportPdf, delete }
 
+enum _SortOption { dateDesc, dateAsc, nameAsc, nameDesc }
+
 class _HomePageState extends State<HomePage> {
+  bool _isGridView = false;
+  String _searchQuery = '';
+  _SortOption _sortOption = _SortOption.dateDesc;
+  final Set<String> _selectedNoteIds = {};
+  bool _isSelectionMode = false;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<InkNote> _getFilteredAndSortedNotes(List<InkNote> notes) {
+    List<InkNote> filtered = notes;
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = notes
+          .where((n) => n.title.toLowerCase().contains(query))
+          .toList();
+    } else {
+      filtered = List.from(notes);
+    }
+
+    switch (_sortOption) {
+      case _SortOption.dateDesc:
+        filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        break;
+      case _SortOption.dateAsc:
+        filtered.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+        break;
+      case _SortOption.nameAsc:
+        filtered.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
+        break;
+      case _SortOption.nameDesc:
+        filtered.sort(
+          (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
+        );
+        break;
+    }
+    return filtered;
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedNoteIds.contains(id)) {
+        _selectedNoteIds.remove(id);
+        if (_selectedNoteIds.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedNoteIds.add(id);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _enterSelectionMode(String id) {
+    setState(() {
+      _isSelectionMode = true;
+      _selectedNoteIds.add(id);
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedNoteIds.clear();
+    });
+  }
+
+  Future<void> _deleteSelectedNotes() async {
+    final t = context.t;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.notes.deleteSelected),
+        content: Text(
+          t.notes.deleteNoteConfirm(
+            title: '${_selectedNoteIds.length} ${t.notes.title}',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t.common.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(t.common.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    final controller = InkNotesScope.of(context);
+    for (final id in _selectedNoteIds) {
+      controller.delete(id);
+    }
+    _exitSelectionMode();
+  }
+
+  Future<void> _exportSelectedNotes() async {
+    // Basic implementation: export as separate PDFs or one combined?
+    // For now, let's just show a snackbar or implement a simple loop.
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.t.common.loading)));
+    // TODO: Implement bulk export if needed
+    _exitSelectionMode();
+  }
+
   Future<void> _showNoteActions(InkNote note) async {
     final _NoteAction? action = await showModalBottomSheet<_NoteAction>(
       context: context,
@@ -340,71 +460,339 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final notes = InkNotesScope.of(context).notes;
+    final allNotes = InkNotesScope.of(context).notes;
+    final filteredNotes = _getFilteredAndSortedNotes(allNotes);
     final theme = Theme.of(context);
+    final t = context.t;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            SvgPicture.asset(
-              'assets/logo.svg',
-              height: 32,
-              width: 32,
-              colorFilter: ColorFilter.mode(
-                theme.colorScheme.primary,
-                BlendMode.srcIn,
-              ),
+      appBar: _buildAppBar(allNotes.length),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _showCreateOptions(),
+              icon: const Icon(Icons.add),
+              label: Text(t.notes.newNote),
             ),
-            const SizedBox(width: 12),
-            Text(context.t.notes.title),
+      body: allNotes.isEmpty
+          ? EmptyNotesView(onCreatePressed: _showCreateOptions)
+          : Column(
+              children: [
+                if (_isSearching)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SearchBar(
+                      controller: _searchController,
+                      hintText: t.notes.searchNotes,
+                      leading: const Icon(Icons.search),
+                      trailing: [
+                        if (_searchQuery.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
+                      elevation: const WidgetStatePropertyAll(0),
+                      backgroundColor: WidgetStatePropertyAll(
+                        theme.colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: filteredNotes.isEmpty
+                      ? Center(
+                          child: Text(t.common.no),
+                        ) // "No results" would be better
+                      : _isGridView
+                      ? _buildGridView(filteredNotes)
+                      : _buildListView(filteredNotes),
+                ),
+              ],
+            ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(int totalNotesCount) {
+    final t = context.t;
+    final theme = Theme.of(context);
+
+    if (_isSelectionMode) {
+      return AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _exitSelectionMode,
+        ),
+        title: Text(t.notes.selectedCount(count: _selectedNoteIds.length)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.select_all),
+            onPressed: () {
+              setState(() {
+                final allNotes = InkNotesScope.of(context).notes;
+                _selectedNoteIds.addAll(allNotes.map((n) => n.id));
+              });
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _deleteSelectedNotes,
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: _exportSelectedNotes,
+          ),
+        ],
+      );
+    }
+
+    return AppBar(
+      title: _isSearching
+          ? null
+          : Row(
+              children: [
+                SvgPicture.asset(
+                  'assets/logo.svg',
+                  height: 32,
+                  width: 32,
+                  colorFilter: ColorFilter.mode(
+                    theme.colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(t.notes.title),
+              ],
+            ),
+      actions: [
+        IconButton(
+          icon: Icon(_isSearching ? Icons.search_off : Icons.search),
+          onPressed: () {
+            setState(() {
+              _isSearching = !_isSearching;
+              if (!_isSearching) {
+                _searchQuery = '';
+                _searchController.clear();
+              }
+            });
+          },
+        ),
+        PopupMenuButton<_SortOption>(
+          icon: const Icon(Icons.sort),
+          onSelected: (value) => setState(() => _sortOption = value),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: _SortOption.dateDesc,
+              child: Text(t.notes.sortByDate),
+            ),
+            PopupMenuItem(
+              value: _SortOption.nameAsc,
+              child: Text(t.notes.sortByName),
+            ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateOptions(),
-        icon: const Icon(Icons.add),
-        label: Text(context.t.notes.newNote),
-      ),
-      body: notes.isEmpty
-          ? Center(child: Text(context.t.notes.noNotes))
-          : ListView.builder(
-              key: const PageStorageKey('home_list'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                final n = notes[index];
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 4,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    title: Text(n.title),
-                    subtitle: Text(
-                      '${n.currentPage.strokes.length} Striche · ${_fmt(n.updatedAt)} · ${n.paperStyle.label}',
+        IconButton(
+          icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+          onPressed: () => setState(() => _isGridView = !_isGridView),
+          tooltip: _isGridView ? t.notes.listView : t.notes.gridView,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListView(List<InkNote> notes) {
+    final theme = Theme.of(context);
+    return ListView.builder(
+      key: const PageStorageKey('home_list'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      itemCount: notes.length,
+      itemBuilder: (context, index) {
+        final n = notes[index];
+        final isSelected = _selectedNoteIds.contains(n.id);
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: isSelected
+                ? BorderSide(color: theme.colorScheme.primary, width: 2)
+                : BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          color: isSelected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : null,
+          child: ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+            leading: Stack(
+              children: [
+                NoteThumbnail(note: n, width: 60, height: 80),
+                if (isSelected)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Icon(
+                      Icons.check_circle,
+                      color: theme.colorScheme.primary,
                     ),
-                    onTap: () => _open(n.id),
-                    onLongPress: () => _showNoteActions(n),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: context.t.notes.deleteNoteTooltip,
-                          icon: const Icon(Icons.delete_outline),
-                          color: theme.colorScheme.error,
-                          onPressed: () => _deleteNote(n.id, n.title),
-                        ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
                   ),
-                );
-              },
+              ],
             ),
+            title: Text(
+              n.title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                  '${n.pages.length} ${context.t.notes.pagesCount(count: n.pages.length)} · ${n.paperStyle.label}',
+                  style: theme.textTheme.bodySmall,
+                ),
+                Text(
+                  _fmt(n.updatedAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            onTap: () {
+              if (_isSelectionMode) {
+                _toggleSelection(n.id);
+              } else {
+                _open(n.id);
+              }
+            },
+            onLongPress: () => _enterSelectionMode(n.id),
+            trailing: _isSelectionMode
+                ? Checkbox(
+                    value: isSelected,
+                    onChanged: (_) => _toggleSelection(n.id),
+                  )
+                : const Icon(Icons.chevron_right),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridView(List<InkNote> notes) {
+    final theme = Theme.of(context);
+    return GridView.builder(
+      key: const PageStorageKey('home_grid'),
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: notes.length,
+      itemBuilder: (context, index) {
+        final n = notes[index];
+        final isSelected = _selectedNoteIds.contains(n.id);
+
+        return InkWell(
+          onTap: () {
+            if (_isSelectionMode) {
+              _toggleSelection(n.id);
+            } else {
+              _open(n.id);
+            }
+          },
+          onLongPress: () => _enterSelectionMode(n.id),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outlineVariant,
+                width: isSelected ? 2 : 1,
+              ),
+              color: isSelected
+                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                  : theme.colorScheme.surface,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      NoteThumbnail(
+                        note: n,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
+                      if (isSelected)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Icon(
+                            Icons.check_circle,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () => _showNoteActions(n),
+                          style: IconButton.styleFrom(
+                            backgroundColor: theme.colorScheme.surface
+                                .withValues(alpha: 0.7),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        n.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _fmt(n.updatedAt),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

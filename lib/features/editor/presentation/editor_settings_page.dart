@@ -35,7 +35,9 @@ class EditorSettingsPage extends StatelessWidget {
     for (var i = 0; i < 3; i++) {
       final fallback = defaults[i];
       final existing = i < source.length ? source[i] : fallback;
-      final title = existing.title.trim().isEmpty ? fallback.title : existing.title;
+      final title = existing.title.trim().isEmpty
+          ? fallback.title
+          : existing.title;
       final prompt = existing.prompt.trim().isEmpty
           ? fallback.prompt
           : existing.prompt;
@@ -107,14 +109,18 @@ class EditorSettingsPage extends StatelessWidget {
           children: [
             TextField(
               controller: titleController,
-              decoration: InputDecoration(labelText: context.t.editor.shortcutTitle),
+              decoration: InputDecoration(
+                labelText: context.t.editor.shortcutTitle,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: promptController,
               minLines: 3,
               maxLines: 8,
-              decoration: InputDecoration(labelText: context.t.editor.shortcutPrompt),
+              decoration: InputDecoration(
+                labelText: context.t.editor.shortcutPrompt,
+              ),
             ),
           ],
         ),
@@ -130,9 +136,9 @@ class EditorSettingsPage extends StatelessWidget {
               if (title.isEmpty || prompt.isEmpty) {
                 return;
               }
-              Navigator.of(context).pop(
-                AiPrompt(id: current.id, title: title, prompt: prompt),
-              );
+              Navigator.of(
+                context,
+              ).pop(AiPrompt(id: current.id, title: title, prompt: prompt));
             },
             child: Text(context.t.common.save),
           ),
@@ -147,7 +153,6 @@ class EditorSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     final settings = EditorSettingsScope.of(context);
 
     return Scaffold(
@@ -157,11 +162,9 @@ class EditorSettingsPage extends StatelessWidget {
         child: AnimatedBuilder(
           animation: settings,
           builder: (context, _) {
-            final current = settings.sidebarSide;
             final bool simplifierEnabled = settings.lineSimplifierEnabled;
             final double simplifierStrength = settings.lineSimplifierStrength;
             final double simplifierMinTol = settings.lineSimplifierMinTolerance;
-            final bool debugModeEnabled = settings.debugModeEnabled;
             final shortcutPrompts = _normalizeAiShortcuts(
               context,
               settings.aiPrompts,
@@ -173,53 +176,9 @@ class EditorSettingsPage extends StatelessWidget {
             }
             return ListView(
               children: [
-                Text(context.t.editor.assistPanel, style: textTheme.titleMedium),
-                const SizedBox(height: 12),
-                SegmentedButton<EditorSidebarSide>(
-                  style: ButtonStyle(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: WidgetStateProperty.all(
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    ),
-                    side: WidgetStateProperty.resolveWith(
-                      (states) => BorderSide(
-                        color: states.contains(WidgetState.selected)
-                            ? colorScheme.primary
-                            : colorScheme.outlineVariant,
-                      ),
-                    ),
-                  ),
-                  segments: [
-                    ButtonSegment<EditorSidebarSide>(
-                      value: EditorSidebarSide.left,
-                      icon: const Icon(Icons.keyboard_double_arrow_left),
-                      label: Text(context.t.editor.leftRightHanded),
-                    ),
-                    ButtonSegment<EditorSidebarSide>(
-                      value: EditorSidebarSide.right,
-                      icon: const Icon(Icons.keyboard_double_arrow_right),
-                      label: Text(context.t.editor.rightLeftHanded),
-                    ),
-                  ],
-                  selected: <EditorSidebarSide>{current},
-                  onSelectionChanged: (selection) =>
-                      settings.update(sidebarSide: selection.first),
-                ),
-                const SizedBox(height: 12),
                 Text(
-                  context.t.editor.handednessHint,
-                  style: textTheme.bodySmall,
-                ),
-                const SizedBox(height: 32),
-                Text(context.t.editor.drawingArea, style: textTheme.titleMedium),
-                const SizedBox(height: 12),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(context.t.editor.enableDebugMode),
-                  subtitle: Text(context.t.editor.debugModeHint),
-                  value: debugModeEnabled,
-                  onChanged: (value) =>
-                      settings.update(debugModeEnabled: value),
+                  context.t.editor.drawingArea,
+                  style: textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile.adaptive(
@@ -240,7 +199,9 @@ class EditorSettingsPage extends StatelessWidget {
                       children: [
                         const SizedBox(height: 16),
                         Text(
-                          context.t.editor.smoothingIntensity(value: simplifierStrength.toStringAsFixed(2)),
+                          context.t.editor.smoothingIntensity(
+                            value: simplifierStrength.toStringAsFixed(2),
+                          ),
                           style: textTheme.bodyMedium,
                         ),
                         Slider.adaptive(
@@ -258,7 +219,9 @@ class EditorSettingsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          context.t.editor.minTolerance(value: simplifierMinTol.toStringAsFixed(2)),
+                          context.t.editor.minTolerance(
+                            value: simplifierMinTol.toStringAsFixed(2),
+                          ),
                           style: textTheme.bodyMedium,
                         ),
                         Slider.adaptive(
@@ -280,7 +243,10 @@ class EditorSettingsPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Text(context.t.editor.yourSystemPrompt, style: textTheme.titleMedium),
+                Text(
+                  context.t.editor.yourSystemPrompt,
+                  style: textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -305,9 +271,15 @@ class EditorSettingsPage extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 32),
-                Text(context.t.editor.aiShortcuts, style: textTheme.titleMedium),
+                Text(
+                  context.t.editor.aiShortcuts,
+                  style: textTheme.titleMedium,
+                ),
                 const SizedBox(height: 8),
-                Text(context.t.editor.aiShortcutsHint, style: textTheme.bodySmall),
+                Text(
+                  context.t.editor.aiShortcutsHint,
+                  style: textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 for (var index = 0; index < shortcutPrompts.length; index++)
                   ListTile(

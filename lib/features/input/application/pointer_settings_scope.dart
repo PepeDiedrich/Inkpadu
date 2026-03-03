@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Konfiguration der erlaubten Eingabegeräte.
 /// Verwaltet welche Eingabegeräte akzeptiert werden und Stylus-Lock Logik.
@@ -19,13 +20,42 @@ class PointerSettings extends ChangeNotifier {
   bool _stylusLocked = false;
   Timer? _stylusLockTimer;
 
+  static const String _prefKeyDb = 'pointer_settings_';
+
   /// Erstellt eine neue [PointerSettings]-Instanz.
   PointerSettings({
     this.allowStylus = true,
     this.allowTouch = true,
     this.allowMouse = true,
     this.autoLockOnStylus = true,
-  });
+  }) {
+    _loadFromPrefs();
+  }
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      allowStylus = prefs.getBool('${_prefKeyDb}allowStylus') ?? allowStylus;
+      allowTouch = prefs.getBool('${_prefKeyDb}allowTouch') ?? allowTouch;
+      allowMouse = prefs.getBool('${_prefKeyDb}allowMouse') ?? allowMouse;
+      autoLockOnStylus = prefs.getBool('${_prefKeyDb}autoLockOnStylus') ?? autoLockOnStylus;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load PointerSettings: $e');
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('${_prefKeyDb}allowStylus', allowStylus);
+      await prefs.setBool('${_prefKeyDb}allowTouch', allowTouch);
+      await prefs.setBool('${_prefKeyDb}allowMouse', allowMouse);
+      await prefs.setBool('${_prefKeyDb}autoLockOnStylus', autoLockOnStylus);
+    } catch (e) {
+      debugPrint('Failed to save PointerSettings: $e');
+    }
+  }
 
   /// True sobald Stylus erkannt und Lock aktiv ist.
   bool get stylusLocked => _stylusLocked;
@@ -39,11 +69,28 @@ class PointerSettings extends ChangeNotifier {
 
   /// Aktualisiert Konfiguration einzelner Flags.
   void update({bool? stylus, bool? touch, bool? mouse, bool? autoLock}) {
-    if (stylus != null) allowStylus = stylus;
-    if (touch != null) allowTouch = touch;
-    if (mouse != null) allowMouse = mouse;
-    if (autoLock != null) autoLockOnStylus = autoLock;
-    notifyListeners();
+    var changed = false;
+    if (stylus != null && stylus != allowStylus) {
+      allowStylus = stylus;
+      changed = true;
+    }
+    if (touch != null && touch != allowTouch) {
+      allowTouch = touch;
+      changed = true;
+    }
+    if (mouse != null && mouse != allowMouse) {
+      allowMouse = mouse;
+      changed = true;
+    }
+    if (autoLock != null && autoLock != autoLockOnStylus) {
+      autoLockOnStylus = autoLock;
+      changed = true;
+    }
+    
+    if (changed) {
+      _saveToPrefs();
+      notifyListeners();
+    }
   }
 
   /// Prüft ob der Pointer akzeptiert wird (unter Berücksichtigung des Locks).

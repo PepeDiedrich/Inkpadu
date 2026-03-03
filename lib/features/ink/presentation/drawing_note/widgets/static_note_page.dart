@@ -78,18 +78,16 @@ class _StaticNotePageState extends State<StaticNotePage> {
           paperStyle: widget.paperStyle,
           pdfDocument: widget.pdfDocument,
           pdfPageIndex: widget.pdfPageIndex,
-          child: RepaintBoundary(
-            child: CustomPaint(
-              painter: FinishedStrokesPainter(
-                strokes: widget.page.strokes,
-                cache: _pictureCache,
-                version: widget.page.strokes.hashCode,
-                viewportRect: Rect.fromLTWH(
-                  0,
-                  0,
-                  MediaQuery.sizeOf(context).width,
-                  height,
-                ),
+          child: CustomPaint(
+            painter: FinishedStrokesPainter(
+              strokes: widget.page.strokes,
+              cache: _pictureCache,
+              version: Object.hash(widget.page.strokes.length, widget.page.hashCode),
+              viewportRect: Rect.fromLTWH(
+                0,
+                0,
+                MediaQuery.sizeOf(context).width,
+                height,
               ),
             ),
           ),

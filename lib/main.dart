@@ -23,12 +23,13 @@ import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_reposit
 import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
 import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
 import 'package:ai_handwriting_app/background/sync_background.dart';
+import 'package:ai_handwriting_app/features/settings/application/general_settings.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   if (kReleaseMode) {
     // 🛡️ Sentinel: Deaktiviert Logging im Release-Modus.
     // Verhindert das Leaken von sensiblen Daten (z.B. OAuth-Tokens oder PII)
@@ -36,7 +37,7 @@ Future<void> main() async {
     debugPrint = (String? message, {int? wrapWidth}) {};
   }
 
-  // Initialize localization with device locale
+  // Initialize localization
   await LocaleSettings.useDeviceLocale();
 
   // Set the cache directory for pdfrx
@@ -81,6 +82,9 @@ class _InkpaduAppState extends State<InkpaduApp> {
   late final AuthController _authController;
   late final InkNotesRepository _repository;
   late final InkNotesController _notesController;
+  late final GeneralSettings _generalSettings;
+  late final PointerSettings _pointerSettings;
+  late final EditorSettings _editorSettings;
 
   // Globaler PageStorageBucket für persistente Scroll-Positionen
   final PageStorageBucket _pageStorageBucket = PageStorageBucket();
@@ -92,11 +96,21 @@ class _InkpaduAppState extends State<InkpaduApp> {
     _authController.addListener(_onAuthChanged);
     _authController.initialize();
 
+    _generalSettings = GeneralSettings();
+    _pointerSettings = PointerSettings();
+    _editorSettings = EditorSettings();
+
     final notesSyncService = InkNotesSyncService();
     final localStorage = InkNotesLocalStorage();
-    _repository = InkNotesRepository(localStorage: localStorage, syncService: notesSyncService);
+    _repository = InkNotesRepository(
+      localStorage: localStorage,
+      syncService: notesSyncService,
+    );
     final authBridge = AuthControllerInkNotesAuth(_authController);
-    _notesController = InkNotesController(repository: _repository, auth: authBridge);
+    _notesController = InkNotesController(
+      repository: _repository,
+      auth: authBridge,
+    );
   }
 
   void _onAuthChanged() => setState(() {});
@@ -106,53 +120,59 @@ class _InkpaduAppState extends State<InkpaduApp> {
     _authController.removeListener(_onAuthChanged);
     _notesController.dispose();
     _authController.dispose();
+    _generalSettings.dispose();
+    _pointerSettings.dispose();
+    _editorSettings.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final pointerSettings = PointerSettings();
-    final editorSettings = EditorSettings();
-
-    return AuthScope(
-      controller: _authController,
-      child: InkNotesScope(
-        controller: _notesController,
+  Widget build(BuildContext context) => AuthScope(
+    controller: _authController,
+    child: InkNotesScope(
+      controller: _notesController,
+      child: GeneralSettingsScope(
+        settings: _generalSettings,
         child: PointerSettingsScope(
-          settings: pointerSettings,
+          settings: _pointerSettings,
           child: EditorSettingsScope(
-            settings: editorSettings,
-            child: MaterialApp(
-              title: 'Inkpadu',
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.light(),
-              darkTheme: AppTheme.dark(),
-              themeMode: ThemeMode.light,
-              locale: TranslationProvider.of(context).flutterLocale,
-              supportedLocales: AppLocaleUtils.supportedLocales,
-              localizationsDelegates: GlobalMaterialLocalizations.delegates,
-              // Globaler PageStorage-Bucket, damit Scrollpositionen
-              // auch nach Schließen/erneutem Öffnen einer Route erhalten bleiben.
-              builder: (context, child) => PageStorage(
-                bucket: _pageStorageBucket,
-                child: child!,
-              ),
-              // Decide home based on current auth state or whether the user has ever logged in.
-              // This ensures onboarding is skipped after a successful login even if session
-              // needs to be restored later.
-              home: Builder(
-                builder: (context) {
-                  final shouldShowOnboarding = !_authController.isLoggedIn && !_authController.hasLoggedIn;
-                  return shouldShowOnboarding ? const OnboardingPage() : const AppShell();
+            settings: _editorSettings,
+            child: ListenableBuilder(
+              listenable: _generalSettings,
+              builder: (context, _) => MaterialApp(
+                title: 'Inkpadu',
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.light(),
+                darkTheme: AppTheme.dark(),
+                themeMode: _generalSettings.themeMode,
+                locale: TranslationProvider.of(context).flutterLocale,
+                supportedLocales: AppLocaleUtils.supportedLocales,
+                localizationsDelegates: GlobalMaterialLocalizations.delegates,
+                // Globaler PageStorage-Bucket, damit Scrollpositionen
+                // auch nach Schließen/erneutem Öffnen einer Route erhalten bleiben.
+                builder: (context, child) =>
+                    PageStorage(bucket: _pageStorageBucket, child: child!),
+                // Decide home based on current auth state or whether the user has ever logged in.
+                // This ensures onboarding is skipped after a successful login even if session
+                // needs to be restored later.
+                home: Builder(
+                  builder: (context) {
+                    final shouldShowOnboarding =
+                        !_authController.isLoggedIn &&
+                        !_authController.hasLoggedIn;
+                    return shouldShowOnboarding
+                        ? const OnboardingPage()
+                        : const AppShell();
+                  },
+                ),
+                routes: {
+                  AppRoutes.onboarding: (context) => const OnboardingPage(),
                 },
               ),
-              routes: {
-                AppRoutes.onboarding: (context) => const OnboardingPage(),
-              },
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

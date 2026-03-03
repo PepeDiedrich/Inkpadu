@@ -1,0 +1,31 @@
+﻿Analyzing Inkpadu...                                            
+
+   info - Unnecessary use of a block function body - lib\features\drawing\presentation\drawing_painter.dart:156:35 - prefer_expression_function_bodies
+warning - The value of the local variable 'colorScheme' isn't used - lib\features\editor\presentation\editor_settings_page.dart:150:11 - unused_local_variable
+warning - The value of the local variable 'current' isn't used - lib\features\editor\presentation\editor_settings_page.dart:160:19 - unused_local_variable
+warning - The value of the local variable 'debugModeEnabled' isn't used - lib\features\editor\presentation\editor_settings_page.dart:164:24 - unused_local_variable
+   info - The value of the argument is redundant because it matches the default value - lib\features\home\presentation\home_page.dart:611:78 - avoid_redundant_argument_values
+   info - The value of the argument is redundant because it matches the default value - lib\features\home\presentation\widgets\home_widgets.dart:104:18 - avoid_redundant_argument_values
+   info - Local variables should be final - lib\features\ink\presentation\drawing_note\widgets\ai_lasso_panel.dart:80:5 - prefer_final_locals
+   info - Statements in an if should be enclosed in a block - lib\features\ink\presentation\drawing_note\widgets\ai_lasso_panel.dart:183:36 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\ink\presentation\drawing_note\widgets\ai_lasso_panel.dart:184:88 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\ink\presentation\widgets\paper_style_selection_dialog.dart:121:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\ink\presentation\widgets\paper_style_selection_dialog.dart:127:59 - deprecated_member_use
+   info - Unnecessary use of a block function body - lib\features\settings\presentation\settings_page.dart:30:31 - prefer_expression_function_bodies
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:137:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:138:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:146:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:147:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:155:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:156:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:180:17 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:181:17 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:189:21 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\settings\presentation\settings_page.dart:190:21 - deprecated_member_use
+   info - Unnecessary use of a block function body - lib\features\settings\presentation\settings_page.dart:214:38 - prefer_expression_function_bodies
+   info - Unnecessary use of a block function body - lib\features\settings\presentation\settings_page.dart:234:38 - prefer_expression_function_bodies
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\settings\presentation\settings_page.dart:249:69 - deprecated_member_use
+   info - Unnecessary use of a block function body - lib\features\settings\presentation\settings_page.dart:358:79 - prefer_expression_function_bodies
+   info - Unnecessary use of a block function body - lib\main.dart:124:38 - prefer_expression_function_bodies
+   info - Unnecessary use of a block function body - lib\main.dart:137:39 - prefer_expression_function_bodies
+

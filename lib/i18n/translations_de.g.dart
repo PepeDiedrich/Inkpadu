@@ -274,6 +274,36 @@ class TranslationsNotesDe {
 	/// de: 'Starte mit einer leeren Seite'
 	String get emptyNoteSubtitle => 'Starte mit einer leeren Seite';
 
+	/// de: 'Gitter-Ansicht'
+	String get gridView => 'Gitter-Ansicht';
+
+	/// de: 'Listen-Ansicht'
+	String get listView => 'Listen-Ansicht';
+
+	/// de: 'Nach Datum sortieren'
+	String get sortByDate => 'Nach Datum sortieren';
+
+	/// de: 'Nach Namen sortieren'
+	String get sortByName => 'Nach Namen sortieren';
+
+	/// de: 'Alle auswählen'
+	String get selectAll => 'Alle auswählen';
+
+	/// de: 'Auswahl aufheben'
+	String get deselectAll => 'Auswahl aufheben';
+
+	/// de: '${count} ausgewählt'
+	String selectedCount({required Object count}) => '${count} ausgewählt';
+
+	/// de: 'Markierte löschen'
+	String get deleteSelected => 'Markierte löschen';
+
+	/// de: 'Markierte exportieren'
+	String get exportSelected => 'Markierte exportieren';
+
+	/// de: 'Notizen durchsuchen...'
+	String get searchNotes => 'Notizen durchsuchen...';
+
 	/// de: 'Zum Löschen wischen'
 	String get swipeToDelete => 'Zum Löschen wischen';
 
@@ -282,9 +312,6 @@ class TranslationsNotesDe {
 
 	/// de: 'Rückgängig'
 	String get undo => 'Rückgängig';
-
-	/// de: 'Notizen durchsuchen...'
-	String get searchNotes => 'Notizen durchsuchen...';
 
 	/// de: '${count} Seite(n)'
 	String pagesCount({required Object count}) => '${count} Seite(n)';
@@ -947,10 +974,19 @@ extension on Translations {
 			'notes.adjustTitlePaper' => 'Titel & Papier anpassen',
 			'notes.emptyNote' => 'Leere Notiz',
 			'notes.emptyNoteSubtitle' => 'Starte mit einer leeren Seite',
+			'notes.gridView' => 'Gitter-Ansicht',
+			'notes.listView' => 'Listen-Ansicht',
+			'notes.sortByDate' => 'Nach Datum sortieren',
+			'notes.sortByName' => 'Nach Namen sortieren',
+			'notes.selectAll' => 'Alle auswählen',
+			'notes.deselectAll' => 'Auswahl aufheben',
+			'notes.selectedCount' => ({required Object count}) => '${count} ausgewählt',
+			'notes.deleteSelected' => 'Markierte löschen',
+			'notes.exportSelected' => 'Markierte exportieren',
+			'notes.searchNotes' => 'Notizen durchsuchen...',
 			'notes.swipeToDelete' => 'Zum Löschen wischen',
 			'notes.noteDeleted' => 'Notiz gelöscht',
 			'notes.undo' => 'Rückgängig',
-			'notes.searchNotes' => 'Notizen durchsuchen...',
 			'notes.pagesCount' => ({required Object count}) => '${count} Seite(n)',
 			'notes.strokesCount' => ({required Object count}) => '${count} Strich(e)',
 			'drawing.pen' => 'Stift',

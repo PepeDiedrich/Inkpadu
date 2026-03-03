@@ -65,7 +65,19 @@
     "selectPaper": "Select background",
     "adjustTitlePaper": "Adjust title & paper",
     "emptyNote": "Empty note",
-    "emptyNoteSubtitle": "Start with a blank page"
+    "emptyNoteSubtitle": "Start with a blank page",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "sortByDate": "Sort by date",
+    "sortByName": "Sort by name",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectedCount(count)": "${count} selected",
+    "deleteSelected": "Delete selected",
+    "exportSelected": "Export selected",
+    "searchNotes": "Search notes...",
+    "pagesCount(count)": "${count} page(s)",
+    "strokesCount(count)": "${count} stroke(s)"
   },
   "drawing": {
     "pen": "Pen",
