@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart' as appwrite;
 import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
@@ -365,215 +366,234 @@ class _AiLassoPanelState extends State<AiLassoPanel> {
       left: _position.dx,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
-        child: Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (_) {},
-          onPointerMove: (_) {},
-          onPointerUp: (_) {},
-          child: ClipRRect(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Card(
-                elevation: 4,
-                margin: EdgeInsets.zero,
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  side: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outlineVariant.withOpacity(0.5),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onPanUpdate: (details) =>
-                            setState(() => _position += details.delta),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.auto_awesome,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  context.t.ai.helpMeTitle,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
+            border: Border.all(
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.35),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header – only this area handles drag-to-move
+                RawGestureDetector(
+                  gestures: <Type, GestureRecognizerFactory>{
+                    _EagerPanGestureRecognizer:
+                        GestureRecognizerFactoryWithHandlers<
+                          _EagerPanGestureRecognizer
+                        >(_EagerPanGestureRecognizer.new, (
+                          _EagerPanGestureRecognizer instance,
+                        ) {
+                          instance.onUpdate = (DragUpdateDetails details) {
+                            setState(() => _position += details.delta);
+                          };
+                        }),
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            context.t.ai.helpMeTitle,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (var i = 0; i < aiShortcuts.length; i++)
-                            FilledButton.tonalIcon(
-                              onPressed: _loading
-                                  ? null
-                                  : () => _executeAiRequest(aiShortcuts[i]),
-                              onLongPress: () =>
-                                  _showEditPromptDialog(aiShortcuts[i], i),
-                              icon: const Icon(Icons.flash_on, size: 16),
-                              label: Text(aiShortcuts[i].title),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                              ),
-                            ),
-                          if (widget.onGenerateGraph != null)
-                            FilledButton.tonalIcon(
-                              onPressed: _loading
-                                  ? null
-                                  : () => _executeAiRequest(
-                                      null,
-                                      "Bitte analysiere den ausgewählten Bereich und generiere einen JavaScript und HTML basierten Graph, der den Inhalt repräsentiert. Antworte mit dem reinen HTML/JS Code in einem Markdown Block. Nutze keine externen Bibliotheken außer ggf. chart.js oder d3.js über ein CDN.",
-                                    ),
-                              icon: const Icon(Icons.bar_chart),
-                              label: const Text(
-                                "Graph generieren",
-                              ), // text hardcoded for now or use t.common.apply
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (!_loading &&
-                          _generatedHtml != null &&
-                          widget.onGenerateGraph != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FilledButton.icon(
-                              onPressed: () {
-                                widget.onGenerateGraph?.call(_generatedHtml!);
-                              },
-                              icon: const Icon(Icons.add_box),
-                              label: const Text('Graph zum Canvas hinzufügen'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.tertiaryContainer,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onTertiaryContainer,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (!_loading &&
-                          _answer != null &&
-                          widget.onKeepHighlights != null &&
-                          _boxCount > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FilledButton.icon(
-                              onPressed: () {
-                                widget.onKeepHighlights?.call();
-                                widget
-                                    .onClose(); // Optional: Close panel after keeping
-                              },
-                              icon: const Icon(Icons.playlist_add_check),
-                              label: Text(context.t.common.apply),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.secondaryContainer,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onSecondaryContainer,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (_loading)
-                        Row(
-                          children: [
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(context.t.ai.analyzingSelection),
-                            ),
-                          ],
-                        )
-                      else if (_answer != null)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 400),
-                          child: SingleChildScrollView(
-                            child: MathRichText(text: _answer!),
-                          ),
-                        ),
-                      if (!_loading) ...[
-                        if (_answer != null) const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _chatController,
-                                decoration: InputDecoration(
-                                  hintText: context.t.ai.askFollowUp,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                onSubmitted: (value) {
-                                  if (value.trim().isNotEmpty) {
-                                    _executeAiRequest(null, value.trim());
-                                    _chatController.clear();
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.send),
-                              color: Theme.of(context).colorScheme.primary,
-                              onPressed: () {
-                                final text = _chatController.text.trim();
-                                if (text.isNotEmpty) {
-                                  _executeAiRequest(null, text);
-                                  _chatController.clear();
-                                }
-                              },
-                            ),
-                          ],
+                        // Drag hint icon
+                        Icon(
+                          Icons.drag_indicator,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          size: 20,
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                // Shortcuts
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (var i = 0; i < aiShortcuts.length; i++)
+                      FilledButton.tonalIcon(
+                        onPressed: _loading
+                            ? null
+                            : () => _executeAiRequest(aiShortcuts[i]),
+                        onLongPress: () =>
+                            _showEditPromptDialog(aiShortcuts[i], i),
+                        icon: const Icon(Icons.flash_on, size: 16),
+                        label: Text(aiShortcuts[i].title),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    if (widget.onGenerateGraph != null)
+                      FilledButton.tonalIcon(
+                        onPressed: _loading
+                            ? null
+                            : () => _executeAiRequest(
+                                null,
+                                "Bitte analysiere den ausgewählten Bereich und generiere einen JavaScript und HTML basierten Graph, der den Inhalt repräsentiert. Antworte mit dem reinen HTML/JS Code in einem Markdown Block. Nutze keine externen Bibliotheken außer ggf. chart.js oder d3.js über ein CDN.",
+                              ),
+                        icon: const Icon(Icons.bar_chart),
+                        label: const Text("Graph generieren"),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // "Add graph to canvas" button
+                if (!_loading &&
+                    _generatedHtml != null &&
+                    widget.onGenerateGraph != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          widget.onGenerateGraph?.call(_generatedHtml!);
+                        },
+                        icon: const Icon(Icons.add_box),
+                        label: const Text('Graph zum Canvas hinzufügen'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.tertiaryContainer,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onTertiaryContainer,
+                        ),
+                      ),
+                    ),
+                  ),
+                // "Keep highlights" button
+                if (!_loading &&
+                    _answer != null &&
+                    widget.onKeepHighlights != null &&
+                    _boxCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          widget.onKeepHighlights?.call();
+                          widget.onClose();
+                        },
+                        icon: const Icon(Icons.playlist_add_check),
+                        label: Text(context.t.common.apply),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                  ),
+                // Loading or Answer
+                if (_loading)
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(context.t.ai.analyzingSelection)),
+                    ],
+                  )
+                else if (_answer != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 400),
+                    child: SingleChildScrollView(
+                      child: MathRichText(text: _answer!),
+                    ),
+                  ),
+                // Follow-up input
+                if (!_loading) ...[
+                  if (_answer != null) const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _chatController,
+                          decoration: InputDecoration(
+                            hintText: context.t.ai.askFollowUp,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              _executeAiRequest(null, value.trim());
+                              _chatController.clear();
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        color: Theme.of(context).colorScheme.primary,
+                        onPressed: () {
+                          final text = _chatController.text.trim();
+                          if (text.isNotEmpty) {
+                            _executeAiRequest(null, text);
+                            _chatController.clear();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+/// A gesture recognizer that immediately wins the gesture arena,
+/// preventing the PageView from intercepting horizontal pan gestures.
+class _EagerPanGestureRecognizer extends PanGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
   }
 }

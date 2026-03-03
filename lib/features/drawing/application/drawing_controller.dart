@@ -80,6 +80,23 @@ class DrawingController extends ChangeNotifier {
     _strokesVersion++; // Initialisierung zählt als Änderung.
     _currentStroke = null;
     _redoStack.clear();
+    _precalculatePaths();
+    notifyListeners();
+  }
+
+  /// Berechnet im Hintergrund schrittweise die Pfade aller neu geladenen Striche.
+  Future<void> _precalculatePaths() async {
+    for (int i = 0; i < _strokes.length; i++) {
+      if (_strokes[i].cachedPath == null) {
+        _strokes[i].cachedPath = _strokes[i].generatePath();
+      }
+      if (i % 100 == 0 && i > 0) {
+        // Yield to event loop to avoid freezing the UI on load.
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+    // Update paint layer after all are cached.
+    _strokesVersion++;
     notifyListeners();
   }
 
@@ -452,6 +469,8 @@ class DrawingController extends ChangeNotifier {
       }
     }
 
+    strokeToStore.cachedPath = strokeToStore.generatePath();
+
     _strokes = List<Stroke>.of(_strokes)..add(strokeToStore);
     _cachedStrokes = null;
     _strokesVersion++;
@@ -546,10 +565,14 @@ class DrawingController extends ChangeNotifier {
       for (final index in strokeIndices) {
         if (index >= 0 && index < updatedStrokes.length) {
           final stroke = updatedStrokes[index];
-          final newPoints = stroke.points.map((point) => DrawingPoint(
-              position: point.position + delta,
-              pressure: point.pressure,
-            )).toList();
+          final newPoints = stroke.points
+              .map(
+                (point) => DrawingPoint(
+                  position: point.position + delta,
+                  pressure: point.pressure,
+                ),
+              )
+              .toList();
           // Invalidiere Cached Paths und Bounds durch ein neues Objekt
           updatedStrokes[index] = stroke.copyWith(points: newPoints);
           changed = true;

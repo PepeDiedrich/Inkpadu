@@ -84,6 +84,12 @@ class _StaticNotePageState extends State<StaticNotePage> {
                 strokes: widget.page.strokes,
                 cache: _pictureCache,
                 version: widget.page.strokes.hashCode,
+                viewportRect: Rect.fromLTWH(
+                  0,
+                  0,
+                  MediaQuery.sizeOf(context).width,
+                  height,
+                ),
               ),
             ),
           ),

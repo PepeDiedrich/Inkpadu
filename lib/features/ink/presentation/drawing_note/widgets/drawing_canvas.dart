@@ -1008,6 +1008,18 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
     return handled;
   }
 
+  // Erstellt ein gepuffertes Viewport-Rechteck, das sich nur alle 500 Pixel ändert,
+  // um den Picture-Cache nicht bei jedem einzelnen Scroll-Frame zu invalidieren.
+  Rect _getViewportRect() {
+    double offset = 0.0;
+    if (_canvasScrollController.hasClients) {
+      offset = _canvasScrollController.offset;
+    }
+    final size = MediaQuery.sizeOf(context);
+    final double chunkY = (offset / 500).floor() * 500.0;
+    return Rect.fromLTWH(0, chunkY - 500, size.width, size.height + 1500);
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -1051,64 +1063,79 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                           onPointerMove: _update,
                           onPointerUp: _end,
                           onPointerCancel: _cancel,
-                          child: AnimatedBuilder(
-                            animation: widget.drawingController,
-                            builder: (context, child) => Stack(
-                              children: [
-                                // Render WebViews
-                                ...widget.drawingController.webViewNodes.map(
-                                  (node) => Positioned(
-                                    left: node.rect.left,
-                                    top: node.rect.top,
-                                    width: node.rect.width,
-                                    height: node.rect.height,
-                                    child: Stack(
-                                      children: [
-                                        CrossPlatformWebView(node: node),
-                                        if (_selectedWebViewIds.contains(
-                                          node.id,
-                                        ))
-                                          Positioned.fill(
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color: scheme.primary,
-                                                  width: 2,
+                          child: Stack(
+                            children: [
+                              // Render WebViews
+                              AnimatedBuilder(
+                                animation: widget.drawingController,
+                                builder: (context, child) => Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    ...widget.drawingController.webViewNodes
+                                        .map(
+                                          (node) => Positioned(
+                                            left: node.rect.left,
+                                            top: node.rect.top,
+                                            width: node.rect.width,
+                                            height: node.rect.height,
+                                            child: Stack(
+                                              children: [
+                                                CrossPlatformWebView(
+                                                  node: node,
                                                 ),
-                                                color: scheme.primary
-                                                    .withValues(alpha: 0.1),
-                                              ),
+                                                if (_selectedWebViewIds
+                                                    .contains(node.id))
+                                                  Positioned.fill(
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(
+                                                          color: scheme.primary,
+                                                          width: 2,
+                                                        ),
+                                                        color: scheme.primary
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                if (_selectedWebViewIds
+                                                    .contains(node.id))
+                                                  Positioned(
+                                                    right: -8,
+                                                    bottom: -8,
+                                                    child: Container(
+                                                      width: 24,
+                                                      height: 24,
+                                                      decoration: BoxDecoration(
+                                                        color: scheme
+                                                            .primaryContainer,
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(
+                                                          color: scheme.primary,
+                                                          width: 2,
+                                                        ),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.open_in_full,
+                                                        size: 14,
+                                                        color: scheme.primary,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
-                                        if (_selectedWebViewIds.contains(
-                                          node.id,
-                                        ))
-                                          Positioned(
-                                            right: -8,
-                                            bottom: -8,
-                                            child: Container(
-                                              width: 24,
-                                              height: 24,
-                                              decoration: BoxDecoration(
-                                                color: scheme.primaryContainer,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: scheme.primary,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                              child: Icon(
-                                                Icons.open_in_full,
-                                                size: 14,
-                                                color: scheme.primary,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
+                                        ),
+                                  ],
                                 ),
-                                RepaintBoundary(
+                              ),
+                              AnimatedBuilder(
+                                animation: Listenable.merge([
+                                  _canvasScrollController,
+                                  widget.drawingController,
+                                ]),
+                                builder: (context, _) => RepaintBoundary(
                                   child: CustomPaint(
                                     painter: FinishedStrokesPainter(
                                       strokes: widget.drawingController.strokes,
@@ -1116,10 +1143,14 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                                       version: widget
                                           .drawingController
                                           .strokesVersion,
+                                      viewportRect: _getViewportRect(),
                                     ),
                                   ),
                                 ),
-                                RepaintBoundary(
+                              ),
+                              AnimatedBuilder(
+                                animation: widget.drawingController,
+                                builder: (context, _) => RepaintBoundary(
                                   child: CustomPaint(
                                     painter: CurrentStrokePainter(
                                       currentStroke: widget
@@ -1135,29 +1166,29 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                                     ),
                                   ),
                                 ),
-                                if (!_isCapturingForAi)
-                                  RepaintBoundary(
-                                    child: CustomPaint(
-                                      painter: _LassoSelectionPainter(
-                                        lassoPoints: _lassoPoints,
-                                        selectedStrokeBounds:
-                                            _aiPanelOpen &&
-                                                _selectedStrokeBounds.isEmpty &&
-                                                _lastAiLassoPoints.isNotEmpty
-                                            ? <Rect>[
-                                                _boundsOfOffsets(
-                                                  _lastAiLassoPoints,
-                                                ),
-                                              ]
-                                            : _selectedStrokeBounds,
-                                        aiBoundingBoxes: _aiBoundingBoxes,
-                                        selectionColor: scheme.primary,
-                                        lassoColor: scheme.primary,
-                                      ),
+                              ),
+                              if (!_isCapturingForAi)
+                                RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter: _LassoSelectionPainter(
+                                      lassoPoints: _lassoPoints,
+                                      selectedStrokeBounds:
+                                          _aiPanelOpen &&
+                                              _selectedStrokeBounds.isEmpty &&
+                                              _lastAiLassoPoints.isNotEmpty
+                                          ? <Rect>[
+                                              _boundsOfOffsets(
+                                                _lastAiLassoPoints,
+                                              ),
+                                            ]
+                                          : _selectedStrokeBounds,
+                                      aiBoundingBoxes: _aiBoundingBoxes,
+                                      selectionColor: scheme.primary,
+                                      lassoColor: scheme.primary,
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
                         ),
                       ),

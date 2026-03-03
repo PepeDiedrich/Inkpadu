@@ -80,6 +80,29 @@ class Stroke {
     return true;
   }
 
+  /// Generiert den zu zeichnenden Pfad für diesen Strich.
+  Path? generatePath() {
+    if (points.length < 2) return null;
+
+    final path = Path();
+    path.moveTo(points[0].position.dx, points[0].position.dy);
+
+    if (isPerfectShape) {
+      for (var i = 1; i < points.length; i++) {
+        path.lineTo(points[i].position.dx, points[i].position.dy);
+      }
+    } else {
+      for (var i = 0; i < points.length - 1; i++) {
+        final p1 = points[i].position;
+        final p2 = points[i + 1].position;
+        final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
+        path.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
+      }
+      path.lineTo(points.last.position.dx, points.last.position.dy);
+    }
+    return path;
+  }
+
   /// Erstellt eine neue Instanz eines Strichs.
   Stroke({
     required this.points,

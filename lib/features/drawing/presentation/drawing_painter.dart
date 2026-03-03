@@ -30,29 +30,11 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
     return;
   }
 
-  final path = Path();
-  path.moveTo(stroke.points[0].position.dx, stroke.points[0].position.dy);
-
-  if (stroke.isPerfectShape) {
-    for (var i = 1; i < stroke.points.length; i++) {
-      path.lineTo(stroke.points[i].position.dx, stroke.points[i].position.dy);
-    }
-  } else {
-    for (var i = 0; i < stroke.points.length - 1; i++) {
-      final p1 = stroke.points[i].position;
-      final p2 = stroke.points[i + 1].position;
-
-      // We use quadratic Bézier curves for smoothing.
-      // The control point is p1, and the end point is the midpoint between p1 and p2.
-      final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      path.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
-    }
-    // Connect to the last point
-    path.lineTo(stroke.points.last.position.dx, stroke.points.last.position.dy);
+  final path = stroke.generatePath();
+  if (path != null) {
+    stroke.cachedPath = path;
+    canvas.drawPath(path, paint);
   }
-
-  stroke.cachedPath = path;
-  canvas.drawPath(path, paint);
 }
 
 /// Malt alle abgeschlossenen Striche. Repaint nur wenn sich die Version ändert.
@@ -62,6 +44,7 @@ class FinishedStrokesPainter extends CustomPainter {
     required List<Stroke> strokes,
     required this.cache,
     required this.version,
+    required this.viewportRect,
   }) : strokes = List<Stroke>.unmodifiable(strokes);
 
   /// Alle abgeschlossenen Striche auf der Seite.
@@ -74,34 +57,71 @@ class FinishedStrokesPainter extends CustomPainter {
   /// (Undo, Redo, Clear, Abschluss eines Strichs). Dient für shouldRepaint.
   final int version;
 
+  /// Das Rechteck des aktuell sichtbaren Viewports für Culling.
+  final Rect viewportRect;
+
   /// Zeichnet alle abgeschlossenen Striche auf die Leinwand.
   @override
   void paint(Canvas canvas, Size size) {
-    if (cache.version != version || cache.picture == null) {
-      final recorder = ui.PictureRecorder();
-      final recordCanvas = Canvas(recorder);
+    // 1. Purge old tiles to free memory.
+    cache.purgeOutside(viewportRect);
 
-      for (final stroke in strokes) {
-        _paintStroke(recordCanvas, stroke);
+    // 2. Determine visible tiles.
+    final startX = (viewportRect.left / StrokesPictureCache.tileSize).floor();
+    final startY = (viewportRect.top / StrokesPictureCache.tileSize).floor();
+    final endX = (viewportRect.right / StrokesPictureCache.tileSize).ceil();
+    final endY = (viewportRect.bottom / StrokesPictureCache.tileSize).ceil();
+
+    // 3. Render and draw tiles.
+    for (int y = startY; y < endY; y++) {
+      for (int x = startX; x < endX; x++) {
+        final tile = cache.getTile(x, y);
+
+        if (tile.version != version || tile.picture == null) {
+          final tileLeft = x * StrokesPictureCache.tileSize;
+          final tileTop = y * StrokesPictureCache.tileSize;
+          final tileRect = Rect.fromLTWH(
+            tileLeft,
+            tileTop,
+            StrokesPictureCache.tileSize,
+            StrokesPictureCache.tileSize,
+          );
+
+          final recorder = ui.PictureRecorder();
+          final recordCanvas = Canvas(recorder, tileRect);
+
+          recordCanvas.save();
+          recordCanvas.clipRect(tileRect);
+
+          // Render only strokes that intersect this tile.
+          for (final stroke in strokes) {
+            if (stroke.boundingBox.overlaps(tileRect)) {
+              _paintStroke(recordCanvas, stroke);
+            }
+          }
+
+          recordCanvas.restore();
+
+          tile.picture?.dispose();
+          tile.picture = recorder.endRecording();
+          tile.version = version;
+        }
+
+        if (tile.picture != null) {
+          canvas.drawPicture(tile.picture!);
+        }
       }
-
-      cache.picture?.dispose();
-      cache.picture = recorder.endRecording();
-      cache.version = version;
-    }
-
-    if (cache.picture != null) {
-      canvas.drawPicture(cache.picture!);
     }
   }
 
   @override
   bool shouldRepaint(covariant FinishedStrokesPainter oldDelegate) =>
-      oldDelegate.version != version;
+      oldDelegate.version != version ||
+      oldDelegate.viewportRect != viewportRect;
 }
 
-/// A cache object to hold an offscreen rendered picture of strokes.
-class StrokesPictureCache {
+/// A cache object for a single tile.
+class TileCache {
   /// The cached rendered picture.
   ui.Picture? picture;
 
@@ -113,6 +133,44 @@ class StrokesPictureCache {
     picture?.dispose();
     picture = null;
     version = -1;
+  }
+}
+
+/// A cache object to hold offscreen rendered pictures of strokes, divided into tiles.
+class StrokesPictureCache {
+  /// Defines the visual size of a single tile (e.g., 1000x1000).
+  static const double tileSize = 1000.0;
+
+  /// Map of tile coordinates (x, y) to their cached pictures.
+  final Map<(int, int), TileCache> _tiles = {};
+
+  /// Cleans up resources held by the picture cache.
+  void dispose() {
+    for (final tile in _tiles.values) {
+      tile.dispose();
+    }
+    _tiles.clear();
+  }
+
+  /// Returns the cache for a specific tile, creating it if necessary.
+  TileCache getTile(int x, int y) {
+    return _tiles.putIfAbsent((x, y), () => TileCache());
+  }
+
+  /// Removes tiles that are far outside the current viewport to free up memory.
+  void purgeOutside(Rect viewportRect) {
+    // Keep a margin of 1 tile around the viewport.
+    final keepRect = viewportRect.inflate(tileSize);
+    _tiles.removeWhere((index, tile) {
+      final tileX = index.$1 * tileSize;
+      final tileY = index.$2 * tileSize;
+      final tileRect = Rect.fromLTWH(tileX, tileY, tileSize, tileSize);
+      if (!keepRect.overlaps(tileRect)) {
+        tile.dispose();
+        return true;
+      }
+      return false;
+    });
   }
 }
 
