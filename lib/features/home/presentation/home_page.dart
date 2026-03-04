@@ -511,8 +511,23 @@ class _HomePageState extends State<HomePage> {
                           child: Text(t.common.no),
                         ) // "No results" would be better
                       : _isGridView
-                      ? _buildGridView(filteredNotes)
-                      : _buildListView(filteredNotes),
+                      ? _NotesGridView(
+                          notes: filteredNotes,
+                          selectedNoteIds: _selectedNoteIds,
+                          isSelectionMode: _isSelectionMode,
+                          onToggleSelection: _toggleSelection,
+                          onEnterSelectionMode: _enterSelectionMode,
+                          onOpen: _open,
+                          onShowNoteActions: _showNoteActions,
+                        )
+                      : _NotesListView(
+                          notes: filteredNotes,
+                          selectedNoteIds: _selectedNoteIds,
+                          isSelectionMode: _isSelectionMode,
+                          onToggleSelection: _toggleSelection,
+                          onEnterSelectionMode: _enterSelectionMode,
+                          onOpen: _open,
+                        ),
                 ),
               ],
             ),
@@ -606,7 +621,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildListView(List<InkNote> notes) {
+}
+
+class _NotesListView extends StatelessWidget {
+  final List<InkNote> notes;
+  final Set<String> selectedNoteIds;
+  final bool isSelectionMode;
+  final void Function(String) onToggleSelection;
+  final void Function(String) onEnterSelectionMode;
+  final void Function(String) onOpen;
+
+  const _NotesListView({
+    required this.notes,
+    required this.selectedNoteIds,
+    required this.isSelectionMode,
+    required this.onToggleSelection,
+    required this.onEnterSelectionMode,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ListView.builder(
       key: const PageStorageKey('home_list'),
@@ -614,7 +649,7 @@ class _HomePageState extends State<HomePage> {
       itemCount: notes.length,
       itemBuilder: (context, index) {
         final n = notes[index];
-        final isSelected = _selectedNoteIds.contains(n.id);
+        final isSelected = selectedNoteIds.contains(n.id);
 
         return Card(
           elevation: 0,
@@ -657,7 +692,7 @@ class _HomePageState extends State<HomePage> {
                   style: theme.textTheme.bodySmall,
                 ),
                 Text(
-                  _fmt(n.updatedAt),
+                  _fmt(context, n.updatedAt),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant.withValues(
                       alpha: 0.6,
@@ -667,17 +702,17 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             onTap: () {
-              if (_isSelectionMode) {
-                _toggleSelection(n.id);
+              if (isSelectionMode) {
+                onToggleSelection(n.id);
               } else {
-                _open(n.id);
+                onOpen(n.id);
               }
             },
-            onLongPress: () => _enterSelectionMode(n.id),
-            trailing: _isSelectionMode
+            onLongPress: () => onEnterSelectionMode(n.id),
+            trailing: isSelectionMode
                 ? Checkbox(
                     value: isSelected,
-                    onChanged: (_) => _toggleSelection(n.id),
+                    onChanged: (_) => onToggleSelection(n.id),
                   )
                 : const Icon(Icons.chevron_right),
           ),
@@ -685,8 +720,29 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+}
 
-  Widget _buildGridView(List<InkNote> notes) {
+class _NotesGridView extends StatelessWidget {
+  final List<InkNote> notes;
+  final Set<String> selectedNoteIds;
+  final bool isSelectionMode;
+  final void Function(String) onToggleSelection;
+  final void Function(String) onEnterSelectionMode;
+  final void Function(String) onOpen;
+  final void Function(InkNote) onShowNoteActions;
+
+  const _NotesGridView({
+    required this.notes,
+    required this.selectedNoteIds,
+    required this.isSelectionMode,
+    required this.onToggleSelection,
+    required this.onEnterSelectionMode,
+    required this.onOpen,
+    required this.onShowNoteActions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GridView.builder(
       key: const PageStorageKey('home_grid'),
@@ -700,17 +756,17 @@ class _HomePageState extends State<HomePage> {
       itemCount: notes.length,
       itemBuilder: (context, index) {
         final n = notes[index];
-        final isSelected = _selectedNoteIds.contains(n.id);
+        final isSelected = selectedNoteIds.contains(n.id);
 
         return InkWell(
           onTap: () {
-            if (_isSelectionMode) {
-              _toggleSelection(n.id);
+            if (isSelectionMode) {
+              onToggleSelection(n.id);
             } else {
-              _open(n.id);
+              onOpen(n.id);
             }
           },
-          onLongPress: () => _enterSelectionMode(n.id),
+          onLongPress: () => onEnterSelectionMode(n.id),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
@@ -751,7 +807,7 @@ class _HomePageState extends State<HomePage> {
                         right: 4,
                         child: IconButton(
                           icon: const Icon(Icons.more_vert),
-                          onPressed: () => _showNoteActions(n),
+                          onPressed: () => onShowNoteActions(n),
                           style: IconButton.styleFrom(
                             backgroundColor: theme.colorScheme.surface
                                 .withValues(alpha: 0.7),
@@ -778,7 +834,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _fmt(n.updatedAt),
+                        _fmt(context, n.updatedAt),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant.withValues(
                             alpha: 0.6,
@@ -795,13 +851,13 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+}
 
-  String _fmt(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return context.t.common.justNow;
-    if (diff.inHours < 1) return '${diff.inMinutes} min';
-    if (diff.inHours < 24) return '${diff.inHours} h';
-    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
-  }
+String _fmt(BuildContext context, DateTime dt) {
+  final now = DateTime.now();
+  final diff = now.difference(dt);
+  if (diff.inMinutes < 1) return context.t.common.justNow;
+  if (diff.inHours < 1) return '${diff.inMinutes} min';
+  if (diff.inHours < 24) return '${diff.inHours} h';
+  return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
 }

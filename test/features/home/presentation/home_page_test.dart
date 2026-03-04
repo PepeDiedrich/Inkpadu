@@ -68,8 +68,8 @@ void main() {
     // Leerer Zustand Text prüfen
     expect(find.text('Noch keine handschriftlichen Notizen'), findsOneWidget);
 
-    // Neue Notiz via FAB
-    await tester.tap(find.byIcon(Icons.add));
+    // Neue Notiz via FAB (FloatingActionButton.extended hat icon und label, in Row)
+    await tester.tap(find.widgetWithIcon(FloatingActionButton, Icons.add));
     await tester.pumpAndSettle();
 
     // BottomSheet "Neue Notiz erstellen" sollte erscheinen
@@ -146,18 +146,23 @@ void main() {
     expect(find.text('Test Notiz'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Auf das Löschen-Icon tippen
-    final deleteButton = find.byIcon(Icons.delete_outline);
+    // Aktionen-Menü über LongPress in ListView öffnen
+    final listTile = find.byType(ListTile);
+    expect(listTile, findsOneWidget);
+    await tester.longPress(listTile);
+    await tester.pumpAndSettle();
+
+    // In Selection Mode sollte das App-Bar Delete-Icon sichtbar sein
+    final deleteButton = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byIcon(Icons.delete_outline),
+    );
     expect(deleteButton, findsOneWidget);
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
     // Bestätigungsdialog sollte erscheinen
-    expect(find.text('Notiz löschen'), findsOneWidget);
-    expect(
-      find.text('Möchten Sie "Test Notiz" wirklich löschen?'),
-      findsOneWidget,
-    );
+    expect(find.text('Markierte löschen'), findsOneWidget);
 
     // Bestätigen
     await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
@@ -193,14 +198,23 @@ void main() {
     expect(find.text('Behalte mich'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Auf das Löschen-Icon tippen
-    final deleteButton = find.byIcon(Icons.delete_outline);
+    // Aktionen-Menü über LongPress in ListView öffnen
+    final listTile = find.byType(ListTile);
+    expect(listTile, findsOneWidget);
+    await tester.longPress(listTile);
+    await tester.pumpAndSettle();
+
+    // In Selection Mode sollte das App-Bar Delete-Icon sichtbar sein
+    final deleteButton = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byIcon(Icons.delete_outline),
+    );
     expect(deleteButton, findsOneWidget);
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
     // Bestätigungsdialog erscheint
-    expect(find.text('Notiz löschen'), findsOneWidget);
+    expect(find.text('Markierte löschen'), findsOneWidget);
 
     // Abbrechen
     await tester.tap(find.widgetWithText(TextButton, 'Abbrechen'));

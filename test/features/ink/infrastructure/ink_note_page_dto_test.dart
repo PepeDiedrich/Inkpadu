@@ -17,9 +17,7 @@ void main() {
       baseWidth: 7,
       isHighlighter: true,
     );
-    final page = NotePage(
-      strokes: [stroke],
-    );
+    final page = NotePage(strokes: [stroke]);
 
     final dto = InkNotePageDto.fromDomain(page, index: 0);
     final restored = dto.toDomain();
@@ -38,10 +36,7 @@ void main() {
       color: Colors.red,
       baseWidth: 3,
     );
-    final dto = InkNotePageDto(
-      index: 3,
-      strokes: [stroke],
-    );
+    final dto = InkNotePageDto(index: 3, strokes: [stroke]);
 
     final encoded = dto.toJson();
     final decoded = InkNotePageDto.fromJson(encoded);

@@ -23,9 +23,7 @@ void main() {
           DrawingPoint(position: const Offset(25.777, -30.200), pressure: 0.91),
         ],
       );
-      final page = NotePage(
-        strokes: <Stroke>[stroke],
-      );
+      final page = NotePage(strokes: <Stroke>[stroke]);
 
       final encoded = InkNotePageCodec.encode(<NotePage>[page]);
       expect(encoded, isNotEmpty);

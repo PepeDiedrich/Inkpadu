@@ -31,16 +31,14 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder:
-                  (context) => ElevatedButton(
-                    onPressed:
-                        () => showNoteMetadataDialog(
-                          context,
-                          initialTitle: 'Initial Title',
-                          initialPaperStyle: NotePaperStyle.lined,
-                        ),
-                    child: const Text('Open'),
-                  ),
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: 'Initial Title',
+                  initialPaperStyle: NotePaperStyle.lined,
+                ),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),
@@ -63,17 +61,15 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder:
-                  (context) => ElevatedButton(
-                    onPressed:
-                        () => showNoteMetadataDialog(
-                          context,
-                          initialTitle: 'Existing',
-                          initialPaperStyle: NotePaperStyle.plain,
-                          isEditing: true,
-                        ),
-                    child: const Text('Open'),
-                  ),
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: 'Existing',
+                  initialPaperStyle: NotePaperStyle.plain,
+                  isEditing: true,
+                ),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),
@@ -94,16 +90,14 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder:
-                  (context) => ElevatedButton(
-                    onPressed:
-                        () => showNoteMetadataDialog(
-                          context,
-                          initialTitle: '',
-                          initialPaperStyle: NotePaperStyle.plain,
-                        ),
-                    child: const Text('Open'),
-                  ),
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),
@@ -130,16 +124,14 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder:
-                  (context) => ElevatedButton(
-                    onPressed:
-                        () => showNoteMetadataDialog(
-                          context,
-                          initialTitle: '',
-                          initialPaperStyle: NotePaperStyle.plain,
-                        ),
-                    child: const Text('Open'),
-                  ),
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),
@@ -170,16 +162,14 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder:
-                  (context) => ElevatedButton(
-                    onPressed:
-                        () => showNoteMetadataDialog(
-                          context,
-                          initialTitle: '',
-                          initialPaperStyle: NotePaperStyle.plain,
-                        ),
-                    child: const Text('Open'),
-                  ),
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),
@@ -197,14 +187,30 @@ void main() {
 
       // Verify selection dialog is open
       expect(find.byType(PaperStyleSelectionDialog), findsOneWidget);
-      expect(find.descendant(of: find.byType(PaperStyleSelectionDialog), matching: find.text('Hintergrund wählen')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(PaperStyleSelectionDialog),
+          matching: find.text('Hintergrund wählen'),
+        ),
+        findsOneWidget,
+      );
 
       // Select 'Liniert' - Ensure we tap the ChoiceChip's label
-      await tester.tap(find.descendant(of: find.byType(PaperStyleSelectionDialog), matching: find.text('Liniert')));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PaperStyleSelectionDialog),
+          matching: find.text('Liniert'),
+        ),
+      );
       await tester.pump();
 
       // Save selection
-      await tester.tap(find.descendant(of: find.byType(PaperStyleSelectionDialog), matching: find.text('Speichern')));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PaperStyleSelectionDialog),
+          matching: find.text('Speichern'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Verify dialog closed and main dialog updated
@@ -220,16 +226,14 @@ void main() {
             supportedLocales: AppLocaleUtils.supportedLocales,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: Builder(
-              builder:
-                  (context) => ElevatedButton(
-                    onPressed:
-                        () => showNoteMetadataDialog(
-                          context,
-                          initialTitle: '',
-                          initialPaperStyle: NotePaperStyle.plain,
-                        ),
-                    child: const Text('Open'),
-                  ),
+              builder: (context) => ElevatedButton(
+                onPressed: () => showNoteMetadataDialog(
+                  context,
+                  initialTitle: '',
+                  initialPaperStyle: NotePaperStyle.plain,
+                ),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),

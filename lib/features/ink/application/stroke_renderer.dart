@@ -24,7 +24,9 @@ class StrokeRenderer {
   }
 
   /// Renders a list of strokes to a base64 encoded PNG image and returns the bounds.
-  static Future<RenderedImageResult?> renderStrokesToImageResult(List<Stroke> strokes) async {
+  static Future<RenderedImageResult?> renderStrokesToImageResult(
+    List<Stroke> strokes,
+  ) async {
     if (strokes.isEmpty) return null;
 
     // Calculate bounding box of all strokes
@@ -84,11 +86,9 @@ class StrokeRenderer {
 
       if (stroke.points.length == 1) {
         paint.strokeWidth = stroke.baseWidth * stroke.points.first.pressure;
-        canvas.drawPoints(
-          ui.PointMode.points,
-          [stroke.points.first.position],
-          paint,
-        );
+        canvas.drawPoints(ui.PointMode.points, [
+          stroke.points.first.position,
+        ], paint);
         continue;
       }
 
