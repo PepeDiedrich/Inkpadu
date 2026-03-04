@@ -18,14 +18,12 @@ void main() {
         baseWidth: 5.25,
         isHighlighter: true,
         points: <DrawingPoint>[
-          DrawingPoint(position: const Offset(12.345, -45.678), pressure: 0.15),
-          DrawingPoint(position: const Offset(12.946, -45.001), pressure: 0.33),
-          DrawingPoint(position: const Offset(25.777, -30.200), pressure: 0.91),
+          DrawingPoint(position: const Offset(12.345, -45.678)),
+          DrawingPoint(position: const Offset(12.946, -45.001)),
+          DrawingPoint(position: const Offset(25.777, -30.200)),
         ],
       );
-      final page = NotePage(
-        strokes: <Stroke>[stroke],
-      );
+      final page = NotePage(strokes: <Stroke>[stroke]);
 
       final encoded = InkNotePageCodec.encode(<NotePage>[page]);
       expect(encoded, isNotEmpty);
@@ -48,7 +46,8 @@ void main() {
 
         expect(roundTripped.position.dx, closeTo(original.position.dx, 0.002));
         expect(roundTripped.position.dy, closeTo(original.position.dy, 0.002));
-        expect(roundTripped.pressure, closeTo(original.pressure, 0.002));
+        expect(roundTripped.position.dx, closeTo(original.position.dx, 0.002));
+        expect(roundTripped.position.dy, closeTo(original.position.dy, 0.002));
       }
     });
 
@@ -74,7 +73,7 @@ void main() {
       final stroke = bundle.pages.first.strokes.first;
       expect(stroke.id, 'legacy');
       expect(stroke.points, hasLength(1));
-      expect(stroke.points.first.pressure, closeTo(0.5, 1e-6));
+      expect(stroke.points.first.position, isNotNull);
     });
   });
 }

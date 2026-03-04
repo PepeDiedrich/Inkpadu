@@ -33,9 +33,8 @@ class InkNotePageBundle {
 class InkNotePageCodec {
   const InkNotePageCodec._();
 
-  static const int _version = 4;
+  static const int _version = 5;
   static const int _positionScale = 1000;
-  static const int _pressureScale = 1000;
   static const GZipEncoder _gzipEncoder = GZipEncoder();
   static const GZipDecoder _gzipDecoder = GZipDecoder();
 
@@ -96,7 +95,7 @@ class InkNotePageCodec {
       if (version <= 1) {
         final strokes = (decoded['s'] as List<dynamic>? ?? const <dynamic>[])
             .whereType<Map<String, dynamic>>()
-            .map(_decodeStroke)
+            .map((s) => _decodeStroke(s, version: version))
             .toList(growable: false);
         return InkNotePageBundle(
           pages: <NotePage>[NotePage(strokes: strokes)],
@@ -175,7 +174,7 @@ class InkNotePageCodec {
   }) {
     final strokes = (data['s'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
-        .map(_decodeStroke)
+        .map((s) => _decodeStroke(s, version: version))
         .toList(growable: false);
 
     final webViews = (data['w'] as List<dynamic>? ?? const <dynamic>[])
@@ -200,7 +199,7 @@ class InkNotePageCodec {
     };
   }
 
-  static Stroke _decodeStroke(Map<String, dynamic> data) {
+  static Stroke _decodeStroke(Map<String, dynamic> data, {int version = 5}) {
     final colorValue = data['color'] as int?;
     final widthValue = (data['width'] as num?)?.toDouble() ?? 4.0;
     final isHighlighter = data['isHighlighter'] as bool? ?? false;
@@ -209,7 +208,7 @@ class InkNotePageCodec {
     final color = colorValue != null
         ? Color(colorValue)
         : const Color(0xFF000000);
-    final points = _decodePoints(pointsEncoded);
+    final points = _decodePoints(pointsEncoded, version: version);
 
     return Stroke(
       id: data['id'] as String?,
@@ -229,42 +228,35 @@ class InkNotePageCodec {
 
     int lastX = 0;
     int lastY = 0;
-    int lastPressure = 0;
 
     for (var index = 0; index < points.length; index++) {
       final point = points[index];
       final scaledX = (point.position.dx * _positionScale).round();
       final scaledY = (point.position.dy * _positionScale).round();
-      final scaledPressure = (point.pressure * _pressureScale).round();
 
       if (index == 0) {
         lastX = scaledX;
         lastY = scaledY;
-        lastPressure = scaledPressure;
 
         _writeVarint(builder, _encodeZigZag(scaledX));
         _writeVarint(builder, _encodeZigZag(scaledY));
-        _writeVarint(builder, _encodeZigZag(scaledPressure));
         continue;
       }
 
       final deltaX = scaledX - lastX;
       final deltaY = scaledY - lastY;
-      final deltaPressure = scaledPressure - lastPressure;
 
       lastX = scaledX;
       lastY = scaledY;
-      lastPressure = scaledPressure;
 
       _writeVarint(builder, _encodeZigZag(deltaX));
       _writeVarint(builder, _encodeZigZag(deltaY));
-      _writeVarint(builder, _encodeZigZag(deltaPressure));
     }
 
     return builder.toBytes();
   }
 
-  static List<DrawingPoint> _decodePoints(String data) {
+  static List<DrawingPoint> _decodePoints(String data, {int version = 5}) {
     if (data.isEmpty) {
       return List<DrawingPoint>.unmodifiable(<DrawingPoint>[]);
     }
@@ -276,37 +268,35 @@ class InkNotePageCodec {
 
     final reader = _VarintReader(bytes);
     final result = <DrawingPoint>[];
+    final bool hasPressure = version <= 4;
 
     var isFirst = true;
     var currentX = 0;
     var currentY = 0;
-    var currentPressure = 0;
 
     while (!reader.isDone) {
       final rawX = _decodeZigZag(reader.read());
       final rawY = _decodeZigZag(reader.read());
-      final rawPressure = _decodeZigZag(reader.read());
+      // Legacy data (v <= 4) has a third varint for pressure – read and discard.
+      if (hasPressure && !reader.isDone) {
+        reader.read(); // skip pressure
+      }
 
       if (isFirst) {
         currentX = rawX;
         currentY = rawY;
-        currentPressure = rawPressure;
         isFirst = false;
       } else {
         currentX += rawX;
         currentY += rawY;
-        currentPressure += rawPressure;
       }
 
       final position = Offset(
         currentX / _positionScale,
         currentY / _positionScale,
       );
-      final pressure = (currentPressure / _pressureScale)
-          .clamp(0.0, 1.0)
-          .toDouble();
 
-      result.add(DrawingPoint(position: position, pressure: pressure));
+      result.add(DrawingPoint(position: position));
     }
 
     return List<DrawingPoint>.unmodifiable(result);

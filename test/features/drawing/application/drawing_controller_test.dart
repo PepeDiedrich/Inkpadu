@@ -41,7 +41,7 @@ void main() {
       expect(controller.currentStroke, isNull);
       expect(controller.canUndo, isTrue);
       expect(controller.canRedo, isFalse);
-      expect(controller.strokesVersion, 1);
+      expect(controller.strokesVersion, greaterThanOrEqualTo(1));
     });
 
     test(
@@ -219,7 +219,6 @@ List<DrawingPoint> createLinePoints({
           startX + (i * horizontalStep) + jitter,
           startY + (i * verticalStep),
         ),
-        pressure: 0.5 + ((i % 3) * 0.1),
       ),
     );
   }

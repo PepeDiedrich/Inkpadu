@@ -2,6 +2,24 @@ import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+/// Art des Stifts, der den Strich erzeugt hat.
+enum PenType {
+  /// Dünner, gleichmäßiger Strich.
+  fineliner,
+
+  /// Tintenroller – gleichmäßig, etwas breiter als Fineliner.
+  ink,
+
+  /// Füller – leicht kalligrafischer Charakter.
+  fountain,
+
+  /// Pinsel – breitester Strich, weicher Charakter.
+  brush,
+
+  /// Marker – flache Kappen, halbtransparent.
+  marker,
+}
+
 /// Beschreibt einen einzelnen Strich innerhalb einer handschriftlichen Notiz.
 class Stroke {
   /// Einzigartige ID, um den Strich zweifelsfrei zu identifizieren.
@@ -19,6 +37,9 @@ class Stroke {
   /// Kennzeichnet, ob es sich um einen Textmarker-Strich handelt.
   final bool isHighlighter;
 
+  /// Die Art des Stifts, die diesen Strich erzeugt hat.
+  final PenType penType;
+
   /// Kennzeichnet, ob der Strich eine perfekte geometrische Form ist,
   /// die ohne Glättung (Smoothing) gezeichnet werden soll.
   final bool isPerfectShape;
@@ -26,14 +47,8 @@ class Stroke {
   /// Gecachte Bounding Box für schnelle Hit-Tests.
   Rect? _cachedBoundingBox;
 
-  /// Gecachter Path für schnelles Rendering (lazy berechnet).
-  /// Wird nur verwendet, wenn der Strich für Fast-Path-Rendering geeignet ist.
-  /// Dies ist eine mutable Eigenschaft, die zur Laufzeit (UI-Thread) gesetzt wird.
-  /// Sie wird nicht persistiert und nicht über Isolates transportiert.
+  /// Vorberechneter Pfad für effizientes Zeichnen.
   Path? cachedPath;
-
-  /// Gecachter Wert für die Druck-Konstanz Prüfung.
-  bool? _cachedIsConstantPressure;
 
   /// Liefert die Bounding Box aller Punkte des Strichs (lazy berechnet).
   Rect get boundingBox {
@@ -56,28 +71,6 @@ class Stroke {
     }
     _cachedBoundingBox = Rect.fromLTRB(minX, minY, maxX, maxY);
     return _cachedBoundingBox!;
-  }
-
-  /// Prüft lazy, ob der Strich konstanten Druck hat.
-  /// Dies erlaubt massive Performance-Optimierungen beim Rendering (drawPath vs drawLine loop).
-  bool get isConstantPressure {
-    if (_cachedIsConstantPressure != null) return _cachedIsConstantPressure!;
-
-    if (points.length < 2) {
-      _cachedIsConstantPressure = false;
-      return false;
-    }
-
-    final double baseline = points[0].pressure;
-    for (int i = 1; i < points.length; i++) {
-      if ((points[i].pressure - baseline).abs() > 0.01) {
-        _cachedIsConstantPressure = false;
-        return false;
-      }
-    }
-
-    _cachedIsConstantPressure = true;
-    return true;
   }
 
   /// Generiert den zu zeichnenden Pfad für diesen Strich.
@@ -110,6 +103,7 @@ class Stroke {
     this.baseWidth = 4.0,
     this.isHighlighter = false,
     this.isPerfectShape = false,
+    this.penType = PenType.fineliner,
     String? id,
   }) : id = id ?? const Uuid().v4();
 
@@ -120,6 +114,7 @@ class Stroke {
     double? baseWidth,
     bool? isHighlighter,
     bool? isPerfectShape,
+    PenType? penType,
     String? id,
   }) => Stroke(
     id: id ?? this.id,
@@ -128,6 +123,7 @@ class Stroke {
     baseWidth: baseWidth ?? this.baseWidth,
     isHighlighter: isHighlighter ?? this.isHighlighter,
     isPerfectShape: isPerfectShape ?? this.isPerfectShape,
+    penType: penType ?? this.penType,
   );
 
   /// Wandelt den Strich in eine JSON-Map um.
@@ -138,6 +134,7 @@ class Stroke {
     'width': baseWidth,
     'isHighlighter': isHighlighter,
     'isPerfectShape': isPerfectShape,
+    'penType': penType.name,
   };
 
   /// Erstellt einen Strich aus einer JSON-Map.
@@ -152,6 +149,17 @@ class Stroke {
     final bool resolvedHighlighter = json['isHighlighter'] as bool? ?? false;
     final bool resolvedPerfectShape = json['isPerfectShape'] as bool? ?? false;
 
+    PenType resolvedPenType = PenType.fineliner;
+    final String? rawPenType = json['penType'] as String?;
+    if (rawPenType != null) {
+      resolvedPenType = PenType.values.firstWhere(
+        (e) => e.name == rawPenType,
+        orElse: () => PenType.fineliner,
+      );
+    } else if (resolvedHighlighter) {
+      resolvedPenType = PenType.marker;
+    }
+
     return Stroke(
       id: json['id'] as String?,
       points: rawPoints
@@ -162,6 +170,7 @@ class Stroke {
       baseWidth: resolvedWidth,
       isHighlighter: resolvedHighlighter,
       isPerfectShape: resolvedPerfectShape,
+      penType: resolvedPenType,
     );
   }
 }

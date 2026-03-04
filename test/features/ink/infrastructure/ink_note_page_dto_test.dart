@@ -11,15 +11,13 @@ void main() {
       id: 's1',
       points: [
         DrawingPoint(position: const Offset(1, 2)),
-        DrawingPoint(position: const Offset(3, 4), pressure: 0.8),
+        DrawingPoint(position: const Offset(3, 4)),
       ],
       color: Colors.blue,
       baseWidth: 7,
       isHighlighter: true,
     );
-    final page = NotePage(
-      strokes: [stroke],
-    );
+    final page = NotePage(strokes: [stroke]);
 
     final dto = InkNotePageDto.fromDomain(page, index: 0);
     final restored = dto.toDomain();
@@ -34,14 +32,11 @@ void main() {
   test('InkNotePageDto serialisiert sich korrekt nach JSON', () {
     final stroke = Stroke(
       id: 's2',
-      points: [DrawingPoint(position: const Offset(5, 6), pressure: 0.1)],
+      points: [DrawingPoint(position: const Offset(5, 6))],
       color: Colors.red,
       baseWidth: 3,
     );
-    final dto = InkNotePageDto(
-      index: 3,
-      strokes: [stroke],
-    );
+    final dto = InkNotePageDto(index: 3, strokes: [stroke]);
 
     final encoded = dto.toJson();
     final decoded = InkNotePageDto.fromJson(encoded);
@@ -51,6 +46,6 @@ void main() {
       decoded.strokes.single.color.toARGB32(),
       equals(Colors.red.toARGB32()),
     );
-    expect(decoded.strokes.single.points.single.pressure, closeTo(0.1, 1e-6));
+    expect(decoded.strokes.single.points.single.position, isNotNull);
   });
 }

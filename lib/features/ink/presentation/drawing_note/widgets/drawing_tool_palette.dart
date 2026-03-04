@@ -86,20 +86,16 @@ class _ToolChipState extends State<_ToolChip> {
 
     final bool isSelected = widget.isSelected;
     final double targetScale = isSelected ? 1.08 : 1.0;
-    final bool highlight = isSelected;
 
-    // For selected tools: show sky blue circle background with dark icon.
-    // For non-selected: show tool color as before.
-    final Color chipBackground = highlight
-        ? AppColors.primaryAccent
-        : displayColor;
-    final Color chipIconColor = highlight
-        ? AppColors.onPrimary
-        : (widget.tool.isHighlighter
-            ? iconColor.withValues(alpha: 0.8)
-            : widget.tool.isEraser
-                ? colorScheme.onSurfaceVariant
-                : iconColor);
+    // Use tool's display color for the background, never override with accent color.
+    final Color chipBackground = displayColor;
+
+    // Icon color should adjust to the tool's background color.
+    final Color chipIconColor = widget.tool.isHighlighter
+        ? iconColor.withValues(alpha: 0.8)
+        : widget.tool.isEraser
+        ? colorScheme.onSurfaceVariant
+        : iconColor;
 
     final bool isLasso = widget.tool.id == DrawingToolDefaults.aiLassoId;
     final String tooltipMessage = isLasso
@@ -123,25 +119,22 @@ class _ToolChipState extends State<_ToolChip> {
               shape: BoxShape.circle,
               color: chipBackground,
               border: Border.all(
-                color: highlight ? AppColors.primaryAccent : borderColor,
-                width: highlight ? 2 : 1,
+                color: isSelected ? AppColors.primaryAccent : borderColor,
+                width: isSelected ? 3 : 1,
               ),
-              boxShadow: highlight
+              boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: AppColors.primaryAccent.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                        color: AppColors.primaryAccent.withValues(alpha: 0.45),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 2),
                       ),
                     ]
                   : null,
             ),
             child: Center(
-              child: Icon(
-                widget.tool.icon,
-                size: 18,
-                color: chipIconColor,
-              ),
+              child: Icon(widget.tool.icon, size: 18, color: chipIconColor),
             ),
           ),
         ),

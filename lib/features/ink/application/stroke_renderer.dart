@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 
-/// Repr√§sentiert das Ergebnis eines gerenderten Bildes.
+/// Repr‰sentiert das Ergebnis eines gerenderten Bildes.
 class RenderedImageResult {
   /// Erstellt ein neues [RenderedImageResult].
   RenderedImageResult(this.base64Image, this.bounds);
@@ -24,7 +24,9 @@ class StrokeRenderer {
   }
 
   /// Renders a list of strokes to a base64 encoded PNG image and returns the bounds.
-  static Future<RenderedImageResult?> renderStrokesToImageResult(List<Stroke> strokes) async {
+  static Future<RenderedImageResult?> renderStrokesToImageResult(
+    List<Stroke> strokes,
+  ) async {
     if (strokes.isEmpty) return null;
 
     // Calculate bounding box of all strokes
@@ -67,35 +69,30 @@ class StrokeRenderer {
     // Translate canvas so strokes are drawn at the origin
     canvas.translate(-minX, -minY);
 
-    // Draw strokes
+    // Draw strokes with pen-type awareness
     for (final stroke in strokes) {
+      final bool isMarker = stroke.penType == PenType.marker;
       final paint = Paint()
-        ..color = stroke.color
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
-
-      if (stroke.isHighlighter) {
-        paint.blendMode = BlendMode.multiply;
-        paint.color = stroke.color.withValues(alpha: 0.5);
-      }
+        ..color = isMarker
+            ? stroke.color.withValues(alpha: 0.45)
+            : stroke.color
+        ..strokeCap = isMarker ? StrokeCap.square : StrokeCap.round
+        ..strokeJoin = isMarker ? StrokeJoin.bevel : StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke.baseWidth;
 
       if (stroke.points.isEmpty) continue;
 
       if (stroke.points.length == 1) {
-        paint.strokeWidth = stroke.baseWidth * stroke.points.first.pressure;
-        canvas.drawPoints(
-          ui.PointMode.points,
-          [stroke.points.first.position],
-          paint,
-        );
+        canvas.drawPoints(ui.PointMode.points, [
+          stroke.points.first.position,
+        ], paint);
         continue;
       }
 
       for (int i = 0; i < stroke.points.length - 1; i++) {
         final p1 = stroke.points[i];
         final p2 = stroke.points[i + 1];
-        paint.strokeWidth = stroke.baseWidth * p1.pressure;
         canvas.drawLine(p1.position, p2.position, paint);
       }
     }

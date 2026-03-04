@@ -7,10 +7,23 @@ import 'package:flutter/material.dart';
 void _paintStroke(Canvas canvas, Stroke stroke) {
   if (stroke.points.isEmpty) return;
 
+  switch (stroke.penType) {
+    case PenType.marker:
+      _paintMarkerStroke(canvas, stroke);
+    case PenType.fountain:
+      _paintFountainStroke(canvas, stroke);
+    case PenType.brush:
+      _paintBrushStroke(canvas, stroke);
+    case PenType.ink:
+    case PenType.fineliner:
+      _paintUniformStroke(canvas, stroke);
+  }
+}
+
+/// Fineliner / Ink — gleichmäßiger Strich mit runden Enden.
+void _paintUniformStroke(Canvas canvas, Stroke stroke) {
   final paint = Paint()
-    ..color = stroke.isHighlighter
-        ? stroke.color.withValues(alpha: stroke.color.a * 0.5)
-        : stroke.color
+    ..color = stroke.color
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round
     ..style = PaintingStyle.stroke
@@ -20,6 +33,127 @@ void _paintStroke(Canvas canvas, Stroke stroke) {
     canvas.drawCircle(
       stroke.points.first.position,
       stroke.baseWidth / 2,
+      paint..style = PaintingStyle.fill,
+    );
+    return;
+  }
+
+  if (stroke.cachedPath != null) {
+    canvas.drawPath(stroke.cachedPath!, paint);
+    return;
+  }
+
+  final path = stroke.generatePath();
+  if (path != null) {
+    stroke.cachedPath = path;
+    canvas.drawPath(path, paint);
+  }
+}
+
+/// Füller — leichter kalligrafischer Charakter durch Breitenvariation.
+void _paintFountainStroke(Canvas canvas, Stroke stroke) {
+  if (stroke.points.length == 1) {
+    canvas.drawCircle(
+      stroke.points.first.position,
+      stroke.baseWidth / 2,
+      Paint()
+        ..color = stroke.color
+        ..style = PaintingStyle.fill,
+    );
+    return;
+  }
+
+  // Wenn ein gecachter Pfad existiert, verwende den (z. B. bei Shapes).
+  if (stroke.isPerfectShape && stroke.cachedPath != null) {
+    canvas.drawPath(
+      stroke.cachedPath!,
+      Paint()
+        ..color = stroke.color
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke.baseWidth,
+    );
+    return;
+  }
+
+  final paint = Paint()
+    ..color = stroke.color
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..style = PaintingStyle.stroke;
+
+  final double base = stroke.baseWidth;
+  for (int i = 0; i < stroke.points.length - 1; i++) {
+    final p1 = stroke.points[i].position;
+    final p2 = stroke.points[i + 1].position;
+    final double dist = (p2 - p1).distance;
+    // Je schneller (weiter auseinander), desto dünner.
+    final double factor = (1.0 - (dist / 40.0).clamp(0.0, 0.4));
+    paint.strokeWidth = base * factor.clamp(0.6, 1.2);
+    canvas.drawLine(p1, p2, paint);
+  }
+}
+
+/// Pinsel — breiter und weicher Strich.
+void _paintBrushStroke(Canvas canvas, Stroke stroke) {
+  if (stroke.points.length == 1) {
+    canvas.drawCircle(
+      stroke.points.first.position,
+      stroke.baseWidth,
+      Paint()
+        ..color = stroke.color
+        ..style = PaintingStyle.fill,
+    );
+    return;
+  }
+
+  if (stroke.isPerfectShape && stroke.cachedPath != null) {
+    canvas.drawPath(
+      stroke.cachedPath!,
+      Paint()
+        ..color = stroke.color
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke.baseWidth,
+    );
+    return;
+  }
+
+  final paint = Paint()
+    ..color = stroke.color
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..style = PaintingStyle.stroke;
+
+  final double base = stroke.baseWidth;
+  for (int i = 0; i < stroke.points.length - 1; i++) {
+    final p1 = stroke.points[i].position;
+    final p2 = stroke.points[i + 1].position;
+    final double dist = (p2 - p1).distance;
+    final double factor = (1.0 - (dist / 30.0).clamp(0.0, 0.5));
+    paint.strokeWidth = base * factor.clamp(0.5, 1.5);
+    canvas.drawLine(p1, p2, paint);
+  }
+}
+
+/// Marker — flache Kappen, halbtransparent, gleichmäßige Breite.
+void _paintMarkerStroke(Canvas canvas, Stroke stroke) {
+  final paint = Paint()
+    ..color = stroke.color.withValues(alpha: stroke.color.a * 0.45)
+    ..strokeCap = StrokeCap.square
+    ..strokeJoin = StrokeJoin.bevel
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = stroke.baseWidth;
+
+  if (stroke.points.length == 1) {
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: stroke.points.first.position,
+        width: stroke.baseWidth,
+        height: stroke.baseWidth,
+      ),
       paint..style = PaintingStyle.fill,
     );
     return;

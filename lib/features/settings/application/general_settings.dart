@@ -12,7 +12,7 @@ class GeneralSettings extends ChangeNotifier {
   static const String _prefKeyTheme = 'general_settings_themeMode';
   static const String _prefKeyLocale = 'general_settings_locale';
 
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
   AppLocale? _locale;
 
   /// Der aktuell gewählte Theme-Modus.
@@ -26,7 +26,9 @@ class GeneralSettings extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
 
       final themeIndex = prefs.getInt(_prefKeyTheme);
-      if (themeIndex != null && themeIndex >= 0 && themeIndex < ThemeMode.values.length) {
+      if (themeIndex != null &&
+          themeIndex >= 0 &&
+          themeIndex < ThemeMode.values.length) {
         _themeMode = ThemeMode.values[themeIndex];
       }
 
@@ -94,11 +96,14 @@ class GeneralSettingsScope extends InheritedNotifier<GeneralSettings> {
 
   /// Liefert die [GeneralSettings] aus dem Kontext.
   static GeneralSettings of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<GeneralSettingsScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<GeneralSettingsScope>();
     assert(scope != null, 'GeneralSettingsScope nicht im Widget-Tree gefunden');
     return scope!.notifier!;
   }
 
   @override
-  bool updateShouldNotify(covariant InheritedNotifier<GeneralSettings> oldWidget) => true;
+  bool updateShouldNotify(
+    covariant InheritedNotifier<GeneralSettings> oldWidget,
+  ) => true;
 }

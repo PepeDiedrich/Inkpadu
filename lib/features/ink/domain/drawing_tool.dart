@@ -1,3 +1,4 @@
+import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
 /// Repräsentiert ein konfigurierbares Zeichenwerkzeug.
@@ -11,7 +12,6 @@ class DrawingTool {
     required this.baseWidth,
     this.isHighlighter = false,
     this.isEraser = false,
-    this.usePressure = true,
   });
 
   /// Stabile ID des Werkzeugs.
@@ -35,8 +35,15 @@ class DrawingTool {
   /// Kennzeichnet das Werkzeug als Radierer.
   final bool isEraser;
 
-  /// Ob Drucksensitivität verwendet wird.
-  final bool usePressure;
+  /// Leitet den Stifttyp aus der ID ab.
+  PenType get penType {
+    if (isHighlighter) return PenType.marker;
+    if (id.contains('fountain')) return PenType.fountain;
+    if (id.contains('ink')) return PenType.ink;
+    if (id.contains('marker')) return PenType.marker;
+    if (id.contains('brush') || id.contains('neon')) return PenType.brush;
+    return PenType.fineliner;
+  }
 
   /// Gibt eine Kopie mit überschriebenen Eigenschaften zurück.
   DrawingTool copyWith({
@@ -46,7 +53,6 @@ class DrawingTool {
     double? baseWidth,
     bool? isHighlighter,
     bool? isEraser,
-    bool? usePressure,
   }) => DrawingTool(
     id: id,
     label: label ?? this.label,
@@ -55,7 +61,6 @@ class DrawingTool {
     baseWidth: baseWidth ?? this.baseWidth,
     isHighlighter: isHighlighter ?? this.isHighlighter,
     isEraser: isEraser ?? this.isEraser,
-    usePressure: usePressure ?? this.usePressure,
   );
 
   /// Serialisiert das Werkzeug nach JSON.
@@ -70,7 +75,6 @@ class DrawingTool {
     'baseWidth': baseWidth,
     'isHighlighter': isHighlighter,
     'isEraser': isEraser,
-    'usePressure': usePressure,
   };
 
   /// Erstellt ein Werkzeug aus einer JSON-Repräsentation.
@@ -87,7 +91,6 @@ class DrawingTool {
     baseWidth: (json['baseWidth'] as num?)?.toDouble() ?? 4.0,
     isHighlighter: json['isHighlighter'] as bool? ?? false,
     isEraser: json['isEraser'] as bool? ?? false,
-    usePressure: json['usePressure'] as bool? ?? true,
   );
 }
 
@@ -123,7 +126,6 @@ class DrawingToolDefaults {
       color: Color(0xFFFFC107),
       baseWidth: 11,
       isHighlighter: true,
-      usePressure: false,
     ),
     DrawingTool(
       id: 'pen-neon',
@@ -132,7 +134,6 @@ class DrawingToolDefaults {
       color: Color(0xFF66BB6A),
       baseWidth: 8,
       isHighlighter: true,
-      usePressure: false,
     ),
     DrawingTool(
       id: 'eraser',
@@ -141,7 +142,6 @@ class DrawingToolDefaults {
       color: Colors.white,
       baseWidth: 18,
       isEraser: true,
-      usePressure: false,
     ),
     DrawingTool(
       id: 'ai-lasso',
@@ -149,7 +149,6 @@ class DrawingToolDefaults {
       icon: Icons.auto_awesome,
       color: Colors.deepPurple,
       baseWidth: 2,
-      usePressure: false,
     ),
     DrawingTool(
       id: 'selection-lasso',
@@ -157,7 +156,6 @@ class DrawingToolDefaults {
       icon: Icons.highlight_alt,
       color: Colors.blueGrey,
       baseWidth: 2,
-      usePressure: false,
     ),
   ];
 

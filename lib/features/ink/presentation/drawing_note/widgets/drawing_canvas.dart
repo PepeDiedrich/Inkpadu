@@ -514,11 +514,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       return;
     }
 
-    final double pressure = _pressureForEvent(details, tool);
-    final newPoint = DrawingPoint(
-      position: details.localPosition,
-      pressure: pressure,
-    );
+    final newPoint = DrawingPoint(position: details.localPosition);
 
     _ensureCanvasHeightForPosition(newPoint.position.dy);
 
@@ -527,6 +523,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       color: tool.color,
       baseWidth: tool.baseWidth,
       isHighlighter: tool.isHighlighter,
+      penType: tool.penType,
     );
     _activeDrawingPointerId = details.pointer;
     // Lock parent horizontal scrolling while drawing
@@ -634,11 +631,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       return;
     }
 
-    final double pressure = _pressureForEvent(details, tool);
-    final newPoint = DrawingPoint(
-      position: details.localPosition,
-      pressure: pressure,
-    );
+    final newPoint = DrawingPoint(position: details.localPosition);
 
     _ensureCanvasHeightForPosition(newPoint.position.dy);
 
@@ -981,18 +974,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
       radius: widget.eraserRadiusFor(tool),
     );
     return erased;
-  }
-
-  double _pressureForEvent(PointerEvent event, DrawingTool tool) {
-    if (!tool.usePressure) {
-      return 1;
-    }
-    final double pressure = event.pressure;
-    if (!pressure.isFinite || pressure <= 0) {
-      return 1;
-    }
-    final num clamped = pressure.clamp(0.1, 1.0);
-    return clamped.toDouble();
   }
 
   bool _onScrollNotification(ScrollNotification notification) {

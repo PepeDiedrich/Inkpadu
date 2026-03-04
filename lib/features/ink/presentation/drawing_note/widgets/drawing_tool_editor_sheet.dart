@@ -5,7 +5,7 @@ import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
-/// Vollbild-Bottom-Sheet zum Anpassen eines Zeichenwerkzeugs.
+/// Kompakter Bottom-Sheet-Editor zum Anpassen eines Zeichenwerkzeugs.
 class DrawingToolEditorSheet extends StatefulWidget {
   /// Erstellt das Sheet für das angegebene Werkzeug.
   const DrawingToolEditorSheet({super.key, required this.initialTool});
@@ -30,40 +30,16 @@ class DrawingToolEditorSheet extends StatefulWidget {
 
 class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
   late DrawingTool _draft;
-  late final TextEditingController _labelController;
+  bool _showCustomColor = false;
 
   @override
   void initState() {
     super.initState();
     _draft = widget.initialTool;
-    _labelController = TextEditingController(text: widget.initialTool.label)
-      ..addListener(_handleLabelChanged);
-  }
-
-  @override
-  void dispose() {
-    _labelController
-      ..removeListener(_handleLabelChanged)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _handleLabelChanged() {
-    final String nextLabel = _labelController.text;
-    if (nextLabel == _draft.label) {
-      return;
-    }
-    setState(() {
-      _draft = _draft.copyWith(label: nextLabel);
-    });
   }
 
   void _handleApply() {
-    final String sanitizedLabel = _labelController.text.trim();
-    final String nextLabel = sanitizedLabel.isEmpty
-        ? widget.initialTool.label
-        : sanitizedLabel;
-    Navigator.pop(context, _draft.copyWith(label: nextLabel));
+    Navigator.pop(context, _draft);
   }
 
   @override
@@ -73,8 +49,6 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
     final mediaQuery = MediaQuery.of(context);
 
     final bool showColorPicker = !_draft.isEraser;
-    final bool showHighlighterToggle = !_draft.isEraser;
-    final bool showPressureToggle = !_draft.isEraser;
 
     final double minWidth = _draft.isEraser
         ? 8
@@ -88,214 +62,149 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
         : 12;
     final double sliderValue = _draft.baseWidth.clamp(minWidth, maxWidth);
 
-    final String displayName = _draft.label.trim().isEmpty
-        ? widget.initialTool.label
-        : _draft.label;
-
     return SafeArea(
-      child: SizedBox(
-        height: mediaQuery.size.height * 0.92,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: mediaQuery.viewInsets.bottom + 16,
+        ),
         child: SingleChildScrollView(
-          key: const PageStorageKey('drawing_tool_editor_sheet_scroll'),
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: mediaQuery.viewInsets.bottom + 24,
-          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('$displayName anpassen', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _labelController,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  hintText: 'Werkzeugname',
-                  border: OutlineInputBorder(),
+              // Drag Handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
+
+              // Color selection
               if (showColorPicker) ...[
-                const SizedBox(height: 16),
                 Text('Farbe', style: theme.textTheme.labelLarge),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: _defaultToolColors
-                      .map((color) {
-                        final bool isActive = _draft.color == color;
-                        return GestureDetector(
-                          onTap: () => setState(
-                            () => _draft = _draft.copyWith(color: color),
-                          ),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              border: Border.all(
-                                color: isActive
-                                    ? AppColors.primaryAccent
-                                    : colorScheme.outlineVariant,
-                                width: isActive ? 3 : 1,
-                              ),
+                const SizedBox(height: 8),
+                // Preset colors in a compact row
+                SizedBox(
+                  height: 32,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _defaultToolColors.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final color = _defaultToolColors[index];
+                      final bool isActive = _draft.color == color;
+                      return GestureDetector(
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(color: color),
+                        ),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: color,
+                            border: Border.all(
+                              color: isActive
+                                  ? AppColors.primaryAccent
+                                  : colorScheme.outlineVariant,
+                              width: isActive ? 2.5 : 1,
                             ),
-                            child: isActive
-                                ? Icon(
-                                    Icons.check,
-                                    color:
-                                        ThemeData.estimateBrightnessForColor(
-                                              color,
-                                            ) ==
-                                            Brightness.dark
-                                        ? Colors.white
-                                        : Colors.black,
-                                    size: 18,
-                                  )
-                                : null,
                           ),
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-                const SizedBox(height: 16),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colorScheme.outlineVariant),
+                          child: isActive
+                              ? Icon(
+                                  Icons.check,
+                                  color:
+                                      ThemeData.estimateBrightnessForColor(
+                                            color,
+                                          ) ==
+                                          Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black,
+                                  size: 14,
+                                )
+                              : null,
+                        ),
+                      );
+                    },
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Farbkreis', style: theme.textTheme.labelMedium),
-                        const SizedBox(height: 12),
-                        ColorPicker(
-                          pickerColor: _draft.color,
-                          onColorChanged: (color) => setState(
-                            () => _draft = _draft.copyWith(color: color),
-                          ),
-                          enableAlpha: false,
-                          paletteType: PaletteType.hueWheel,
-                          displayThumbColor: true,
-                          portraitOnly: true,
-                          pickerAreaBorderRadius: const BorderRadius.all(
-                            Radius.circular(12),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Aktuelle Farbe: ${_formatColorHex(_draft.color)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // Expandable custom color picker
+                _CustomColorSection(
+                  color: _draft.color,
+                  isExpanded: _showCustomColor,
+                  onToggle: () =>
+                      setState(() => _showCustomColor = !_showCustomColor),
+                  onColorChanged: (color) =>
+                      setState(() => _draft = _draft.copyWith(color: color)),
+                ),
+
+                const SizedBox(height: 12),
+              ],
+
+              // Stroke width slider
+              Row(
+                children: [
+                  Text(
+                    _draft.isEraser ? 'Radierbreite' : 'Linienstärke',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${sliderValue.toStringAsFixed(1)} px',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 7,
+                  ),
+                ),
+                child: Slider.adaptive(
+                  value: sliderValue,
+                  min: minWidth,
+                  max: maxWidth,
+                  divisions: math.max(1, ((maxWidth - minWidth) * 2).round()),
+                  onChanged: (value) => setState(
+                    () => _draft = _draft.copyWith(baseWidth: value),
+                  ),
+                ),
+              ),
+
+              // Stroke preview
+              if (!_draft.isEraser) ...[
+                const SizedBox(height: 4),
+                Center(
+                  child: CustomPaint(
+                    size: const Size(200, 24),
+                    painter: _StrokePreviewPainter(
+                      color: _draft.color,
+                      strokeWidth: sliderValue,
+                      isMarker: _draft.isHighlighter,
                     ),
                   ),
                 ),
+                const SizedBox(height: 8),
               ],
-              if (!_draft.isEraser) ...[
-                const SizedBox(height: 24),
-                Text('Symbol', style: theme.textTheme.labelLarge),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: _toolIconOptions
-                      .map((option) {
-                        final bool isActive = option.icon == _draft.icon;
-                        return Tooltip(
-                          message: option.label,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => setState(
-                              () => _draft = _draft.copyWith(icon: option.icon),
-                            ),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isActive
-                                    ? AppColors.primaryAccent.withValues(
-                                        alpha: 0.12,
-                                      )
-                                    : colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isActive
-                                      ? AppColors.primaryAccent
-                                      : colorScheme.outlineVariant,
-                                  width: isActive ? 3 : 1,
-                                ),
-                              ),
-                              child: Icon(
-                                option.icon,
-                                color: isActive
-                                    ? AppColors.primaryAccent
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-              ],
-              const SizedBox(height: 24),
-              Text(
-                _draft.isEraser ? 'Radierbreite' : 'Linienstärke',
-                style: theme.textTheme.labelLarge,
-              ),
-              Slider.adaptive(
-                value: sliderValue,
-                min: minWidth,
-                max: maxWidth,
-                divisions: math.max(1, ((maxWidth - minWidth) * 2).round()),
-                label: '${sliderValue.toStringAsFixed(1)} px',
-                onChanged: (value) =>
-                    setState(() => _draft = _draft.copyWith(baseWidth: value)),
-              ),
-              if (showHighlighterToggle) ...[
-                const SizedBox(height: 12),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Marker-Modus (durchscheinend)'),
-                  value: _draft.isHighlighter,
-                  onChanged: (value) => setState(() {
-                    final double adjustedWidth = value
-                        ? math.max(_draft.baseWidth, 6).toDouble()
-                        : _draft.baseWidth.clamp(1, 12).toDouble();
-                    _draft = _draft.copyWith(
-                      isHighlighter: value,
-                      baseWidth: adjustedWidth,
-                    );
-                  }),
-                ),
-              ],
-              if (showPressureToggle) ...[
-                const SizedBox(height: 12),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Druckerkennung'),
-                  subtitle: Text(
-                    'Steuert, ob Stiftdruck die Linienstärke beeinflusst.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  value: _draft.usePressure,
-                  onChanged: (value) => setState(
-                    () => _draft = _draft.copyWith(usePressure: value),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
+
+              // Action buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -316,12 +225,163 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
       ),
     );
   }
+}
 
-  String _formatColorHex(Color color) {
+class _CustomColorSection extends StatelessWidget {
+  const _CustomColorSection({
+    required this.color,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onColorChanged,
+  });
+
+  final Color color;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final ValueChanged<Color> onColorChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Eigene Farbe',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatColorHex(color),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: isExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.expand_more,
+                    size: 20,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Guard against zero-width during animation transitions.
+                if (constraints.maxWidth < 50) {
+                  return const SizedBox(height: 280);
+                }
+                return SizedBox(
+                  height: 440,
+                  child: ColorPicker(
+                    pickerColor: color,
+                    onColorChanged: onColorChanged,
+                    enableAlpha: false,
+                    paletteType: PaletteType.hueWheel,
+                    displayThumbColor: true,
+                    portraitOnly: true,
+                    hexInputBar: false,
+                    pickerAreaBorderRadius: const BorderRadius.all(
+                      Radius.circular(12),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          crossFadeState: isExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+      ],
+    );
+  }
+
+  static String _formatColorHex(Color color) {
     final int argb = color.toARGB32();
     final String rgb = argb.toRadixString(16).padLeft(8, '0').substring(2);
     return '#${rgb.toUpperCase()}';
   }
+}
+
+class _StrokePreviewPainter extends CustomPainter {
+  _StrokePreviewPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.isMarker,
+  });
+
+  final Color color;
+  final double strokeWidth;
+  final bool isMarker;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isMarker ? color.withValues(alpha: 0.45) : color
+      ..strokeCap = isMarker ? StrokeCap.square : StrokeCap.round
+      ..strokeJoin = isMarker ? StrokeJoin.bevel : StrokeJoin.round
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    final path = Path()
+      ..moveTo(0, size.height * 0.6)
+      ..quadraticBezierTo(
+        size.width * 0.25,
+        size.height * 0.1,
+        size.width * 0.5,
+        size.height * 0.5,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.75,
+        size.height * 0.9,
+        size.width,
+        size.height * 0.4,
+      );
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _StrokePreviewPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.isMarker != isMarker;
 }
 
 const List<Color> _defaultToolColors = [
@@ -337,26 +397,4 @@ const List<Color> _defaultToolColors = [
   Color(0xFF6D4C41),
   Color(0xFF607D8B),
   Colors.white,
-];
-
-class _ToolIconOption {
-  const _ToolIconOption({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-}
-
-const List<_ToolIconOption> _toolIconOptions = <_ToolIconOption>[
-  _ToolIconOption(icon: Icons.edit, label: 'Fineliner'),
-  _ToolIconOption(icon: Icons.create, label: 'Tintenroller'),
-  _ToolIconOption(icon: Icons.draw, label: 'Füller'),
-  _ToolIconOption(icon: Icons.brush, label: 'Pinsel'),
-  _ToolIconOption(icon: Icons.mode_edit_outline, label: 'Skizzieren'),
-  _ToolIconOption(icon: Icons.gesture, label: 'Gesten'),
-  _ToolIconOption(icon: Icons.edit_note, label: 'Notizen'),
-  _ToolIconOption(icon: Icons.border_color, label: 'Marker'),
-  _ToolIconOption(icon: Icons.highlight, label: 'Highlight'),
-  _ToolIconOption(icon: Icons.auto_fix_high, label: 'Effekt'),
-  _ToolIconOption(icon: Icons.colorize, label: 'Farbverlauf'),
-  _ToolIconOption(icon: Icons.flash_on, label: 'Blitz'),
 ];

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart'
-  show simplifyStrokePoints, simplifyStroke;
+    show simplifyStrokePoints, simplifyStroke;
 import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
 import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
 
@@ -31,9 +31,7 @@ Future<Stroke> simplifyStrokeAsync(
     isHighlighter: stroke.isHighlighter,
     id: stroke.id,
     points: stroke.points
-        .map(
-          (p) => _PointDTO(x: p.position.dx, y: p.position.dy, p: p.pressure),
-        )
+        .map((p) => _PointDTO(x: p.position.dx, y: p.position.dy))
         .toList(growable: false),
   );
   final result = await compute<_SimplifyPayload, _SimplifyResult>(
@@ -43,7 +41,7 @@ Future<Stroke> simplifyStrokeAsync(
   return Stroke(
     id: result.id,
     points: result.points
-        .map((d) => DrawingPoint(position: Offset(d.x, d.y), pressure: d.p))
+        .map((d) => DrawingPoint(position: Offset(d.x, d.y)))
         .toList(growable: false),
     color: Color(result.color),
     baseWidth: result.width,
@@ -52,10 +50,9 @@ Future<Stroke> simplifyStrokeAsync(
 }
 
 class _PointDTO {
-  const _PointDTO({required this.x, required this.y, required this.p});
+  const _PointDTO({required this.x, required this.y});
   final double x;
   final double y;
-  final double p;
 }
 
 class _SimplifyPayload {
@@ -92,11 +89,11 @@ class _SimplifyResult {
 
 _SimplifyResult _simplifyIsolate(_SimplifyPayload payload) {
   final points = payload.points
-      .map((d) => DrawingPoint(position: Offset(d.x, d.y), pressure: d.p))
+      .map((d) => DrawingPoint(position: Offset(d.x, d.y)))
       .toList(growable: false);
   final simplified = simplifyStrokePoints(points, tolerance: payload.tolerance);
   final dto = simplified
-      .map((p) => _PointDTO(x: p.position.dx, y: p.position.dy, p: p.pressure))
+      .map((p) => _PointDTO(x: p.position.dx, y: p.position.dy))
       .toList(growable: false);
   return _SimplifyResult(
     points: dto,

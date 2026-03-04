@@ -16,7 +16,10 @@ class PdfExportService {
   ///
   /// [canvasWidth] ist die Breite der Zeichenfläche in der App (= Bildschirmbreite).
   /// Sie wird benötigt, um die Striche korrekt auf den PDF-Hintergrund zu skalieren.
-  Future<Uint8List> exportNoteToPdf(InkNote note, {required double canvasWidth}) async {
+  Future<Uint8List> exportNoteToPdf(
+    InkNote note, {
+    required double canvasWidth,
+  }) async {
     final pdf = pw.Document();
 
     // Lade das PDF-Dokument, falls vorhanden
@@ -102,9 +105,7 @@ class PdfExportService {
           child: pw.Stack(
             children: [
               // PDF-Hintergrund
-              pw.Positioned.fill(
-                child: pw.Image(bgImage, fit: pw.BoxFit.fill),
-              ),
+              pw.Positioned.fill(child: pw.Image(bgImage, fit: pw.BoxFit.fill)),
               // Zeichnungen darüber
               pw.CustomPaint(
                 size: PdfPoint(pageFormat.width, pageFormat.height),
@@ -140,8 +141,9 @@ class PdfExportService {
 
     // Bestimme das Seitenformat (Hoch- oder Querformat)
     final isLandscape = boundingBox.width > boundingBox.height;
-    final pageFormat =
-        isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
+    final pageFormat = isLandscape
+        ? PdfPageFormat.a4.landscape
+        : PdfPageFormat.a4;
 
     pdf.addPage(
       pw.Page(
@@ -176,10 +178,12 @@ class PdfExportService {
     canvas.saveContext();
 
     // PDF-Koordinatensystem: Ursprung unten links → nach oben links transformieren
-    canvas.setTransform(Matrix4.identity()
-      ..translateByDouble(0.0, size.y, 0.0, 1.0)
-      ..scaleByDouble(1.0, -1.0, 1.0, 1.0)
-      ..scaleByDouble(scale, scale, 1.0, 1.0));
+    canvas.setTransform(
+      Matrix4.identity()
+        ..translateByDouble(0.0, size.y, 0.0, 1.0)
+        ..scaleByDouble(1.0, -1.0, 1.0, 1.0)
+        ..scaleByDouble(scale, scale, 1.0, 1.0),
+    );
 
     for (final stroke in page.strokes) {
       _drawStroke(canvas, stroke);
@@ -234,12 +238,14 @@ class PdfExportService {
 
     // PDF-Koordinatensystem hat den Ursprung unten links, Flutter oben links.
     // Wir transformieren das Koordinatensystem, damit es wie in Flutter funktioniert.
-    canvas.setTransform(Matrix4.identity()
-      ..translateByDouble(0.0, size.y, 0.0, 1.0)
-      ..scaleByDouble(1.0, -1.0, 1.0, 1.0)
-      ..translateByDouble(offsetX, offsetY, 0.0, 1.0)
-      ..scaleByDouble(scale, scale, 1.0, 1.0)
-      ..translateByDouble(-boundingBox.left, -boundingBox.top, 0.0, 1.0));
+    canvas.setTransform(
+      Matrix4.identity()
+        ..translateByDouble(0.0, size.y, 0.0, 1.0)
+        ..scaleByDouble(1.0, -1.0, 1.0, 1.0)
+        ..translateByDouble(offsetX, offsetY, 0.0, 1.0)
+        ..scaleByDouble(scale, scale, 1.0, 1.0)
+        ..translateByDouble(-boundingBox.left, -boundingBox.top, 0.0, 1.0),
+    );
 
     // 1. Hintergrund zeichnen
     _drawBackground(canvas, boundingBox, paperStyle);
@@ -326,11 +332,15 @@ class PdfExportService {
       final p1 = stroke.points[i];
       final p2 = stroke.points[i + 1];
 
-      final width = stroke.baseWidth * (p1.pressure + p2.pressure) / 2;
+      final width = stroke.baseWidth;
       canvas.setLineWidth(width);
 
       canvas.drawLine(
-          p1.position.dx, p1.position.dy, p2.position.dx, p2.position.dy);
+        p1.position.dx,
+        p1.position.dy,
+        p2.position.dx,
+        p2.position.dy,
+      );
       canvas.strokePath();
     }
   }

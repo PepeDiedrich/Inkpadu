@@ -24,7 +24,6 @@ void main() {
       test('has default values for optional properties', () {
         expect(testTool.isHighlighter, false);
         expect(testTool.isEraser, false);
-        expect(testTool.usePressure, true);
       });
 
       test('can create highlighter', () {
@@ -35,10 +34,8 @@ void main() {
           color: Colors.yellow,
           baseWidth: 10.0,
           isHighlighter: true,
-          usePressure: false,
         );
         expect(highlighter.isHighlighter, true);
-        expect(highlighter.usePressure, false);
       });
 
       test('can create eraser', () {
@@ -87,7 +84,6 @@ void main() {
         expect(json['baseWidth'], 5.0);
         expect(json['isHighlighter'], false);
         expect(json['isEraser'], false);
-        expect(json['usePressure'], true);
       });
 
       test('serializes color as ARGB32', () {
@@ -118,7 +114,6 @@ void main() {
         expect(tool.baseWidth, 4.0);
         expect(tool.isHighlighter, false);
         expect(tool.isEraser, false);
-        expect(tool.usePressure, true);
       });
 
       test('roundtrip preserves data', () {
@@ -129,7 +124,6 @@ void main() {
           color: Color(0xFFFF5733),
           baseWidth: 7.5,
           isHighlighter: true,
-          usePressure: false,
         );
         final json = original.toJson();
         final restored = DrawingTool.fromJson(json);
@@ -137,14 +131,13 @@ void main() {
         expect(restored.label, original.label);
         expect(restored.baseWidth, original.baseWidth);
         expect(restored.isHighlighter, original.isHighlighter);
-        expect(restored.usePressure, original.usePressure);
       });
     });
   });
 
   group('DrawingToolDefaults', () {
-    test('palette contains 7 tools', () {
-      expect(DrawingToolDefaults.palette, hasLength(7));
+    test('palette contains 8 tools', () {
+      expect(DrawingToolDefaults.palette, hasLength(8));
     });
 
     test('palette has unique ids', () {
@@ -158,8 +151,9 @@ void main() {
     });
 
     test('palette contains highlighters', () {
-      final highlighters =
-          DrawingToolDefaults.palette.where((t) => t.isHighlighter);
+      final highlighters = DrawingToolDefaults.palette.where(
+        (t) => t.isHighlighter,
+      );
       expect(highlighters.length, greaterThanOrEqualTo(1));
     });
   });

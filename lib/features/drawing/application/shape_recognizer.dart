@@ -101,7 +101,6 @@ class ShapeRecognizer {
       return LineMatch(points: [start, end]);
     }
 
-    // Für geschlossene Formen prüfen wir, ob Start und Ende nah beieinander liegen.
     final bool isClosed =
         (points.first.position - points.last.position).distance < tolerance * 4;
 
@@ -127,7 +126,7 @@ class ShapeRecognizer {
 
       return TriangleMatch(
         vertices: vertices,
-        correctedPoints: generatePolygonPoints(vertices, points.first.pressure),
+        correctedPoints: generatePolygonPoints(vertices),
       );
     }
 
@@ -160,7 +159,7 @@ class ShapeRecognizer {
 
       return RectangleMatch(
         rect: rect,
-        correctedPoints: generateRectPoints(rect, points.first.pressure),
+        correctedPoints: generateRectPoints(rect),
       );
     }
 
@@ -207,7 +206,7 @@ class ShapeRecognizer {
       if (avgError < 0.15) {
         return EllipseMatch(
           boundingBox: rect,
-          correctedPoints: generateEllipsePoints(rect, points.first.pressure),
+          correctedPoints: generateEllipsePoints(rect),
         );
       }
     }
@@ -257,32 +256,29 @@ class ShapeRecognizer {
     return math.sqrt(dx * dx + dy * dy);
   }
 
-  /// Generiert Punkte für ein Polygon aus den gegebenen [vertices].
-  static List<DrawingPoint> generatePolygonPoints(
-    List<Offset> vertices,
-    double pressure,
-  ) {
+  /// Erzeugt eine Liste von [DrawingPoint]s aus den angegebenen [vertices].
+  static List<DrawingPoint> generatePolygonPoints(List<Offset> vertices) {
     if (vertices.isEmpty) return [];
     final points = <DrawingPoint>[];
     for (int i = 0; i < vertices.length; i++) {
-      points.add(DrawingPoint(position: vertices[i], pressure: pressure));
+      points.add(DrawingPoint(position: vertices[i]));
     }
     // Close the loop
-    points.add(DrawingPoint(position: vertices.first, pressure: pressure));
+    points.add(DrawingPoint(position: vertices.first));
     return points;
   }
 
   /// Generiert Punkte für ein Rechteck [rect].
-  static List<DrawingPoint> generateRectPoints(Rect rect, double pressure) => [
-    DrawingPoint(position: rect.topLeft, pressure: pressure),
-    DrawingPoint(position: rect.topRight, pressure: pressure),
-    DrawingPoint(position: rect.bottomRight, pressure: pressure),
-    DrawingPoint(position: rect.bottomLeft, pressure: pressure),
-    DrawingPoint(position: rect.topLeft, pressure: pressure),
+  static List<DrawingPoint> generateRectPoints(Rect rect) => [
+    DrawingPoint(position: rect.topLeft),
+    DrawingPoint(position: rect.topRight),
+    DrawingPoint(position: rect.bottomRight),
+    DrawingPoint(position: rect.bottomLeft),
+    DrawingPoint(position: rect.topLeft),
   ];
 
   /// Generiert Punkte für eine Ellipse in [rect].
-  static List<DrawingPoint> generateEllipsePoints(Rect rect, double pressure) {
+  static List<DrawingPoint> generateEllipsePoints(Rect rect) {
     final points = <DrawingPoint>[];
     final center = rect.center;
     final a = rect.width / 2;
@@ -294,10 +290,7 @@ class ShapeRecognizer {
       final double dx = a * math.cos(t);
       final double dy = b * math.sin(t);
       points.add(
-        DrawingPoint(
-          position: Offset(center.dx + dx, center.dy + dy),
-          pressure: pressure,
-        ),
+        DrawingPoint(position: Offset(center.dx + dx, center.dy + dy)),
       );
     }
     return points;

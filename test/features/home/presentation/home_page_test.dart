@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ai_handwriting_app/features/home/presentation/widgets/home_widgets.dart';
 
 import 'package:ai_handwriting_app/features/home/presentation/home_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
@@ -69,7 +70,9 @@ void main() {
     expect(find.text('Noch keine handschriftlichen Notizen'), findsOneWidget);
 
     // Neue Notiz via FAB
-    await tester.tap(find.byIcon(Icons.add));
+    final fab = find.byType(FloatingActionButton);
+    expect(fab, findsOneWidget);
+    await tester.tap(fab);
     await tester.pumpAndSettle();
 
     // BottomSheet "Neue Notiz erstellen" sollte erscheinen
@@ -94,7 +97,7 @@ void main() {
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
     for (int i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 30));
-      if (find.byType(ListTile).evaluate().isNotEmpty) break;
+      if (find.byType(NoteThumbnail).evaluate().isNotEmpty) break;
     }
 
     // Die eben angelegte Notiz erscheint nun in der Übersicht
@@ -121,8 +124,9 @@ void main() {
 
     // Kurzes Pump für Rebuild
     await tester.pumpAndSettle();
-    // Note: Each note has a Card, so we should find 2 cards
-    expect(find.byType(Card), findsNWidgets(2));
+    // Note: Each note has a Card (list) or Container (grid).
+    // Since we now default to grid, we look for the containers or the thumbnail.
+    expect(find.byType(NoteThumbnail), findsNWidgets(2));
   });
 
   testWidgets('Swipe löscht Notiz nach Bestätigung', (tester) async {
@@ -146,7 +150,13 @@ void main() {
     expect(find.text('Test Notiz'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Auf das Löschen-Icon tippen
+    // In grid view, the delete button is inside the actions menu.
+    // Let's tap the "more" button first.
+    final moreButton = find.byIcon(Icons.more_vert).first;
+    expect(moreButton, findsOneWidget);
+    await tester.tap(moreButton);
+    await tester.pumpAndSettle();
+
     final deleteButton = find.byIcon(Icons.delete_outline);
     expect(deleteButton, findsOneWidget);
     await tester.tap(deleteButton);
@@ -193,7 +203,12 @@ void main() {
     expect(find.text('Behalte mich'), findsOneWidget);
     expect(controller.notes.length, 1);
 
-    // Auf das Löschen-Icon tippen
+    // In grid view, the delete button is inside the actions menu.
+    final moreButton = find.byIcon(Icons.more_vert).first;
+    expect(moreButton, findsOneWidget);
+    await tester.tap(moreButton);
+    await tester.pumpAndSettle();
+
     final deleteButton = find.byIcon(Icons.delete_outline);
     expect(deleteButton, findsOneWidget);
     await tester.tap(deleteButton);

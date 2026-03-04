@@ -111,12 +111,14 @@ class DrawingController extends ChangeNotifier {
     required Color color,
     required double baseWidth,
     bool isHighlighter = false,
+    PenType penType = PenType.fineliner,
   }) {
     _currentStroke = Stroke(
       points: [point],
       color: color,
       baseWidth: baseWidth,
       isHighlighter: isHighlighter,
+      penType: penType,
     );
     _isLockedToShape = false;
     _lockedShapeType = null;
@@ -136,24 +138,22 @@ class DrawingController extends ChangeNotifier {
           _activeVertexIndex < _lockedVertices.length) {
         _lockedVertices[_activeVertexIndex] = point.position;
 
-        List<DrawingPoint> newPoints = [];
-        final pressure = _currentStroke!.points.first.pressure;
+        final List<DrawingPoint> newPoints;
+        final Offset start = _lockedVertices[0];
+        final Offset end = _lockedVertices[1];
 
         switch (_lockedShapeType!) {
           case ShapeType.line:
             // Line: defined by 2 points.
             newPoints = [
-              DrawingPoint(position: _lockedVertices[0], pressure: pressure),
-              DrawingPoint(position: _lockedVertices[1], pressure: pressure),
+              DrawingPoint(position: start),
+              DrawingPoint(position: end),
             ];
             break;
 
           case ShapeType.triangle:
             // Triangle: defined by 3 points. generatePolygonPoints handles it.
-            newPoints = ShapeRecognizer.generatePolygonPoints(
-              _lockedVertices,
-              pressure,
-            );
+            newPoints = ShapeRecognizer.generatePolygonPoints(_lockedVertices);
             break;
 
           case ShapeType.rectangle:
@@ -162,7 +162,7 @@ class DrawingController extends ChangeNotifier {
               _lockedVertices[0],
               _lockedVertices[1],
             );
-            newPoints = ShapeRecognizer.generateRectPoints(rect, pressure);
+            newPoints = ShapeRecognizer.generateRectPoints(rect);
             break;
 
           case ShapeType.ellipse:
@@ -171,7 +171,7 @@ class DrawingController extends ChangeNotifier {
               _lockedVertices[0],
               _lockedVertices[1],
             );
-            newPoints = ShapeRecognizer.generateEllipsePoints(rect, pressure);
+            newPoints = ShapeRecognizer.generateEllipsePoints(rect);
             break;
         }
 
@@ -576,12 +576,7 @@ class DrawingController extends ChangeNotifier {
         if (index >= 0 && index < updatedStrokes.length) {
           final stroke = updatedStrokes[index];
           final newPoints = stroke.points
-              .map(
-                (point) => DrawingPoint(
-                  position: point.position + delta,
-                  pressure: point.pressure,
-                ),
-              )
+              .map((point) => DrawingPoint(position: point.position + delta))
               .toList();
           // Invalidiere Cached Paths und Bounds durch ein neues Objekt
           updatedStrokes[index] = stroke.copyWith(points: newPoints);

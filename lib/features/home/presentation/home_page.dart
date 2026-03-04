@@ -25,7 +25,7 @@ enum _NoteAction { open, metadata, exportPdf, delete }
 enum _SortOption { dateDesc, dateAsc, nameAsc, nameDesc }
 
 class _HomePageState extends State<HomePage> {
-  bool _isGridView = false;
+  bool _isGridView = true;
   String _searchQuery = '';
   _SortOption _sortOption = _SortOption.dateDesc;
   final Set<String> _selectedNoteIds = {};
