@@ -489,6 +489,7 @@ class _HomePageState extends State<HomePage> {
                         if (_searchQuery.isNotEmpty)
                           IconButton(
                             icon: const Icon(Icons.clear),
+                            tooltip: t.common.close,
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
@@ -527,12 +528,14 @@ class _HomePageState extends State<HomePage> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
+          tooltip: t.common.close,
           onPressed: _exitSelectionMode,
         ),
         title: Text(t.notes.selectedCount(count: _selectedNoteIds.length)),
         actions: [
           IconButton(
             icon: const Icon(Icons.select_all),
+            tooltip: t.notes.selectAll,
             onPressed: () {
               setState(() {
                 final allNotes = InkNotesScope.of(context).notes;
@@ -542,10 +545,12 @@ class _HomePageState extends State<HomePage> {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
+            tooltip: t.notes.deleteSelected,
             onPressed: _deleteSelectedNotes,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: t.notes.exportSelected,
             onPressed: _exportSelectedNotes,
           ),
         ],
@@ -573,6 +578,7 @@ class _HomePageState extends State<HomePage> {
       actions: [
         IconButton(
           icon: Icon(_isSearching ? Icons.search_off : Icons.search),
+          tooltip: t.common.search,
           onPressed: () {
             setState(() {
               _isSearching = !_isSearching;
@@ -751,6 +757,7 @@ class _HomePageState extends State<HomePage> {
                         right: 4,
                         child: IconButton(
                           icon: const Icon(Icons.more_vert),
+                          tooltip: context.t.common.edit,
                           onPressed: () => _showNoteActions(n),
                           style: IconButton.styleFrom(
                             backgroundColor: theme.colorScheme.surface
