@@ -43,11 +43,12 @@ class NotePaperBackground extends StatelessWidget {
             // Prevent PDF view from swallowing touch events designed for drawing
             child: PdfPageView(
               document: pdfDocument!,
-              pageNumber: pdfPageIndex! + 1, // pdfrx verwendet 1-basierten Index
+              pageNumber:
+                  pdfPageIndex! + 1, // pdfrx verwendet 1-basierten Index
               alignment: Alignment.topCenter,
             ),
           ),
-          
+
           // Die Zeichnung (child) darüber
           child,
         ],
@@ -58,10 +59,7 @@ class NotePaperBackground extends StatelessWidget {
       return DecoratedBox(
         decoration: BoxDecoration(color: baseColor),
         child: CustomPaint(
-          painter: _NotePaperPainter(
-            style: paperStyle,
-            lineColor: accentColor,
-          ),
+          painter: _NotePaperPainter(style: paperStyle, lineColor: accentColor),
           child: child,
         ),
       );
@@ -70,10 +68,7 @@ class NotePaperBackground extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(color: baseColor),
       child: CustomPaint(
-        painter: _NotePaperPainter(
-          style: paperStyle,
-          lineColor: accentColor,
-        ),
+        painter: _NotePaperPainter(style: paperStyle, lineColor: accentColor),
         child: child,
       ),
     );
@@ -81,10 +76,7 @@ class NotePaperBackground extends StatelessWidget {
 }
 
 class _NotePaperPainter extends CustomPainter {
-  _NotePaperPainter({
-    required this.style,
-    required this.lineColor,
-  });
+  _NotePaperPainter({required this.style, required this.lineColor});
 
   final NotePaperStyle style;
   final Color lineColor;
@@ -149,6 +141,5 @@ class _NotePaperPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _NotePaperPainter oldDelegate) =>
-      oldDelegate.style != style ||
-      oldDelegate.lineColor != lineColor;
+      oldDelegate.style != style || oldDelegate.lineColor != lineColor;
 }
