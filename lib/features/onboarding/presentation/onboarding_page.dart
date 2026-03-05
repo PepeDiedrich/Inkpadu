@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:appwrite/enums.dart' hide Theme;
+import 'package:appwrite/enums.dart';
 
 import 'package:ai_handwriting_app/app/router/app_routes.dart';
 import 'package:ai_handwriting_app/app/theme/app_colors.dart';

@@ -314,7 +314,6 @@ class _CustomColorSection extends StatelessWidget {
                     paletteType: PaletteType.hueWheel,
                     displayThumbColor: true,
                     portraitOnly: true,
-                    hexInputBar: false,
                     pickerAreaBorderRadius: const BorderRadius.all(
                       Radius.circular(12),
                     ),

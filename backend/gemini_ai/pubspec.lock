@@ -21,18 +21,10 @@ packages:
     dependency: "direct main"
     description:
       name: dart_appwrite
-      sha256: "5fa03ea42a68bf471ade5a4f1114ebd2cfd8ba4cb64fa8603f28e65c054e23ed"
+      sha256: "9a1675638e33b1ce9ee6c40c2dae4d9e8cdf8b1a7a8d061e3ed70397e9b50f37"
       url: "https://pub.dev"
     source: hosted
-    version: "21.2.0"
-  google_generative_ai:
-    dependency: "direct main"
-    description:
-      name: google_generative_ai
-      sha256: "71f613d0247968992ad87a0eb21650a566869757442ba55a31a81be6746e0d1f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.7"
+    version: "17.0.0"
   http:
     dependency: transitive
     description:
