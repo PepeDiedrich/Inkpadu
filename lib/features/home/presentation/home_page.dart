@@ -612,196 +612,62 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildListView(List<InkNote> notes) {
-    final theme = Theme.of(context);
-    return ListView.builder(
-      key: const PageStorageKey('home_list'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final n = notes[index];
-        final isSelected = _selectedNoteIds.contains(n.id);
+  Widget _buildListView(List<InkNote> notes) => ListView.builder(
+    key: const PageStorageKey('home_list'),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    itemCount: notes.length,
+    itemBuilder: (context, index) {
+      final n = notes[index];
+      final isSelected = _selectedNoteIds.contains(n.id);
 
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: isSelected
-                ? BorderSide(color: theme.colorScheme.primary, width: 2)
-                : BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          color: isSelected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : null,
-          child: ListTile(
-            contentPadding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-            leading: Stack(
-              children: [
-                NoteThumbnail(note: n, width: 60, height: 80),
-                if (isSelected)
-                  Positioned(
-                    top: 4,
-                    left: 4,
-                    child: Icon(
-                      Icons.check_circle,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-              ],
-            ),
-            title: Text(
-              n.title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  '${n.pages.length} ${context.t.notes.pagesCount(count: n.pages.length)} · ${n.paperStyle.label}',
-                  style: theme.textTheme.bodySmall,
-                ),
-                Text(
-                  _fmt(n.updatedAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.6,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            onTap: () {
-              if (_isSelectionMode) {
-                _toggleSelection(n.id);
-              } else {
-                _open(n.id);
-              }
-            },
-            onLongPress: () => _enterSelectionMode(n.id),
-            trailing: _isSelectionMode
-                ? Checkbox(
-                    value: isSelected,
-                    onChanged: (_) => _toggleSelection(n.id),
-                  )
-                : const Icon(Icons.chevron_right),
-          ),
-        );
-      },
-    );
-  }
+      return _NoteListCard(
+        note: n,
+        isSelected: isSelected,
+        isSelectionMode: _isSelectionMode,
+        formattedDate: _fmt(n.updatedAt),
+        onTap: () {
+          if (_isSelectionMode) {
+            _toggleSelection(n.id);
+          } else {
+            _open(n.id);
+          }
+        },
+        onLongPress: () => _enterSelectionMode(n.id),
+        onToggleSelection: (_) => _toggleSelection(n.id),
+      );
+    },
+  );
 
-  Widget _buildGridView(List<InkNote> notes) {
-    final theme = Theme.of(context);
-    return GridView.builder(
-      key: const PageStorageKey('home_grid'),
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final n = notes[index];
-        final isSelected = _selectedNoteIds.contains(n.id);
+  Widget _buildGridView(List<InkNote> notes) => GridView.builder(
+    key: const PageStorageKey('home_grid'),
+    padding: const EdgeInsets.all(16),
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 200,
+      childAspectRatio: 0.75,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+    ),
+    itemCount: notes.length,
+    itemBuilder: (context, index) {
+      final n = notes[index];
+      final isSelected = _selectedNoteIds.contains(n.id);
 
-        return InkWell(
-          onTap: () {
-            if (_isSelectionMode) {
-              _toggleSelection(n.id);
-            } else {
-              _open(n.id);
-            }
-          },
-          onLongPress: () => _enterSelectionMode(n.id),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.outlineVariant,
-                width: isSelected ? 2 : 1,
-              ),
-              color: isSelected
-                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                  : theme.colorScheme.surface,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      NoteThumbnail(
-                        note: n,
-                        width: double.infinity,
-                        height: double.infinity,
-                      ),
-                      if (isSelected)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Icon(
-                            Icons.check_circle,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          tooltip: context.t.common.edit,
-                          onPressed: () => _showNoteActions(n),
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.colorScheme.surface
-                                .withValues(alpha: 0.7),
-                            padding: const EdgeInsets.all(4),
-                          ),
-                          constraints: const BoxConstraints(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        n.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _fmt(n.updatedAt),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+      return _NoteGridCard(
+        note: n,
+        isSelected: isSelected,
+        formattedDate: _fmt(n.updatedAt),
+        onTap: () {
+          if (_isSelectionMode) {
+            _toggleSelection(n.id);
+          } else {
+            _open(n.id);
+          }
+        },
+        onLongPress: () => _enterSelectionMode(n.id),
+        onShowActions: () => _showNoteActions(n),
+      );
+    },
+  );
 
   String _fmt(DateTime dt) {
     final now = DateTime.now();
@@ -810,5 +676,196 @@ class _HomePageState extends State<HomePage> {
     if (diff.inHours < 1) return '${diff.inMinutes} min';
     if (diff.inHours < 24) return '${diff.inHours} h';
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+  }
+}
+
+class _NoteListCard extends StatelessWidget {
+  const _NoteListCard({
+    required this.note,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.formattedDate,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onToggleSelection,
+  });
+
+  final InkNote note;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final String formattedDate;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final ValueChanged<bool?> onToggleSelection;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: isSelected
+            ? BorderSide(color: theme.colorScheme.primary, width: 2)
+            : BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      color: isSelected
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : null,
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+        leading: Stack(
+          children: [
+            NoteThumbnail(note: note, width: 60, height: 80),
+            if (isSelected)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Icon(
+                  Icons.check_circle,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+          ],
+        ),
+        title: Text(
+          note.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              '${note.pages.length} ${context.t.notes.pagesCount(count: note.pages.length)} · ${note.paperStyle.label}',
+              style: theme.textTheme.bodySmall,
+            ),
+            Text(
+              formattedDate,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.6,
+                ),
+              ),
+            ),
+          ],
+        ),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        trailing: isSelectionMode
+            ? Checkbox(value: isSelected, onChanged: onToggleSelection)
+            : const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+}
+
+class _NoteGridCard extends StatelessWidget {
+  const _NoteGridCard({
+    required this.note,
+    required this.isSelected,
+    required this.formattedDate,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onShowActions,
+  });
+
+  final InkNote note;
+  final bool isSelected;
+  final String formattedDate;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onShowActions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : theme.colorScheme.surface,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  NoteThumbnail(
+                    note: note,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                  if (isSelected)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Icon(
+                        Icons.check_circle,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: context.t.common.edit,
+                      onPressed: onShowActions,
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.surface.withValues(
+                          alpha: 0.7,
+                        ),
+                        padding: const EdgeInsets.all(4),
+                      ),
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    note.title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formattedDate,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

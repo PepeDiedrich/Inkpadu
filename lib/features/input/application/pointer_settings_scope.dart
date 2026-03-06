@@ -38,7 +38,8 @@ class PointerSettings extends ChangeNotifier {
       allowStylus = prefs.getBool('${_prefKeyDb}allowStylus') ?? allowStylus;
       allowTouch = prefs.getBool('${_prefKeyDb}allowTouch') ?? allowTouch;
       allowMouse = prefs.getBool('${_prefKeyDb}allowMouse') ?? allowMouse;
-      autoLockOnStylus = prefs.getBool('${_prefKeyDb}autoLockOnStylus') ?? autoLockOnStylus;
+      autoLockOnStylus =
+          prefs.getBool('${_prefKeyDb}autoLockOnStylus') ?? autoLockOnStylus;
       notifyListeners();
     } catch (e) {
       debugPrint('Failed to load PointerSettings: $e');
@@ -86,7 +87,7 @@ class PointerSettings extends ChangeNotifier {
       autoLockOnStylus = autoLock;
       changed = true;
     }
-    
+
     if (changed) {
       _saveToPrefs();
       notifyListeners();
