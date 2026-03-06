@@ -82,7 +82,10 @@ class _StaticNotePageState extends State<StaticNotePage> {
             painter: FinishedStrokesPainter(
               strokes: widget.page.strokes,
               cache: _pictureCache,
-              version: Object.hash(widget.page.strokes.length, widget.page.hashCode),
+              version: Object.hash(
+                widget.page.strokes.length,
+                widget.page.hashCode,
+              ),
               viewportRect: Rect.fromLTWH(
                 0,
                 0,

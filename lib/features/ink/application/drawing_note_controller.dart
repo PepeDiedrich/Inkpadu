@@ -328,9 +328,7 @@ class DrawingNoteController extends ChangeNotifier {
         title: 'Fehlende Notiz',
         updatedAt: DateTime.now(),
         pages: List<NotePage>.unmodifiable(<NotePage>[
-          NotePage(
-            strokes: const <Stroke>[],
-          ),
+          NotePage(strokes: const <Stroke>[]),
         ]),
         paperStyle: NotePaperStyle.plain,
       );
@@ -400,12 +398,7 @@ class DrawingNoteController extends ChangeNotifier {
     _syncPageContentHistory();
 
     final List<NotePage> updatedPages = List<NotePage>.of(_note.pages)
-      ..insert(
-        _currentPageIndex + 1,
-        NotePage(
-          strokes: const <Stroke>[],
-        ),
-      );
+      ..insert(_currentPageIndex + 1, NotePage(strokes: const <Stroke>[]));
     _pageContentHistory.insert(_currentPageIndex + 1, false);
 
     _currentPageIndex = (_currentPageIndex + 1).clamp(
