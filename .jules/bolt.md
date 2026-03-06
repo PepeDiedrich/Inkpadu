@@ -9,3 +9,9 @@
 **Learning:** `List.unmodifiable(list)` always creates a NEW list (and iterates the source), which is an O(N) operation. Using this inside a getter that is called frequently (e.g., inside a `build` method or `paint` loop) causes massive garbage generation and CPU overhead.
 
 **Action:** Cache the unmodifiable view in the state object (Controller/Model) and invalidate it only when the underlying data changes. Avoid calling `List.unmodifiable` in hot loops or getters.
+
+## 2024-05-25 - Caching Iterations Using Pre-computed Object Properties
+
+**Learning:** Iterating through points inside every stroke to calculate boundaries (like `_requiredCanvasHeight` in `StaticNotePage`) operates at `O(Strokes * Points)` complexity on every frame/build. This caused severe UI jank when thumbnails were generated inside scrollable lists or grid views.
+
+**Action:** To calculate bounds or dimensions for a collection of strokes, always use the pre-calculated `stroke.boundingBox` property (e.g., `stroke.boundingBox.bottom`) instead of iterating through every single point. This reduces the time complexity to `O(Strokes)`, resolving the jank.

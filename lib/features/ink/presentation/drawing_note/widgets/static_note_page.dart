@@ -54,10 +54,10 @@ class _StaticNotePageState extends State<StaticNotePage> {
   double _requiredCanvasHeight() {
     var maxY = 0.0;
     for (final stroke in widget.page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dy > maxY) {
-          maxY = point.position.dy;
-        }
+      // ⚡ Bolt Optimization: Use cached `boundingBox` instead of O(Points) iteration
+      final bottom = stroke.boundingBox.bottom;
+      if (bottom > maxY) {
+        maxY = bottom;
       }
     }
     return math.max(
