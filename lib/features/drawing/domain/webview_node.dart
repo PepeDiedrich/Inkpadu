@@ -49,16 +49,16 @@ class WebViewNode {
 
   /// Creates a node from a JSON map.
   factory WebViewNode.fromJson(Map<String, dynamic> json) => WebViewNode(
-      id: json['id'] as String?,
-      rect: Rect.fromLTRB(
-        (json['rect_left'] as num?)?.toDouble() ?? 0,
-        (json['rect_top'] as num?)?.toDouble() ?? 0,
-        (json['rect_right'] as num?)?.toDouble() ?? 100,
-        (json['rect_bottom'] as num?)?.toDouble() ?? 100,
-      ),
-      htmlContent: json['htmlContent'] as String? ?? '',
-      backgroundColor: Color(
-        (json['backgroundColor'] as int?) ?? Colors.transparent.toARGB32(),
-      ),
-    );
+    id: json['id'] as String?,
+    rect: Rect.fromLTRB(
+      (json['rect_left'] as num?)?.toDouble() ?? 0,
+      (json['rect_top'] as num?)?.toDouble() ?? 0,
+      (json['rect_right'] as num?)?.toDouble() ?? 100,
+      (json['rect_bottom'] as num?)?.toDouble() ?? 100,
+    ),
+    htmlContent: json['htmlContent'] as String? ?? '',
+    backgroundColor: Color(
+      (json['backgroundColor'] as int?) ?? Colors.transparent.toARGB32(),
+    ),
+  );
 }

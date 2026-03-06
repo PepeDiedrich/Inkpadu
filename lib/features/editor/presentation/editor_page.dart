@@ -50,7 +50,9 @@ class _EditorPageState extends State<EditorPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(widget.isNew ? context.t.editor.newNote : context.t.editor.editNote),
+      title: Text(
+        widget.isNew ? context.t.editor.newNote : context.t.editor.editNote,
+      ),
       actions: [
         TextButton(onPressed: _saveNote, child: Text(context.t.common.save)),
       ],
@@ -65,6 +67,7 @@ class _EditorPageState extends State<EditorPage> {
               labelText: context.t.editor.title,
               border: const OutlineInputBorder(),
             ),
+            textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.next,
             autofocus: widget.isNew,
           ),
@@ -78,6 +81,7 @@ class _EditorPageState extends State<EditorPage> {
                 alignLabelWithHint: true,
               ),
               keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
               maxLines: null,
               expands: true,
             ),

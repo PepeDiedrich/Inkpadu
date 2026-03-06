@@ -145,8 +145,9 @@ class _PaperStyleSelectionDialogState extends State<PaperStyleSelectionDialog> {
                       .toList(),
                 ),
                 const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  spacing: 8,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
@@ -161,7 +162,6 @@ class _PaperStyleSelectionDialogState extends State<PaperStyleSelectionDialog> {
                       ),
                       child: Text(context.t.common.cancel),
                     ),
-                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () => Navigator.of(context).pop(_currentStyle),
                       style: FilledButton.styleFrom(
