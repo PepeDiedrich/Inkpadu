@@ -28,8 +28,13 @@ class InkNotesController extends ChangeNotifier {
     ConnectivityService? connectivityService,
     bool enableConnectivityMonitoring = true,
     this.debounceDuration = const Duration(seconds: 3),
-  })  : _repository = repository ?? InkNotesRepository(localStorage: InkNotesLocalStorage(), syncService: syncService),
-        _auth = auth {
+  }) : _repository =
+           repository ??
+           InkNotesRepository(
+             localStorage: InkNotesLocalStorage(),
+             syncService: syncService,
+           ),
+       _auth = auth {
     final authBridge = _auth;
     if (authBridge != null) {
       authBridge.addListener(_handleAuthChanged);
@@ -38,9 +43,12 @@ class InkNotesController extends ChangeNotifier {
     unawaited(_loadLocalNotes());
     // Start connectivity monitoring and auto-sync when online
     if (enableConnectivityMonitoring) {
-      _connectivityService = connectivityService ?? ConnectivityService(repository: _repository);
+      _connectivityService =
+          connectivityService ?? ConnectivityService(repository: _repository);
       _connectivityService!.startMonitoring();
-      _connectivitySubscription = _connectivityService!.isOnline.listen((online) async {
+      _connectivitySubscription = _connectivityService!.isOnline.listen((
+        online,
+      ) async {
         if (online && _activeUserId != null) {
           await _repository.syncAll(userId: _activeUserId!);
           await _repository.processQueueOnce(userId: _activeUserId!);
@@ -66,6 +74,7 @@ class InkNotesController extends ChangeNotifier {
   // Caches aggregierte Seitenänderungen, die beim nächsten Sync gesendet
   // werden sollen. `null` kennzeichnet eine vollständige Synchronisation.
   final Map<String, Set<int>?> _pendingPageChanges = <String, Set<int>?>{};
+
   /// Verzögerung für Debounce-Operationen beim Synchronisieren von Notizen.
   /// Standardmäßig 3 Sekunden; wird nach jeder Änderung für dieselbe Notiz-ID zurückgesetzt.
   final Duration debounceDuration;
@@ -77,7 +86,8 @@ class InkNotesController extends ChangeNotifier {
   StreamSubscription<bool>? _connectivitySubscription;
 
   // Flüchtige Scroll-Offsets pro Notiz und Seite (nur zur Laufzeit im Speicher)
-  final Map<String, Map<int, double>> _scrollOffsets = <String, Map<int, double>>{};
+  final Map<String, Map<int, double>> _scrollOffsets =
+      <String, Map<int, double>>{};
 
   /// Unveränderliche Sicht auf alle Notizen.
   List<InkNote> get notes => _cachedNotes ??= List.unmodifiable(_notes);
@@ -90,7 +100,10 @@ class InkNotesController extends ChangeNotifier {
 
   /// Setzt den Scroll-Offset für [noteId] und [pageIndex].
   void setScrollOffset(String noteId, int pageIndex, double offset) {
-    final Map<int, double> pages = _scrollOffsets.putIfAbsent(noteId, () => <int, double>{});
+    final Map<int, double> pages = _scrollOffsets.putIfAbsent(
+      noteId,
+      () => <int, double>{},
+    );
     pages[pageIndex] = offset;
   }
 
@@ -126,21 +139,22 @@ class InkNotesController extends ChangeNotifier {
         (_) => NotePage(strokes: const <Stroke>[]),
       );
 
-      final note = InkNote.empty(
-        title: (cleanedTitle?.isEmpty ?? true) ? null : cleanedTitle,
-      ).copyWith(
-        pages: emptyPages,
-        pdfBackgroundPath: pdfPath,
-        pdfPageCount: pageCount,
-      );
+      final note =
+          InkNote.empty(
+            title: (cleanedTitle?.isEmpty ?? true) ? null : cleanedTitle,
+          ).copyWith(
+            pages: emptyPages,
+            pdfBackgroundPath: pdfPath,
+            pdfPageCount: pageCount,
+          );
 
       _notes.insert(0, note);
-    _cachedNotes = null;
+      _cachedNotes = null;
       _safelyNotifyListeners();
-      
+
       final Set<int> allPages = Iterable<int>.generate(pageCount).toSet();
       _syncIfPossible(note, changedPageIndices: allPages);
-      
+
       return note;
     } catch (e) {
       debugPrint('[InkNotesController] Error creating note from PDF: $e');
@@ -269,8 +283,7 @@ class InkNotesController extends ChangeNotifier {
       if (event is InkNotesRemoteUpsert) {
         final incoming = event.note;
         final idx = _notes.indexWhere((n) => n.id == incoming.id);
-        if (idx != -1 &&
-            _notes[idx].updatedAt.isAfter(incoming.updatedAt)) {
+        if (idx != -1 && _notes[idx].updatedAt.isAfter(incoming.updatedAt)) {
           return;
         }
         upsert(incoming, fromRemote: true);
@@ -282,10 +295,7 @@ class InkNotesController extends ChangeNotifier {
     }
   }
 
-  void _syncIfPossible(
-    InkNote note, {
-    Set<int>? changedPageIndices,
-  }) {
+  void _syncIfPossible(InkNote note, {Set<int>? changedPageIndices}) {
     final userId = _activeUserId;
     if (userId == null) return;
     // Save locally and schedule repository sync via debounce
@@ -367,8 +377,11 @@ class InkNotesController extends ChangeNotifier {
 /// Inherited Scope für Zugriff auf [InkNotesController].
 class InkNotesScope extends InheritedNotifier<InkNotesController> {
   /// Erstellt eine neue [InkNotesScope] mit dem gegebenen Controller.
-  const InkNotesScope({super.key, required InkNotesController controller, required super.child})
-      : super(notifier: controller);
+  const InkNotesScope({
+    super.key,
+    required InkNotesController controller,
+    required super.child,
+  }) : super(notifier: controller);
 
   /// Liefert den [InkNotesController] aus dem Kontext.
   static InkNotesController of(BuildContext context) {
@@ -384,5 +397,6 @@ class InkNotesScope extends InheritedNotifier<InkNotesController> {
   }
 
   @override
-  bool updateShouldNotify(covariant InkNotesScope oldWidget) => notifier != oldWidget.notifier;
+  bool updateShouldNotify(covariant InkNotesScope oldWidget) =>
+      notifier != oldWidget.notifier;
 }

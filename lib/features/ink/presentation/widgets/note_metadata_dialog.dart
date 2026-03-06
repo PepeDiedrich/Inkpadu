@@ -23,14 +23,13 @@ Future<NoteMetadataResult?> showNoteMetadataDialog(
   bool isEditing = false,
 }) => showDialog<NoteMetadataResult>(
   context: context,
-  builder:
-      (context) => Dialog.fullscreen(
-        child: _NoteMetadataDialog(
-          initialTitle: initialTitle,
-          initialPaperStyle: initialPaperStyle,
-          isEditing: isEditing,
-        ),
-      ),
+  builder: (context) => Dialog.fullscreen(
+    child: _NoteMetadataDialog(
+      initialTitle: initialTitle,
+      initialPaperStyle: initialPaperStyle,
+      isEditing: isEditing,
+    ),
+  ),
 );
 
 class _NoteMetadataDialog extends StatefulWidget {
@@ -74,8 +73,8 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
   Future<void> _selectPaperStyle() async {
     final newStyle = await showDialog<NotePaperStyle>(
       context: context,
-      builder:
-          (context) => PaperStyleSelectionDialog(initialStyle: _selectedStyle),
+      builder: (context) =>
+          PaperStyleSelectionDialog(initialStyle: _selectedStyle),
     );
 
     if (newStyle != null && mounted) {
@@ -95,10 +94,9 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final titleText =
-        widget.isEditing
-            ? context.t.notes.adjustTitlePaper
-            : context.t.notes.newNote;
+    final titleText = widget.isEditing
+        ? context.t.notes.adjustTitlePaper
+        : context.t.notes.newNote;
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -134,6 +132,7 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
                   TextField(
                     controller: _controller,
                     autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
