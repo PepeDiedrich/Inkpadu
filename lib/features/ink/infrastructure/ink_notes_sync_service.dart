@@ -39,9 +39,9 @@ class InkNotesRemoteDelete extends InkNotesRemoteEvent {
 }
 
 /// Wrapper around the Appwrite realtime subscription to ensure clean disposal.
-  class InkNotesRealtimeSubscription {
-    /// Erstellt ein Realtime-Abonnement mit optionalem [RealtimeSubscription].
-    InkNotesRealtimeSubscription(this._subscription, this._listener);
+class InkNotesRealtimeSubscription {
+  /// Erstellt ein Realtime-Abonnement mit optionalem [RealtimeSubscription].
+  InkNotesRealtimeSubscription(this._subscription, this._listener);
 
   final RealtimeSubscription? _subscription;
   final StreamSubscription<dynamic> _listener;
@@ -88,9 +88,9 @@ class InkNotesSyncService implements InkNotesSync {
     this.collectionId = 'ink-notes',
     this.pagesCollectionId = 'ink-note-pages',
     this.storageBucketId = AppwriteConfig.pdfBucketId,
-  })  : _client = client ?? AppwriteConfig.client,
-        _realtime = realtime ?? Realtime(client ?? AppwriteConfig.client),
-        _storage = Storage(client ?? AppwriteConfig.client);
+  }) : _client = client ?? AppwriteConfig.client,
+       _realtime = realtime ?? Realtime(client ?? AppwriteConfig.client),
+       _storage = Storage(client ?? AppwriteConfig.client);
   final Client _client;
   final Realtime _realtime;
   final Storage _storage;
@@ -108,11 +108,14 @@ class InkNotesSyncService implements InkNotesSync {
   final String storageBucketId;
 
   Uri _buildPath(String collection, {String? documentId}) {
-    final collectionPath = '/databases/${Uri.encodeComponent(databaseId)}/collections/${Uri.encodeComponent(collection)}';
+    final collectionPath =
+        '/databases/${Uri.encodeComponent(databaseId)}/collections/${Uri.encodeComponent(collection)}';
     if (documentId == null) {
       return Uri.parse('$collectionPath/documents');
     }
-    return Uri.parse('$collectionPath/documents/${Uri.encodeComponent(documentId)}');
+    return Uri.parse(
+      '$collectionPath/documents/${Uri.encodeComponent(documentId)}',
+    );
   }
 
   Future<Map<String, dynamic>> _call({
@@ -155,9 +158,7 @@ class InkNotesSyncService implements InkNotesSync {
       final response = await _call(
         method: HttpMethod.get,
         uri: _buildPath(collectionId),
-        params: <String, dynamic>{
-          if (queries.isNotEmpty) 'queries': queries,
-        },
+        params: <String, dynamic>{if (queries.isNotEmpty) 'queries': queries},
       );
 
       final documents = (response['documents'] as List?) ?? const <dynamic>[];
@@ -174,14 +175,16 @@ class InkNotesSyncService implements InkNotesSync {
       if (kDebugMode) {
         debugPrint('Appwrite fetchNotes failed: ${error.message}');
       }
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'InkNotesSyncService',
-        informationCollector: () => <DiagnosticsNode>[
-          DiagnosticsNode.message('fetchNotes for user $userId failed'),
-        ],
-      ));
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'InkNotesSyncService',
+          informationCollector: () => <DiagnosticsNode>[
+            DiagnosticsNode.message('fetchNotes for user $userId failed'),
+          ],
+        ),
+      );
       rethrow;
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -189,14 +192,18 @@ class InkNotesSyncService implements InkNotesSync {
           'InkNotesSyncService: unexpected error during fetchNotes: $error',
         );
       }
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'InkNotesSyncService',
-        informationCollector: () => <DiagnosticsNode>[
-          DiagnosticsNode.message('unexpected fetchNotes failure for user $userId'),
-        ],
-      ));
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'InkNotesSyncService',
+          informationCollector: () => <DiagnosticsNode>[
+            DiagnosticsNode.message(
+              'unexpected fetchNotes failure for user $userId',
+            ),
+          ],
+        ),
+      );
       return const <InkNote>[];
     }
   }
@@ -366,7 +373,8 @@ class InkNotesSyncService implements InkNotesSync {
         return null;
       }
 
-      final String title = (data['title'] as String?) ?? InkNote.generateTitle();
+      final String title =
+          (data['title'] as String?) ?? InkNote.generateTitle();
       final String? paperStyleRaw = data['paper_style'] as String?;
       final Object? lastOpenedRaw = data['last_opened_page'];
       final int pageCount = _parseInt(data['page_count']) ?? 1;
@@ -398,9 +406,9 @@ class InkNotesSyncService implements InkNotesSync {
         title: title,
         updatedAt: updatedAt.toLocal(),
         pages: pages.isEmpty
-            ? List<NotePage>.unmodifiable(
-                <NotePage>[NotePage(strokes: const <Stroke>[])],
-              )
+            ? List<NotePage>.unmodifiable(<NotePage>[
+                NotePage(strokes: const <Stroke>[]),
+              ])
             : pages,
         lastOpenedPageIndex: pages.isEmpty ? 0 : lastOpenedIndex,
         paperStyle: _parsePaperStyle(paperStyleRaw),
@@ -414,14 +422,18 @@ class InkNotesSyncService implements InkNotesSync {
           'InkNotesSyncService: Failed to build note ${rawDoc[r'$id']}: $error',
         );
       }
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'InkNotesSyncService',
-        informationCollector: () => <DiagnosticsNode>[
-          DiagnosticsNode.message('Error while building note ${rawDoc[r'$id']}'),
-        ],
-      ));
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'InkNotesSyncService',
+          informationCollector: () => <DiagnosticsNode>[
+            DiagnosticsNode.message(
+              'Error while building note ${rawDoc[r'$id']}',
+            ),
+          ],
+        ),
+      );
       return null;
     }
   }
@@ -461,28 +473,34 @@ class InkNotesSyncService implements InkNotesSync {
           'InkNotesSyncService: Failed to fetch pages for $noteId: ${error.message}',
         );
       }
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'InkNotesSyncService',
-        informationCollector: () => <DiagnosticsNode>[
-          DiagnosticsNode.message('fetchPages failed for note $noteId'),
-        ],
-      ));
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'InkNotesSyncService',
+          informationCollector: () => <DiagnosticsNode>[
+            DiagnosticsNode.message('fetchPages failed for note $noteId'),
+          ],
+        ),
+      );
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint(
           'InkNotesSyncService: Unexpected error fetching pages for $noteId: $error',
         );
       }
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: 'InkNotesSyncService',
-        informationCollector: () => <DiagnosticsNode>[
-          DiagnosticsNode.message('unexpected fetchPages error for note $noteId'),
-        ],
-      ));
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'InkNotesSyncService',
+          informationCollector: () => <DiagnosticsNode>[
+            DiagnosticsNode.message(
+              'unexpected fetchPages error for note $noteId',
+            ),
+          ],
+        ),
+      );
     }
 
     final int highestIndex = decodedPages.isEmpty
@@ -519,10 +537,7 @@ class InkNotesSyncService implements InkNotesSync {
         await _call(
           method: HttpMethod.patch,
           uri: _buildPath(collection, documentId: documentId),
-          params: <String, dynamic>{
-            'data': data,
-            'permissions': permissions,
-          },
+          params: <String, dynamic>{'data': data, 'permissions': permissions},
         );
       } else {
         if (kDebugMode) {
@@ -625,7 +640,8 @@ class InkNotesSyncService implements InkNotesSync {
     }
   }
 
-  String _pageDocumentId(String noteId, int pageIndex) => '${noteId}_$pageIndex';
+  String _pageDocumentId(String noteId, int pageIndex) =>
+      '${noteId}_$pageIndex';
 
   Map<String, dynamic> _buildPagePayload({
     required InkNote note,
@@ -633,10 +649,9 @@ class InkNotesSyncService implements InkNotesSync {
     required String userId,
   }) {
     final DateTime updatedUtc = note.updatedAt.toUtc();
-    final NotePage page =
-        (pageIndex >= 0 && pageIndex < note.pages.length)
-            ? note.pages[pageIndex]
-            : NotePage(strokes: const <Stroke>[]);
+    final NotePage page = (pageIndex >= 0 && pageIndex < note.pages.length)
+        ? note.pages[pageIndex]
+        : NotePage(strokes: const <Stroke>[]);
     return <String, dynamic>{
       'note_id': note.id,
       'user_id': userId,
@@ -648,25 +663,20 @@ class InkNotesSyncService implements InkNotesSync {
   }
 
   List<String> _buildPermissions(String userId) => <String>[
-        Permission.read(Role.user(userId)),
-        Permission.update(Role.user(userId)),
-        Permission.delete(Role.user(userId)),
-        Permission.write(Role.user(userId)),
-      ];
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+    Permission.write(Role.user(userId)),
+  ];
 
-  Set<int> _resolvePagesToUpload(
-    InkNote note,
-    Set<int>? changedPageIndices,
-  ) {
+  Set<int> _resolvePagesToUpload(InkNote note, Set<int>? changedPageIndices) {
     if (note.pages.isEmpty) {
       return const <int>{};
     }
-    // Only fallback to 'all pages' if it is literally null. 
+    // Only fallback to 'all pages' if it is literally null.
     // An empty set means 0 pages have changed, useful for new placeholder PDFs
     if (changedPageIndices == null) {
-      return Set<int>.from(
-        Iterable<int>.generate(note.pages.length),
-      );
+      return Set<int>.from(Iterable<int>.generate(note.pages.length));
     }
 
     return changedPageIndices
@@ -718,10 +728,7 @@ class InkNotesSyncService implements InkNotesSync {
         method: HttpMethod.get,
         uri: _buildPath(pagesCollectionId),
         params: <String, dynamic>{
-          'queries': <String>[
-            Query.equal('note_id', noteId),
-            Query.limit(500),
-          ],
+          'queries': <String>[Query.equal('note_id', noteId), Query.limit(500)],
         },
       );
 

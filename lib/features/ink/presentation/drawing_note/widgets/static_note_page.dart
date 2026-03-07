@@ -54,10 +54,11 @@ class _StaticNotePageState extends State<StaticNotePage> {
   double _requiredCanvasHeight() {
     var maxY = 0.0;
     for (final stroke in widget.page.strokes) {
-      for (final point in stroke.points) {
-        if (point.position.dy > maxY) {
-          maxY = point.position.dy;
-        }
+      // ⚡ Bolt: Use pre-calculated boundingBox to find the max Y-coordinate
+      // instead of iterating through every point. This reduces time complexity
+      // from O(Strokes * Points) to O(Strokes).
+      if (stroke.boundingBox.bottom > maxY) {
+        maxY = stroke.boundingBox.bottom;
       }
     }
     return math.max(
@@ -82,7 +83,10 @@ class _StaticNotePageState extends State<StaticNotePage> {
             painter: FinishedStrokesPainter(
               strokes: widget.page.strokes,
               cache: _pictureCache,
-              version: Object.hash(widget.page.strokes.length, widget.page.hashCode),
+              version: Object.hash(
+                widget.page.strokes.length,
+                widget.page.hashCode,
+              ),
               viewportRect: Rect.fromLTWH(
                 0,
                 0,
