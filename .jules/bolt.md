@@ -9,3 +9,8 @@
 **Learning:** `List.unmodifiable(list)` always creates a NEW list (and iterates the source), which is an O(N) operation. Using this inside a getter that is called frequently (e.g., inside a `build` method or `paint` loop) causes massive garbage generation and CPU overhead.
 
 **Action:** Cache the unmodifiable view in the state object (Controller/Model) and invalidate it only when the underlying data changes. Avoid calling `List.unmodifiable` in hot loops or getters.
+## 2026-03-07 - Optimize StaticNotePage height calculation
+
+**Learning:** To calculate bounds or dimensions for a collection of strokes (e.g., calculating canvas height in `StaticNotePage`), use the pre-calculated `stroke.boundingBox` properties (like `bottom`) instead of iterating through every point. This reduces the time complexity from O(Strokes * Points) to O(Strokes).
+
+**Action:** Use `stroke.boundingBox` for fast coordinate access when checking stroke boundaries.

@@ -81,6 +81,5 @@ void main() {
 
       expect(find.byType(NotePaperBackground), findsOneWidget);
     });
-
   });
 }
