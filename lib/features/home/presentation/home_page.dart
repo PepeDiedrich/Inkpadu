@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
 import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
 import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:ai_handwriting_app/features/home/presentation/widgets/note_list_views.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
 import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
 import 'package:ai_handwriting_app/i18n/translations.g.dart';
@@ -22,12 +23,25 @@ class HomePage extends StatefulWidget {
 
 enum _NoteAction { open, metadata, exportPdf, delete }
 
-enum _SortOption { dateDesc, dateAsc, nameAsc, nameDesc }
+/// Optionen für die Sortierung von Notizen.
+enum SortOption {
+  /// Absteigend nach Datum.
+  dateDesc,
+
+  /// Aufsteigend nach Datum.
+  dateAsc,
+
+  /// Aufsteigend nach Name.
+  nameAsc,
+
+  /// Absteigend nach Name.
+  nameDesc,
+}
 
 class _HomePageState extends State<HomePage> {
   bool _isGridView = true;
   String _searchQuery = '';
-  _SortOption _sortOption = _SortOption.dateDesc;
+  SortOption _sortOption = SortOption.dateDesc;
   final Set<String> _selectedNoteIds = {};
   bool _isSelectionMode = false;
   bool _isSearching = false;
@@ -51,18 +65,18 @@ class _HomePageState extends State<HomePage> {
     }
 
     switch (_sortOption) {
-      case _SortOption.dateDesc:
+      case SortOption.dateDesc:
         filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         break;
-      case _SortOption.dateAsc:
+      case SortOption.dateAsc:
         filtered.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
         break;
-      case _SortOption.nameAsc:
+      case SortOption.nameAsc:
         filtered.sort(
           (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
         );
         break;
-      case _SortOption.nameDesc:
+      case SortOption.nameDesc:
         filtered.sort(
           (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
         );
@@ -466,7 +480,7 @@ class _HomePageState extends State<HomePage> {
     final t = context.t;
 
     return Scaffold(
-      appBar: _buildAppBar(allNotes.length),
+      appBar: _buildAppBar(),
       floatingActionButton: _isSelectionMode
           ? null
           : FloatingActionButton.extended(
@@ -512,53 +526,144 @@ class _HomePageState extends State<HomePage> {
                           child: Text(t.common.no),
                         ) // "No results" would be better
                       : _isGridView
-                      ? _buildGridView(filteredNotes)
-                      : _buildListView(filteredNotes),
+                      ? NoteGridView(
+                          notes: filteredNotes,
+                          selectedNoteIds: _selectedNoteIds,
+                          isSelectionMode: _isSelectionMode,
+                          onToggleSelection: _toggleSelection,
+                          onOpen: _open,
+                          onEnterSelectionMode: _enterSelectionMode,
+                          onShowNoteActions: _showNoteActions,
+                        )
+                      : NoteListView(
+                          notes: filteredNotes,
+                          selectedNoteIds: _selectedNoteIds,
+                          isSelectionMode: _isSelectionMode,
+                          onToggleSelection: _toggleSelection,
+                          onOpen: _open,
+                          onEnterSelectionMode: _enterSelectionMode,
+                        ),
                 ),
               ],
             ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(int totalNotesCount) {
+  PreferredSizeWidget _buildAppBar() => HomeAppBar(
+    isSelectionMode: _isSelectionMode,
+    selectedNotesCount: _selectedNoteIds.length,
+    isSearching: _isSearching,
+    isGridView: _isGridView,
+    onExitSelectionMode: _exitSelectionMode,
+    onSelectAll: () {
+      setState(() {
+        final allNotes = InkNotesScope.of(context).notes;
+        _selectedNoteIds.addAll(allNotes.map((n) => n.id));
+      });
+    },
+    onDeleteSelected: _deleteSelectedNotes,
+    onExportSelected: _exportSelectedNotes,
+    onToggleSearch: () => setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchQuery = '';
+        _searchController.clear();
+      }
+    }),
+    onSortSelected: (value) => setState(() => _sortOption = value),
+    onToggleGridView: () => setState(() => _isGridView = !_isGridView),
+  );
+}
+
+/// Startseite AppBar.
+class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
+  /// Ob der Auswahlmodus aktiv ist.
+  final bool isSelectionMode;
+
+  /// Anzahl der ausgewählten Notizen.
+  final int selectedNotesCount;
+
+  /// Ob gerade gesucht wird.
+  final bool isSearching;
+
+  /// Ob die Grid-Ansicht aktiv ist.
+  final bool isGridView;
+
+  /// Callback zum Beenden des Auswahlmodus.
+  final VoidCallback onExitSelectionMode;
+
+  /// Callback zum Auswählen aller Notizen.
+  final VoidCallback onSelectAll;
+
+  /// Callback zum Löschen der ausgewählten Notizen.
+  final VoidCallback onDeleteSelected;
+
+  /// Callback zum Exportieren der ausgewählten Notizen.
+  final VoidCallback onExportSelected;
+
+  /// Callback zum Umschalten der Suche.
+  final VoidCallback onToggleSearch;
+
+  /// Callback zum Ändern der Sortierung.
+  final ValueChanged<SortOption> onSortSelected;
+
+  /// Callback zum Umschalten der Ansicht.
+  final VoidCallback onToggleGridView;
+
+  /// Erstellt eine [HomeAppBar].
+  const HomeAppBar({
+    super.key,
+    required this.isSelectionMode,
+    required this.selectedNotesCount,
+    required this.isSearching,
+    required this.isGridView,
+    required this.onExitSelectionMode,
+    required this.onSelectAll,
+    required this.onDeleteSelected,
+    required this.onExportSelected,
+    required this.onToggleSearch,
+    required this.onSortSelected,
+    required this.onToggleGridView,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
 
-    if (_isSelectionMode) {
+    if (isSelectionMode) {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
           tooltip: t.common.close,
-          onPressed: _exitSelectionMode,
+          onPressed: onExitSelectionMode,
         ),
-        title: Text(t.notes.selectedCount(count: _selectedNoteIds.length)),
+        title: Text(t.notes.selectedCount(count: selectedNotesCount)),
         actions: [
           IconButton(
             icon: const Icon(Icons.select_all),
             tooltip: t.notes.selectAll,
-            onPressed: () {
-              setState(() {
-                final allNotes = InkNotesScope.of(context).notes;
-                _selectedNoteIds.addAll(allNotes.map((n) => n.id));
-              });
-            },
+            onPressed: onSelectAll,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: t.notes.deleteSelected,
-            onPressed: _deleteSelectedNotes,
+            onPressed: onDeleteSelected,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined),
             tooltip: t.notes.exportSelected,
-            onPressed: _exportSelectedNotes,
+            onPressed: onExportSelected,
           ),
         ],
       );
     }
 
     return AppBar(
-      title: _isSearching
+      title: isSearching
           ? null
           : Row(
               children: [
@@ -577,238 +682,30 @@ class _HomePageState extends State<HomePage> {
             ),
       actions: [
         IconButton(
-          icon: Icon(_isSearching ? Icons.search_off : Icons.search),
+          icon: Icon(isSearching ? Icons.search_off : Icons.search),
           tooltip: t.common.search,
-          onPressed: () {
-            setState(() {
-              _isSearching = !_isSearching;
-              if (!_isSearching) {
-                _searchQuery = '';
-                _searchController.clear();
-              }
-            });
-          },
+          onPressed: onToggleSearch,
         ),
-        PopupMenuButton<_SortOption>(
+        PopupMenuButton<SortOption>(
           icon: const Icon(Icons.sort),
-          onSelected: (value) => setState(() => _sortOption = value),
+          onSelected: onSortSelected,
           itemBuilder: (context) => [
             PopupMenuItem(
-              value: _SortOption.dateDesc,
+              value: SortOption.dateDesc,
               child: Text(t.notes.sortByDate),
             ),
             PopupMenuItem(
-              value: _SortOption.nameAsc,
+              value: SortOption.nameAsc,
               child: Text(t.notes.sortByName),
             ),
           ],
         ),
         IconButton(
-          icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
-          onPressed: () => setState(() => _isGridView = !_isGridView),
-          tooltip: _isGridView ? t.notes.listView : t.notes.gridView,
+          icon: Icon(isGridView ? Icons.view_list : Icons.grid_view),
+          onPressed: onToggleGridView,
+          tooltip: isGridView ? t.notes.listView : t.notes.gridView,
         ),
       ],
     );
-  }
-
-  Widget _buildListView(List<InkNote> notes) {
-    final theme = Theme.of(context);
-    return ListView.builder(
-      key: const PageStorageKey('home_list'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final n = notes[index];
-        final isSelected = _selectedNoteIds.contains(n.id);
-
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: isSelected
-                ? BorderSide(color: theme.colorScheme.primary, width: 2)
-                : BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          color: isSelected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : null,
-          child: ListTile(
-            contentPadding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-            leading: Stack(
-              children: [
-                NoteThumbnail(note: n, width: 60, height: 80),
-                if (isSelected)
-                  Positioned(
-                    top: 4,
-                    left: 4,
-                    child: Icon(
-                      Icons.check_circle,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-              ],
-            ),
-            title: Text(
-              n.title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  '${n.pages.length} ${context.t.notes.pagesCount(count: n.pages.length)} · ${n.paperStyle.label}',
-                  style: theme.textTheme.bodySmall,
-                ),
-                Text(
-                  _fmt(n.updatedAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.6,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            onTap: () {
-              if (_isSelectionMode) {
-                _toggleSelection(n.id);
-              } else {
-                _open(n.id);
-              }
-            },
-            onLongPress: () => _enterSelectionMode(n.id),
-            trailing: _isSelectionMode
-                ? Checkbox(
-                    value: isSelected,
-                    onChanged: (_) => _toggleSelection(n.id),
-                  )
-                : const Icon(Icons.chevron_right),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGridView(List<InkNote> notes) {
-    final theme = Theme.of(context);
-    return GridView.builder(
-      key: const PageStorageKey('home_grid'),
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final n = notes[index];
-        final isSelected = _selectedNoteIds.contains(n.id);
-
-        return InkWell(
-          onTap: () {
-            if (_isSelectionMode) {
-              _toggleSelection(n.id);
-            } else {
-              _open(n.id);
-            }
-          },
-          onLongPress: () => _enterSelectionMode(n.id),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.outlineVariant,
-                width: isSelected ? 2 : 1,
-              ),
-              color: isSelected
-                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                  : theme.colorScheme.surface,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      NoteThumbnail(
-                        note: n,
-                        width: double.infinity,
-                        height: double.infinity,
-                      ),
-                      if (isSelected)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Icon(
-                            Icons.check_circle,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          tooltip: context.t.common.edit,
-                          onPressed: () => _showNoteActions(n),
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.colorScheme.surface
-                                .withValues(alpha: 0.7),
-                            padding: const EdgeInsets.all(4),
-                          ),
-                          constraints: const BoxConstraints(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        n.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _fmt(n.updatedAt),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  String _fmt(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return context.t.common.justNow;
-    if (diff.inHours < 1) return '${diff.inMinutes} min';
-    if (diff.inHours < 24) return '${diff.inHours} h';
-    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 }
