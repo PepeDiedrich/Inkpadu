@@ -125,6 +125,6 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => orientation == Axis.horizontal
-        ? Container(height: 24, width: 1, color: color)
-        : Container(height: 1, width: 24, color: color);
+      ? Container(height: 24, width: 1, color: color)
+      : Container(height: 1, width: 24, color: color);
 }

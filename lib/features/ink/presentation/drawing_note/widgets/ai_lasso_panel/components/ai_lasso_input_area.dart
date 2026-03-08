@@ -42,6 +42,7 @@ class AiLassoInputArea extends StatelessWidget {
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.send),
+          tooltip: 'Senden',
           color: Theme.of(context).colorScheme.primary,
           onPressed: () {
             final text = controller.text.trim();

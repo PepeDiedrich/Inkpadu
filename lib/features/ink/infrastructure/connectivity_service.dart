@@ -13,6 +13,7 @@ class ConnectivityService {
 
   late final Connectivity _connectivity;
   late final StreamController<bool> _controller;
+
   /// Repository, das zur Synchronisation verwendet wird.
   final InkNotesRepository repository;
 
@@ -24,7 +25,9 @@ class ConnectivityService {
 
   /// Startet die Überwachung der Konnektivität.
   void startMonitoring() {
-    _sub ??= _connectivity.onConnectivityChanged.listen((List<ConnectivityResult> results) async {
+    _sub ??= _connectivity.onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) async {
       final online = results.any((result) => result != ConnectivityResult.none);
       _controller.add(online);
       if (online) {

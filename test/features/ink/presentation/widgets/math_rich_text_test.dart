@@ -7,9 +7,7 @@ void main() {
     testWidgets('renders plain text without LaTeX', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: MathRichText(text: 'Hello World'),
-          ),
+          home: Scaffold(body: MathRichText(text: 'Hello World')),
         ),
       );
 
@@ -20,9 +18,7 @@ void main() {
     testWidgets('renders empty text', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: MathRichText(text: ''),
-          ),
+          home: Scaffold(body: MathRichText(text: '')),
         ),
       );
 
@@ -35,10 +31,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: MathRichText(
-              text: 'Styled text',
-              style: customStyle,
-            ),
+            body: MathRichText(text: 'Styled text', style: customStyle),
           ),
         ),
       );
@@ -49,9 +42,7 @@ void main() {
     testWidgets('renders inline LaTeX (single dollar)', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: MathRichText(text: r'The formula is $x^2$'),
-          ),
+          home: Scaffold(body: MathRichText(text: r'The formula is $x^2$')),
         ),
       );
 
@@ -77,7 +68,8 @@ void main() {
         const MaterialApp(
           home: Scaffold(
             body: MathRichText(
-                text: r'Before $a+b$ middle $$c \cdot d$$ after'),
+              text: r'Before $a+b$ middle $$c \cdot d$$ after',
+            ),
           ),
         ),
       );
@@ -86,4 +78,3 @@ void main() {
     });
   });
 }
-

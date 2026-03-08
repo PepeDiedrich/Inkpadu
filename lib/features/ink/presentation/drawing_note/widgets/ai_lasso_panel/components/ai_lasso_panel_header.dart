@@ -49,13 +49,13 @@ class AiLassoPanelHeader extends StatelessWidget {
             size: 20,
           ),
           const SizedBox(width: 4),
-          GestureDetector(
-            onTap: onClose,
-            child: Icon(
-              Icons.close,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              size: 20,
-            ),
+          IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.close, size: 20),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            tooltip: context.t.common.close,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),
