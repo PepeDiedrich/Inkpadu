@@ -1,0 +1,12 @@
+<<<<<<< SEARCH
+        IconButton(
+          icon: const Icon(Icons.send),
+          color: Theme.of(context).colorScheme.primary,
+          onPressed: () {
+=======
+        IconButton(
+          icon: const Icon(Icons.send),
+          tooltip: 'Senden',
+          color: Theme.of(context).colorScheme.primary,
+          onPressed: () {
+>>>>>>> REPLACE
