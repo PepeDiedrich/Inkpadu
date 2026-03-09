@@ -23,14 +23,13 @@ Future<NoteMetadataResult?> showNoteMetadataDialog(
   bool isEditing = false,
 }) => showDialog<NoteMetadataResult>(
   context: context,
-  builder:
-      (context) => Dialog.fullscreen(
-        child: _NoteMetadataDialog(
-          initialTitle: initialTitle,
-          initialPaperStyle: initialPaperStyle,
-          isEditing: isEditing,
-        ),
-      ),
+  builder: (context) => Dialog.fullscreen(
+    child: _NoteMetadataDialog(
+      initialTitle: initialTitle,
+      initialPaperStyle: initialPaperStyle,
+      isEditing: isEditing,
+    ),
+  ),
 );
 
 class _NoteMetadataDialog extends StatefulWidget {
@@ -74,8 +73,8 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
   Future<void> _selectPaperStyle() async {
     final newStyle = await showDialog<NotePaperStyle>(
       context: context,
-      builder:
-          (context) => PaperStyleSelectionDialog(initialStyle: _selectedStyle),
+      builder: (context) =>
+          PaperStyleSelectionDialog(initialStyle: _selectedStyle),
     );
 
     if (newStyle != null && mounted) {
@@ -95,10 +94,9 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final titleText =
-        widget.isEditing
-            ? context.t.notes.adjustTitlePaper
-            : context.t.notes.newNote;
+    final titleText = widget.isEditing
+        ? context.t.notes.adjustTitlePaper
+        : context.t.notes.newNote;
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -171,23 +169,20 @@ class _NoteMetadataDialogState extends State<_NoteMetadataDialog> {
       bottomNavigationBar: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: Row(
+        child: OverflowBar(
+          spacing: 12,
+          overflowSpacing: 12,
           children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(context.t.common.cancel),
-              ),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(context.t.common.cancel),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: _submit,
-                child: Text(
-                  widget.isEditing
-                      ? context.t.common.save
-                      : context.t.common.next,
-                ),
+            FilledButton(
+              onPressed: _submit,
+              child: Text(
+                widget.isEditing
+                    ? context.t.common.save
+                    : context.t.common.next,
               ),
             ),
           ],

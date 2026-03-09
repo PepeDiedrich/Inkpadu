@@ -31,7 +31,10 @@ class FakeSync implements InkNotesSync {
   }
 
   @override
-  InkNotesRealtimeSubscription observeUserNotes({required String userId, required void Function(InkNotesRemoteEvent event) onEvent}) {
+  InkNotesRealtimeSubscription observeUserNotes({
+    required String userId,
+    required void Function(InkNotesRemoteEvent event) onEvent,
+  }) {
     final sc = StreamController<dynamic>();
     return InkNotesRealtimeSubscription(null, sc.stream.listen((_) {}));
   }
@@ -94,10 +97,20 @@ void main() {
 
     // Rapid updates
     controller.upsert(note.copyWith(title: 'a', updatedAt: DateTime.now()));
-    controller.upsert(note.copyWith(title: 'b', updatedAt: DateTime.now().add(const Duration(milliseconds: 1))));
-    controller.upsert(note.copyWith(title: 'c', updatedAt: DateTime.now().add(const Duration(milliseconds: 2))));
+    controller.upsert(
+      note.copyWith(
+        title: 'b',
+        updatedAt: DateTime.now().add(const Duration(milliseconds: 1)),
+      ),
+    );
+    controller.upsert(
+      note.copyWith(
+        title: 'c',
+        updatedAt: DateTime.now().add(const Duration(milliseconds: 2)),
+      ),
+    );
 
-  // Warte länger als debounceDuration
+    // Warte länger als debounceDuration
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
     // Stelle sicher, dass das letzte Remote-Update den finalen Stand enthält
@@ -122,14 +135,16 @@ void main() {
 
     controller.delete('n2');
     // Immediately recreate/update the same note
-    controller.upsert(note.copyWith(title: 'restored', updatedAt: DateTime.now()));
+    controller.upsert(
+      note.copyWith(title: 'restored', updatedAt: DateTime.now()),
+    );
 
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
-  // deleteNote should NOT be called because upsert happened before debounce elapsed
-  expect(sync.deletes, isEmpty);
-  expect(sync.upserts, isNotEmpty);
-  expect(sync.upserts.last.title, 'restored');
+    // deleteNote should NOT be called because upsert happened before debounce elapsed
+    expect(sync.deletes, isEmpty);
+    expect(sync.upserts, isNotEmpty);
+    expect(sync.upserts.last.title, 'restored');
 
     controller.dispose();
   });
