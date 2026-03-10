@@ -231,7 +231,8 @@ class CanvasGestureRecognizer {
     if (_twoFingerTapStart == null || _twoFingerTapInitialPositions.isEmpty) {
       return false;
     }
-    final double maxSquared = _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
+    final double maxSquared =
+        _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
     for (final entry in _twoFingerTapInitialPositions.entries) {
       final Offset? current = _activeTouchPositions[entry.key];
       if (current == null) continue;
@@ -244,14 +245,17 @@ class CanvasGestureRecognizer {
 
   bool _isTwoFingerTapWithinTimeWindow() {
     if (_twoFingerTapStart == null) return false;
-    return DateTime.now().difference(_twoFingerTapStart!) <= _twoFingerTapMaxDuration;
+    return DateTime.now().difference(_twoFingerTapStart!) <=
+        _twoFingerTapMaxDuration;
   }
 
   bool _isThreeFingerTapMovementWithinThreshold() {
-    if (_threeFingerTapStart == null || _threeFingerTapInitialPositions.isEmpty) {
+    if (_threeFingerTapStart == null ||
+        _threeFingerTapInitialPositions.isEmpty) {
       return false;
     }
-    final double maxSquared = _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
+    final double maxSquared =
+        _twoFingerTapMaxMovement * _twoFingerTapMaxMovement;
     for (final entry in _threeFingerTapInitialPositions.entries) {
       final Offset? current = _activeTouchPositions[entry.key];
       if (current == null) continue;
@@ -264,7 +268,8 @@ class CanvasGestureRecognizer {
 
   bool _isThreeFingerTapWithinTimeWindow() {
     if (_threeFingerTapStart == null) return false;
-    return DateTime.now().difference(_threeFingerTapStart!) <= _twoFingerTapMaxDuration;
+    return DateTime.now().difference(_threeFingerTapStart!) <=
+        _twoFingerTapMaxDuration;
   }
 
   void _clearTwoFingerGestureState() {
