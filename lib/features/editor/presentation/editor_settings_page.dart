@@ -176,90 +176,18 @@ class EditorSettingsPage extends StatelessWidget {
             }
             return ListView(
               children: [
-                Text(
-                  context.t.editor.drawingArea,
-                  style: textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(context.t.editor.useLineSimplifier),
-                  subtitle: Text(context.t.editor.lineSimplifierHint),
-                  value: simplifierEnabled,
-                  onChanged: (value) =>
-                      settings.update(lineSimplifierEnabled: value),
-                ),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 150),
-                  opacity: simplifierEnabled ? 1 : 0.4,
-                  child: IgnorePointer(
-                    ignoring: !simplifierEnabled,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        Text(
-                          context.t.editor.smoothingIntensity(
-                            value: simplifierStrength.toStringAsFixed(2),
-                          ),
-                          style: textTheme.bodyMedium,
-                        ),
-                        Slider.adaptive(
-                          value: simplifierStrength.clamp(0.05, 0.8),
-                          min: 0.1,
-                          max: 0.6,
-                          divisions: 10,
-                          label: simplifierStrength.toStringAsFixed(2),
-                          onChanged: (value) =>
-                              settings.update(lineSimplifierStrength: value),
-                        ),
-                        Text(
-                          context.t.editor.smoothingHint,
-                          style: textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          context.t.editor.minTolerance(
-                            value: simplifierMinTol.toStringAsFixed(2),
-                          ),
-                          style: textTheme.bodyMedium,
-                        ),
-                        Slider.adaptive(
-                          value: simplifierMinTol.clamp(0.05, 1.5),
-                          min: 0.1,
-                          max: 1.2,
-                          divisions: 11,
-                          label: '${simplifierMinTol.toStringAsFixed(2)} px',
-                          onChanged: (value) => settings.update(
-                            lineSimplifierMinTolerance: value,
-                          ),
-                        ),
-                        Text(
-                          context.t.editor.minToleranceHint,
-                          style: textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
+                _LineSimplifierSection(
+                  settings: settings,
+                  textTheme: textTheme,
+                  simplifierEnabled: simplifierEnabled,
+                  simplifierStrength: simplifierStrength,
+                  simplifierMinTol: simplifierMinTol,
                 ),
                 const SizedBox(height: 32),
-                Text(
-                  context.t.editor.yourSystemPrompt,
-                  style: textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(context.t.editor.editSystemPrompt),
-                  subtitle: Text(
-                    settings.aiSystemPrompt.trim().isEmpty
-                        ? context.t.editor.systemPromptHint
-                        : settings.aiSystemPrompt,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: const Icon(Icons.edit),
-                  onTap: () async {
+                _SystemPromptSection(
+                  settings: settings,
+                  textTheme: textTheme,
+                  onEditTap: () async {
                     final String? edited = await _showSystemPromptDialog(
                       context,
                       settings.aiSystemPrompt,
@@ -271,42 +199,26 @@ class EditorSettingsPage extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 32),
-                Text(
-                  context.t.editor.aiShortcuts,
-                  style: textTheme.titleMedium,
+                _AiShortcutsSection(
+                  settings: settings,
+                  textTheme: textTheme,
+                  shortcutPrompts: shortcutPrompts,
+                  onEditTap: (index, prompt) async {
+                    final edited = await _showShortcutDialog(
+                      context,
+                      prompt,
+                      index + 1,
+                    );
+                    if (edited == null) {
+                      return;
+                    }
+                    final List<AiPrompt> updated = List<AiPrompt>.from(
+                      shortcutPrompts,
+                    );
+                    updated[index] = edited;
+                    settings.update(aiPrompts: updated);
+                  },
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  context.t.editor.aiShortcutsHint,
-                  style: textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                for (var index = 0; index < shortcutPrompts.length; index++)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(shortcutPrompts[index].title),
-                    subtitle: Text(
-                      shortcutPrompts[index].prompt,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.edit),
-                    onTap: () async {
-                      final edited = await _showShortcutDialog(
-                        context,
-                        shortcutPrompts[index],
-                        index + 1,
-                      );
-                      if (edited == null) {
-                        return;
-                      }
-                      final List<AiPrompt> updated = List<AiPrompt>.from(
-                        shortcutPrompts,
-                      );
-                      updated[index] = edited;
-                      settings.update(aiPrompts: updated);
-                    },
-                  ),
               ],
             );
           },
@@ -314,4 +226,162 @@ class EditorSettingsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LineSimplifierSection extends StatelessWidget {
+  const _LineSimplifierSection({
+    // ignore: unused_element_parameter
+    super.key,
+    required this.settings,
+    required this.textTheme,
+    required this.simplifierEnabled,
+    required this.simplifierStrength,
+    required this.simplifierMinTol,
+  });
+
+  final EditorSettings settings;
+  final TextTheme textTheme;
+  final bool simplifierEnabled;
+  final double simplifierStrength;
+  final double simplifierMinTol;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(context.t.editor.drawingArea, style: textTheme.titleMedium),
+      const SizedBox(height: 12),
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: Text(context.t.editor.useLineSimplifier),
+        subtitle: Text(context.t.editor.lineSimplifierHint),
+        value: simplifierEnabled,
+        onChanged: (value) => settings.update(lineSimplifierEnabled: value),
+      ),
+      AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: simplifierEnabled ? 1 : 0.4,
+        child: IgnorePointer(
+          ignoring: !simplifierEnabled,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              Text(
+                context.t.editor.smoothingIntensity(
+                  value: simplifierStrength.toStringAsFixed(2),
+                ),
+                style: textTheme.bodyMedium,
+              ),
+              Slider.adaptive(
+                value: simplifierStrength.clamp(0.05, 0.8),
+                min: 0.1,
+                max: 0.6,
+                divisions: 10,
+                label: simplifierStrength.toStringAsFixed(2),
+                onChanged: (value) =>
+                    settings.update(lineSimplifierStrength: value),
+              ),
+              Text(context.t.editor.smoothingHint, style: textTheme.bodySmall),
+              const SizedBox(height: 20),
+              Text(
+                context.t.editor.minTolerance(
+                  value: simplifierMinTol.toStringAsFixed(2),
+                ),
+                style: textTheme.bodyMedium,
+              ),
+              Slider.adaptive(
+                value: simplifierMinTol.clamp(0.05, 1.5),
+                min: 0.1,
+                max: 1.2,
+                divisions: 11,
+                label: '${simplifierMinTol.toStringAsFixed(2)} px',
+                onChanged: (value) =>
+                    settings.update(lineSimplifierMinTolerance: value),
+              ),
+              Text(
+                context.t.editor.minToleranceHint,
+                style: textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _SystemPromptSection extends StatelessWidget {
+  const _SystemPromptSection({
+    // ignore: unused_element_parameter
+    super.key,
+    required this.settings,
+    required this.textTheme,
+    required this.onEditTap,
+  });
+
+  final EditorSettings settings;
+  final TextTheme textTheme;
+  final VoidCallback onEditTap;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(context.t.editor.yourSystemPrompt, style: textTheme.titleMedium),
+      const SizedBox(height: 12),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(context.t.editor.editSystemPrompt),
+        subtitle: Text(
+          settings.aiSystemPrompt.trim().isEmpty
+              ? context.t.editor.systemPromptHint
+              : settings.aiSystemPrompt,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Icon(Icons.edit),
+        onTap: onEditTap,
+      ),
+    ],
+  );
+}
+
+class _AiShortcutsSection extends StatelessWidget {
+  const _AiShortcutsSection({
+    // ignore: unused_element_parameter
+    super.key,
+    required this.settings,
+    required this.textTheme,
+    required this.shortcutPrompts,
+    required this.onEditTap,
+  });
+
+  final EditorSettings settings;
+  final TextTheme textTheme;
+  final List<AiPrompt> shortcutPrompts;
+  final void Function(int index, AiPrompt prompt) onEditTap;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(context.t.editor.aiShortcuts, style: textTheme.titleMedium),
+      const SizedBox(height: 8),
+      Text(context.t.editor.aiShortcutsHint, style: textTheme.bodySmall),
+      const SizedBox(height: 8),
+      for (var index = 0; index < shortcutPrompts.length; index++)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(shortcutPrompts[index].title),
+          subtitle: Text(
+            shortcutPrompts[index].prompt,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.edit),
+          onTap: () => onEditTap(index, shortcutPrompts[index]),
+        ),
+    ],
+  );
 }
