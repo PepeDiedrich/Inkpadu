@@ -1,0 +1,3 @@
+## 2024-05-24 - Accessibility von Custom Color Pickern
+**Erkenntnis:** Benutzerdefinierte Farbauswahlkomponenten, die aus einfachen Containern und `GestureDetector`-Widgets aufgebaut sind, haben standardmäßig keine Semantik. Sie werden von Screenreadern ignoriert und bieten kein Hover-Feedback auf dem Desktop. Dies ist ein kritisches A11y-Problem, insbesondere in Zeichen- oder Notizen-Apps, wo die Farbauswahl eine zentrale Funktion ist.
+**Aktion:** Umwickle solche Custom-Elemente immer mit `Semantics(button: true, selected: ...)` und vergebe ein aussagekräftiges `label` (z.B. den Farb-Namen oder Hex-Code). Ergänze zusätzlich ein `Tooltip`-Widget, um auch Mausbenutzern hilfreiches Feedback zu geben.

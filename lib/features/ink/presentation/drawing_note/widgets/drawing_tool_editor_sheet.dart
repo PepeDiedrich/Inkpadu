@@ -102,37 +102,47 @@ class _DrawingToolEditorSheetState extends State<DrawingToolEditorSheet> {
                     itemBuilder: (context, index) {
                       final color = _defaultToolColors[index];
                       final bool isActive = _draft.color == color;
-                      return GestureDetector(
-                        onTap: () => setState(
-                          () => _draft = _draft.copyWith(color: color),
-                        ),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: color,
-                            border: Border.all(
-                              color: isActive
-                                  ? AppColors.primaryAccent
-                                  : colorScheme.outlineVariant,
-                              width: isActive ? 2.5 : 1,
+                      final String colorHex =
+                          _CustomColorSection._formatColorHex(color);
+                      return Semantics(
+                        button: true,
+                        selected: isActive,
+                        label: 'Farbe $colorHex',
+                        child: Tooltip(
+                          message: 'Farbe $colorHex',
+                          child: GestureDetector(
+                            onTap: () => setState(
+                              () => _draft = _draft.copyWith(color: color),
+                            ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: color,
+                                border: Border.all(
+                                  color: isActive
+                                      ? AppColors.primaryAccent
+                                      : colorScheme.outlineVariant,
+                                  width: isActive ? 2.5 : 1,
+                                ),
+                              ),
+                              child: isActive
+                                  ? Icon(
+                                      Icons.check,
+                                      color:
+                                          ThemeData.estimateBrightnessForColor(
+                                                color,
+                                              ) ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black,
+                                      size: 14,
+                                    )
+                                  : null,
                             ),
                           ),
-                          child: isActive
-                              ? Icon(
-                                  Icons.check,
-                                  color:
-                                      ThemeData.estimateBrightnessForColor(
-                                            color,
-                                          ) ==
-                                          Brightness.dark
-                                      ? Colors.white
-                                      : Colors.black,
-                                  size: 14,
-                                )
-                              : null,
                         ),
                       );
                     },

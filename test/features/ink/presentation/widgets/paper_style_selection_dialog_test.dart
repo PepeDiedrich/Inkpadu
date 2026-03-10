@@ -13,18 +13,14 @@ void main() {
     child: MaterialApp(
       home: Scaffold(
         body: Builder(
-          builder:
-              (context) => TextButton(
-                onPressed:
-                    () async => showDialog<NotePaperStyle>(
-                      context: context,
-                      builder:
-                          (context) => PaperStyleSelectionDialog(
-                            initialStyle: initialStyle,
-                          ),
-                    ),
-                child: const Text('Show Dialog'),
-              ),
+          builder: (context) => TextButton(
+            onPressed: () async => showDialog<NotePaperStyle>(
+              context: context,
+              builder: (context) =>
+                  PaperStyleSelectionDialog(initialStyle: initialStyle),
+            ),
+            child: const Text('Show Dialog'),
+          ),
         ),
       ),
     ),
@@ -46,25 +42,27 @@ void main() {
   testWidgets('Save button returns selected style', (tester) async {
     NotePaperStyle? result;
 
-    await tester.pumpWidget(TranslationProvider(
-      child: MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async {
-                result = await showDialog<NotePaperStyle>(
-                  context: context,
-                  builder: (context) => const PaperStyleSelectionDialog(
-                    initialStyle: NotePaperStyle.plain,
-                  ),
-                );
-              },
-              child: const Text('Show Dialog'),
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  result = await showDialog<NotePaperStyle>(
+                    context: context,
+                    builder: (context) => const PaperStyleSelectionDialog(
+                      initialStyle: NotePaperStyle.plain,
+                    ),
+                  );
+                },
+                child: const Text('Show Dialog'),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
 
     await tester.tap(find.text('Show Dialog'));
     await tester.pumpAndSettle();
@@ -81,25 +79,27 @@ void main() {
   testWidgets('Cancel button returns null', (tester) async {
     NotePaperStyle? result;
 
-    await tester.pumpWidget(TranslationProvider(
-      child: MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async {
-                result = await showDialog<NotePaperStyle>(
-                  context: context,
-                  builder: (context) => const PaperStyleSelectionDialog(
-                    initialStyle: NotePaperStyle.plain,
-                  ),
-                );
-              },
-              child: const Text('Show Dialog'),
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  result = await showDialog<NotePaperStyle>(
+                    context: context,
+                    builder: (context) => const PaperStyleSelectionDialog(
+                      initialStyle: NotePaperStyle.plain,
+                    ),
+                  );
+                },
+                child: const Text('Show Dialog'),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
 
     await tester.tap(find.text('Show Dialog'));
     await tester.pumpAndSettle();
