@@ -1,0 +1,3 @@
+## 2024-05-24 - Auto-Capitalization in TextFields für Titel
+**Erkenntnis:** Bei TextFields, die für Titel oder freie Texteingaben auf mobilen Geräten verwendet werden (wie im `NoteMetadataDialog`), ist die fehlende automatische Großschreibung am Satzanfang eine spürbare UX-Einschränkung. Nutzer erwarten dieses Verhalten auf Touch-Tastaturen standardmäßig.
+**Aktion:** Um die mobile UX zu verbessern, sollte bei solchen Textfeldern explizit `textCapitalization: TextCapitalization.sentences` (oder `.words`) gesetzt werden. Dies aktiviert die Auto-Capitalization der System-Tastatur und erspart manuelle Formatierungsarbeit.
