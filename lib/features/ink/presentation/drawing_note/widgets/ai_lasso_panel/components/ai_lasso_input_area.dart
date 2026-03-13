@@ -24,6 +24,7 @@ class AiLassoInputArea extends StatelessWidget {
         Expanded(
           child: TextField(
             controller: controller,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: context.t.ai.askFollowUp,
               isDense: true,

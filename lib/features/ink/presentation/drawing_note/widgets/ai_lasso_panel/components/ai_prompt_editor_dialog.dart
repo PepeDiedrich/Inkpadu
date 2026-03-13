@@ -65,11 +65,13 @@ class _AiPromptEditorDialogState extends State<AiPromptEditorDialog> {
       children: [
         TextField(
           controller: _titleController,
+          textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(labelText: 'Titel'),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _promptController,
+          textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(labelText: 'Prompt'),
           maxLines: 4,
         ),
