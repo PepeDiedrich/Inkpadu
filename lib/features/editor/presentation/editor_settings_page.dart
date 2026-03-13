@@ -71,6 +71,7 @@ class EditorSettingsPage extends StatelessWidget {
         title: Text(context.t.editor.editSystemPrompt),
         content: TextField(
           controller: controller,
+          textCapitalization: TextCapitalization.sentences,
           minLines: 4,
           maxLines: 10,
           decoration: InputDecoration(
@@ -109,6 +110,7 @@ class EditorSettingsPage extends StatelessWidget {
           children: [
             TextField(
               controller: titleController,
+              textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 labelText: context.t.editor.shortcutTitle,
               ),
@@ -116,6 +118,7 @@ class EditorSettingsPage extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: promptController,
+              textCapitalization: TextCapitalization.sentences,
               minLines: 3,
               maxLines: 8,
               decoration: InputDecoration(
