@@ -152,7 +152,6 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(context.t.common.loading)));
-    // TODO: Implement bulk export if needed
     _exitSelectionMode();
   }
 
