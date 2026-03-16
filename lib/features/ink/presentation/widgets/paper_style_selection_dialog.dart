@@ -44,39 +44,44 @@ class _PaperStyleSelectionDialogState extends State<PaperStyleSelectionDialog> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => setState(() => _currentStyle = style),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected
-                  ? colorScheme.primary
-                  : colorScheme.outlineVariant,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                style.icon,
-                size: 20,
+        child: Semantics(
+          button: true,
+          selected: isSelected,
+          label: _getStyleLabel(style, context),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
                 color: isSelected
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSurfaceVariant,
+                    ? colorScheme.primary
+                    : colorScheme.outlineVariant,
+                width: isSelected ? 2 : 1,
               ),
-              const SizedBox(width: 8),
-              Text(
-                _getStyleLabel(style, context),
-                style: theme.textTheme.labelLarge?.copyWith(
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  style.icon,
+                  size: 20,
                   color: isSelected
                       ? colorScheme.onPrimaryContainer
                       : colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  _getStyleLabel(style, context),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: isSelected
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
