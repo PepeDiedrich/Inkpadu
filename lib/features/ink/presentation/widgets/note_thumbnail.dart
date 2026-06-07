@@ -1,6 +1,6 @@
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
 import 'package:flutter/material.dart';
 
 /// Widget that renders a compact thumbnail preview of a note page.

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:appwrite/enums.dart';
 
-import 'package:ai_handwriting_app/app/router/app_routes.dart';
-import 'package:ai_handwriting_app/app/theme/app_colors.dart';
-import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
-import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/app/router/app_routes.dart';
+import 'package:inkpadu/app/theme/app_colors.dart';
+import 'package:inkpadu/app/auth/auth_scope.dart';
+import 'package:inkpadu/app/auth/auth_controller.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 /// Static onboarding screen that introduces the handwriting experience.

@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart'
+import 'package:inkpadu/features/drawing/application/stroke_simplifier.dart'
     show simplifyStrokePoints, simplifyStroke;
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
 
 /// Asynchrone Vereinfachung eines [Stroke] mittels Isolate über [compute].
 ///

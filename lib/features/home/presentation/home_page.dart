@@ -1,15 +1,15 @@
-import 'package:ai_handwriting_app/features/ink/application/pdf_export_service.dart';
-import 'package:ai_handwriting_app/features/home/presentation/widgets/home_widgets.dart';
+import 'package:inkpadu/features/ink/application/pdf_export_service.dart';
+import 'package:inkpadu/features/home/presentation/widgets/home_widgets.dart';
 import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/home/presentation/widgets/note_list_views.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/home/presentation/widgets/note_list_views.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note_page.dart';
+import 'package:inkpadu/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 /// Startseite: Liste handschriftlicher Notizen mit Navigation in den Zeichen-Editor.

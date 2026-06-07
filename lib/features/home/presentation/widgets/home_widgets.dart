@@ -1,6 +1,6 @@
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/static_note_page.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/static_note_page.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 

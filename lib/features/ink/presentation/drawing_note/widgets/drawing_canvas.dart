@@ -3,26 +3,26 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
-import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
+import 'package:inkpadu/features/drawing/application/drawing_controller.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/presentation/drawing_painter.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/drawing/domain/webview_node.dart';
 import 'package:pdfrx/pdfrx.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
-import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/canvas_gesture_recognizer.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
+import 'package:inkpadu/features/input/application/pointer_settings_scope.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/canvas_gesture_recognizer.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/ink/utils/geometry_utils.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/canvas_layers/web_view_layer.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/canvas_layers/strokes_layer.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/canvas_layers/lasso_selection_layer.dart';
+import 'package:inkpadu/features/ink/utils/geometry_utils.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/canvas_layers/web_view_layer.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/canvas_layers/strokes_layer.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/canvas_layers/lasso_selection_layer.dart';
 
 /// Repräsentiert eine Bounding Box für KI-Ergebnisse.
 class AiBoundingBox {

@@ -1,5 +1,5 @@
-import 'package:ai_handwriting_app/app/theme/app_colors.dart';
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/app/theme/app_colors.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
 import 'package:flutter/material.dart';
 
 /// Beschreibt die aktuelle Richtung einer Sidebar-Größenänderung.

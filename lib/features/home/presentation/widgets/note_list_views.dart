@@ -1,6 +1,6 @@
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/home/presentation/widgets/home_widgets.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/home/presentation/widgets/home_widgets.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 
 /// A list view for displaying notes.

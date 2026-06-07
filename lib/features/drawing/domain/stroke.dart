@@ -1,4 +1,4 @@
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 

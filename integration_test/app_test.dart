@@ -2,10 +2,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:ai_handwriting_app/main.dart' as app;
+import 'package:inkpadu/main.dart' as app;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note_page.dart';
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
 
 class MockConnectivityPlatform extends ConnectivityPlatform {

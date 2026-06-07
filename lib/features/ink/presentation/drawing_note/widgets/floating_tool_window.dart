@@ -1,5 +1,5 @@
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/drawing_tool_palette.dart';
 import 'package:flutter/material.dart';
 
 /// A floating window that contains drawing tools and actions.

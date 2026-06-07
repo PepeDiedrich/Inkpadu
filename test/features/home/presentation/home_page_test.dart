@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ai_handwriting_app/features/home/presentation/widgets/home_widgets.dart';
+import 'package:inkpadu/features/home/presentation/widgets/home_widgets.dart';
 
-import 'package:ai_handwriting_app/features/home/presentation/home_page.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note_page.dart';
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/home/presentation/home_page.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note_page.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/input/application/pointer_settings_scope.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../../helpers/sqflite_test_util.dart';

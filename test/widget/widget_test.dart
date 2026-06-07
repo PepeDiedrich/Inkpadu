@@ -7,8 +7,8 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ai_handwriting_app/main.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/main.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 void main() {
   testWidgets('zeigt Onboarding-Bildschirm an', (WidgetTester tester) async {

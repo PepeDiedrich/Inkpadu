@@ -1,12 +1,12 @@
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/services/ai_lasso_service.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_panel_header.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_content_view.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_input_area.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/services/ai_lasso_service.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_panel_header.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_content_view.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_input_area.dart';
 
 /// A panel that appears when an AI lasso selection is made, allowing the user
 /// to interact with AI-powered features for the selected region.

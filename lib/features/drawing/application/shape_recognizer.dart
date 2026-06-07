@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/application/stroke_simplifier.dart';
 import 'package:flutter/material.dart';
 
 /// Die verschiedenen Arten von geometrischen Formen, die erkannt werden können.

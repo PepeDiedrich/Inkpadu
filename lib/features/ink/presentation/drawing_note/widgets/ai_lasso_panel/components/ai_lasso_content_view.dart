@@ -1,10 +1,10 @@
 // ignore_for_file: public_member_api_docs
 
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/math_rich_text.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_shortcuts_view.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/features/ink/presentation/widgets/math_rich_text.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/components/ai_lasso_shortcuts_view.dart';
 
 class AiLassoContentView extends StatelessWidget {
   final bool isLoading;

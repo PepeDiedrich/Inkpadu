@@ -8,12 +8,12 @@ import 'package:appwrite/src/enums.dart' show HttpMethod;
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_page_codec.dart';
+import 'package:inkpadu/app/auth/appwrite_config.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_page_codec.dart';
 
 /// Result of a realtime sync event from Appwrite for ink notes.
 sealed class InkNotesRemoteEvent {

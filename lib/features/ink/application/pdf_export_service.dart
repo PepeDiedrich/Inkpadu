@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;

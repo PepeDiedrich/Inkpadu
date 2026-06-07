@@ -1,7 +1,7 @@
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_metadata_dialog.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/presentation/widgets/note_metadata_dialog.dart';
+import 'package:inkpadu/features/ink/presentation/widgets/paper_style_selection_dialog.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';

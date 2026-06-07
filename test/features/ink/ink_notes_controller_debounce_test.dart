@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_auth.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
 
 import '../../helpers/sqflite_test_util.dart';
 

@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:pdfrx/pdfrx.dart';
 
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/connectivity_service.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_auth.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_repository.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_local_storage.dart';
+import 'package:inkpadu/features/ink/infrastructure/connectivity_service.dart';
 
 /// Notifier verwaltet die in-memory Sammlung handschriftlicher Notizen und
 /// synchronisiert sie optional mit Appwrite.

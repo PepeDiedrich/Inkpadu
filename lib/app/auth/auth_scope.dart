@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
+import 'package:inkpadu/app/auth/auth_controller.dart';
 
 /// Stellt den [AuthController] niedrigschwellig im Widget-Baum bereit.
 class AuthScope extends InheritedNotifier<AuthController> {

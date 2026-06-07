@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/drawing/presentation/drawing_painter.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 

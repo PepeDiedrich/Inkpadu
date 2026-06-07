@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/home/presentation/home_page.dart';
-import 'package:ai_handwriting_app/features/settings/presentation/settings_page.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/home/presentation/home_page.dart';
+import 'package:inkpadu/features/settings/presentation/settings_page.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Hosts the main navigation scaffold with bottom navigation items.
 class AppShell extends StatefulWidget {

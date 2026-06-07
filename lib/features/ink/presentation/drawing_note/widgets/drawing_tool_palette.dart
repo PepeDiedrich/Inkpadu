@@ -1,6 +1,6 @@
-import 'package:ai_handwriting_app/app/theme/app_colors.dart';
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/app/theme/app_colors.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 import 'package:flutter/material.dart';
 
 /// Zeigt die Werkzeugauswahl mit Schnellzugriff und Long-Press-Editor an.

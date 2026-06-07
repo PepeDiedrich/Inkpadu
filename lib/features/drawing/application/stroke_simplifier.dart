@@ -1,5 +1,5 @@
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
 /// Wendet den Ramer-Douglas-Peucker-Algorithmus mit maximaler algorithmischer

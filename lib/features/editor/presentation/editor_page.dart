@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/notes/domain/note.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/notes/domain/note.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Minimal text editor for viewing and editing a [Note].
 class EditorPage extends StatefulWidget {

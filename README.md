@@ -1,19 +1,14 @@
-# ai_handwriting_app
+# Inkpadu
 
-A new Flutter project.
+Inkpadu is a cross-platform handwriting notebook for digital ink, PDF annotation, cloud sync, and AI-assisted study workflows.
 
-## Getting Started
+## Product positioning
 
-This project is a starting point for a Flutter application.
+Inkpadu helps students, creators, and knowledge workers capture handwritten notes, annotate PDFs, sync work across devices, and use AI assistance directly inside their study workflow.
 
-A few resources to get you started if this is your first Flutter project:
+## Development
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+This repository contains the Flutter client, platform shells, Appwrite integration, and AI backend assets for Inkpadu.
 
 ## KI-Assistent
 

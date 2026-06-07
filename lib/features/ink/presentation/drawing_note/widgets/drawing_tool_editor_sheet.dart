@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:ai_handwriting_app/app/theme/app_colors.dart';
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/app/theme/app_colors.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 

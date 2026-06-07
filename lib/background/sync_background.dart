@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_local_storage.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_repository.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_sync_service.dart';
 
 /// Der Bezeichner für den Workmanager-Task zur Hintergrundsynchronisation.
 const String backgroundSyncTask = 'inkpadu_background_sync';

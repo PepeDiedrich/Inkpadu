@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_note_dto.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_page_codec.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_note_dto.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_page_codec.dart';
 
 /// Enum für den lokalen Synchronisationsstatus einer Notiz.
 enum LocalSyncStatus {

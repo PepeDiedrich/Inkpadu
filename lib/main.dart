@@ -9,22 +9,22 @@ import 'package:workmanager/workmanager.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 
-import 'package:ai_handwriting_app/app/router/app_routes.dart';
-import 'package:ai_handwriting_app/app/shell/presentation/app_shell.dart';
-import 'package:ai_handwriting_app/app/theme/app_theme.dart';
-import 'package:ai_handwriting_app/features/onboarding/presentation/onboarding_page.dart';
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
-import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
-import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
-import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
-import 'package:ai_handwriting_app/background/sync_background.dart';
-import 'package:ai_handwriting_app/features/settings/application/general_settings.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/app/router/app_routes.dart';
+import 'package:inkpadu/app/shell/presentation/app_shell.dart';
+import 'package:inkpadu/app/theme/app_theme.dart';
+import 'package:inkpadu/features/onboarding/presentation/onboarding_page.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/features/input/application/pointer_settings_scope.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_auth.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_local_storage.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_repository.dart';
+import 'package:inkpadu/app/auth/auth_controller.dart';
+import 'package:inkpadu/app/auth/auth_scope.dart';
+import 'package:inkpadu/background/sync_background.dart';
+import 'package:inkpadu/features/settings/application/general_settings.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {

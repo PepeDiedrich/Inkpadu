@@ -2,15 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
-import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
+import 'package:inkpadu/features/drawing/application/drawing_controller.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/ink/application/drawing_tool_preferences_repository.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/webview_node.dart';
 import 'package:flutter/foundation.dart';
 
 /// Verwaltet den Zustand einer geöffneten Zeichennotiz, inklusive Werkzeuge,

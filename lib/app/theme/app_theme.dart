@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/app/theme/app_colors.dart';
+import 'package:inkpadu/app/theme/app_colors.dart';
 
 /// Provides themed configurations for the Inkpadu application.
 class AppTheme {

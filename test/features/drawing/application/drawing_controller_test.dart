@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/application/drawing_controller.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

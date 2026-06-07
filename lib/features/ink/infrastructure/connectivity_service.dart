@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_repository.dart';
 
 /// Service zur Überwachung der Internetverbindung und zum Auslösen von Synchronisationen.
 class ConnectivityService {

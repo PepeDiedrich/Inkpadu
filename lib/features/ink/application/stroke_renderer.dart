@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
 
 /// Repräsentiert das Ergebnis eines gerenderten Bildes.
 class RenderedImageResult {

@@ -5,7 +5,7 @@ import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/src/enums.dart' show HttpMethod;
 import 'package:flutter/foundation.dart';
 
-import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
+import 'package:inkpadu/app/auth/appwrite_config.dart';
 
 /// Repräsentiert den entfernten Zustand der Werkzeugvoreinstellungen eines Nutzers.
 class DrawingToolPreferencesRemoteModel {

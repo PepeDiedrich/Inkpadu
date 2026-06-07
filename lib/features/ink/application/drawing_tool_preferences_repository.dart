@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
+import 'package:inkpadu/app/auth/auth_controller.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';

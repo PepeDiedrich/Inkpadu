@@ -1,6 +1,6 @@
-import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/application/stroke_simplifier.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

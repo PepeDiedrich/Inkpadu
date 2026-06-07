@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
 
 /// Hintergrund der Zeichenfläche entsprechend des Papierstils oder PDF-Hintergrunds.
 class NotePaperBackground extends StatelessWidget {

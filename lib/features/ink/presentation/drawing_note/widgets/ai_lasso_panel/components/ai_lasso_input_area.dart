@@ -1,7 +1,7 @@
 // ignore_for_file: public_member_api_docs
 
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 class AiLassoInputArea extends StatelessWidget {
   final TextEditingController controller;

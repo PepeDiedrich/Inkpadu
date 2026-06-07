@@ -1,6 +1,6 @@
 // ignore_for_file: public_member_api_docs
 
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
 
 class AiPromptUtil {
   static List<AiPrompt> defaultAiShortcuts() => [

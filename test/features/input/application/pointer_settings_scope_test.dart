@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
+import 'package:inkpadu/features/input/application/pointer_settings_scope.dart';
 
 void main() {
   group('PointerSettings', () {

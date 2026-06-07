@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:appwrite/appwrite.dart' as appwrite;
-import 'package:ai_handwriting_app/app/auth/appwrite_config.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/utils/image_scale_util.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/utils/ai_color_parser.dart';
+import 'package:inkpadu/app/auth/appwrite_config.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/drawing_canvas.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/utils/image_scale_util.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/ai_lasso_panel/utils/ai_color_parser.dart';
 import 'package:flutter/material.dart';
 
 class AiAnalysisResponse {

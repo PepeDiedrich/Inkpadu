@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ai_handwriting_app/features/notes/domain/note.dart';
+import 'package:inkpadu/features/notes/domain/note.dart';
 
 void main() {
   test('displayTitle liefert einen Fallback für leere Titel', () {

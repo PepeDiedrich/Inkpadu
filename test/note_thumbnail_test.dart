@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/widgets/note_thumbnail.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/ink/presentation/widgets/note_thumbnail.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
 import 'package:flutter/material.dart';
 
 void main() {

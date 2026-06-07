@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
 import 'package:flutter/material.dart';
 
 /// Gemeinsame Low-Level Routine zum Zeichnen eines einzelnen [Stroke].

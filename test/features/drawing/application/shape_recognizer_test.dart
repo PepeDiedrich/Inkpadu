@@ -1,6 +1,6 @@
 import 'dart:math' as math;
-import 'package:ai_handwriting_app/features/drawing/application/shape_recognizer.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/application/shape_recognizer.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

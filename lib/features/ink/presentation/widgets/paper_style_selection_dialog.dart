@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/note_paper_background.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Ein Dialog zur Auswahl des Papierstils (Hintergrunds) für eine Notiz.
 class PaperStyleSelectionDialog extends StatefulWidget {

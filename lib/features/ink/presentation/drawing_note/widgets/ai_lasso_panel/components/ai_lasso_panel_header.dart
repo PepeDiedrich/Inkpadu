@@ -2,7 +2,7 @@
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 class AiLassoPanelHeader extends StatelessWidget {
   final VoidCallback onClose;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/presentation/cross_platform_webview.dart';
+import 'package:inkpadu/features/drawing/application/drawing_controller.dart';
+import 'package:inkpadu/features/drawing/presentation/cross_platform_webview.dart';
 
 /// A widget layer that renders all web views on the canvas.
 class WebViewLayer extends StatelessWidget {

@@ -3,12 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'package:ai_handwriting_app/features/input/presentation/pointer_settings_page.dart';
-import 'package:ai_handwriting_app/features/editor/presentation/editor_settings_page.dart';
-import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
-import 'package:ai_handwriting_app/features/settings/application/general_settings.dart';
-import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/input/presentation/pointer_settings_page.dart';
+import 'package:inkpadu/features/editor/presentation/editor_settings_page.dart';
+import 'package:inkpadu/app/auth/auth_scope.dart';
+import 'package:inkpadu/features/settings/application/general_settings.dart';
+import 'package:inkpadu/features/input/application/pointer_settings_scope.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Polished settings screen with interactive elements and refined sections.
 class SettingsPage extends StatelessWidget {

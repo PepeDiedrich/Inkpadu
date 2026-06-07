@@ -1,6 +1,6 @@
-import 'package:ai_handwriting_app/features/drawing/domain/note_page.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
+import 'package:inkpadu/features/drawing/domain/note_page.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/webview_node.dart';
 
 /// Data transfer object für einzelne Seiten einer handschriftlichen Notiz.
 class InkNotePageDto {

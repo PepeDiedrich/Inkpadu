@@ -1,13 +1,13 @@
-import 'package:ai_handwriting_app/app/auth/auth_scope.dart';
-import 'package:ai_handwriting_app/features/ink/application/drawing_note_controller.dart';
-import 'package:ai_handwriting_app/features/ink/application/drawing_tool_preferences_repository.dart';
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/ink/domain/drawing_tool.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/floating_tool_window.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
-import 'package:ai_handwriting_app/features/ink/presentation/drawing_note/widgets/page_overview_panel.dart';
+import 'package:inkpadu/app/auth/auth_scope.dart';
+import 'package:inkpadu/features/ink/application/drawing_note_controller.dart';
+import 'package:inkpadu/features/ink/application/drawing_tool_preferences_repository.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/ink/domain/drawing_tool.dart';
+import 'package:inkpadu/features/ink/infrastructure/drawing_tool_preferences_sync_service.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/drawing_tool_editor_sheet.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/floating_tool_window.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/note_page_content.dart';
+import 'package:inkpadu/features/ink/presentation/drawing_note/widgets/page_overview_panel.dart';
 import 'package:flutter/material.dart';
 
 /// Editor-Seite zum Bearbeiten einer handschriftlichen Notiz.

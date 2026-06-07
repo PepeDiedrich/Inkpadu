@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:ai_handwriting_app/features/drawing/application/shape_recognizer.dart';
-import 'package:ai_handwriting_app/features/drawing/application/stroke_simplifier_async.dart'
+import 'package:inkpadu/features/drawing/application/shape_recognizer.dart';
+import 'package:inkpadu/features/drawing/application/stroke_simplifier_async.dart'
     as async_simpl;
-import 'package:ai_handwriting_app/features/drawing/domain/drawing_point.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
+import 'package:inkpadu/features/drawing/domain/drawing_point.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/webview_node.dart';
 import 'package:flutter/material.dart';
 
 /// Verwaltet den Zustand der Zeichenfläche und stellt Undo/Redo-Funktionen bereit.

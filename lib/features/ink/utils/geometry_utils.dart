@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
 
 /// Utilities for geometry and math computations,
 /// such as bounding boxes and lasso selection logic.

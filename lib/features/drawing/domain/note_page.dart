@@ -1,5 +1,5 @@
-import 'package:ai_handwriting_app/features/drawing/domain/stroke.dart';
-import 'package:ai_handwriting_app/features/drawing/domain/webview_node.dart';
+import 'package:inkpadu/features/drawing/domain/stroke.dart';
+import 'package:inkpadu/features/drawing/domain/webview_node.dart';
 
 /// Repräsentiert eine einzelne Notizenseite, die eine Sammlung von Strichen enthält.
 class NotePage {

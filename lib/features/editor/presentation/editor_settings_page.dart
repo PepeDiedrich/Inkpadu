@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/editor/application/editor_settings_scope.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/editor/application/editor_settings_scope.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Seite zur Konfiguration der Editor-bezogenen Einstellungen.
 class EditorSettingsPage extends StatelessWidget {

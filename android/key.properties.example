@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties for local release builds.
+# Do not commit android/key.properties or keystore files.
+storeFile=/absolute/path/to/inkpadu-release-key.jks
+storePassword=change-me
+keyAlias=inkpadu
+keyPassword=change-me

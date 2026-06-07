@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:ai_handwriting_app/features/input/application/pointer_settings_scope.dart';
-import 'package:ai_handwriting_app/i18n/translations.g.dart';
+import 'package:inkpadu/features/input/application/pointer_settings_scope.dart';
+import 'package:inkpadu/i18n/translations.g.dart';
 
 /// Seite zum Konfigurieren der erlaubten Eingabequellen.
 class PointerSettingsPage extends StatefulWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ai_handwriting_app/features/drawing/application/drawing_controller.dart';
-import 'package:ai_handwriting_app/features/drawing/presentation/drawing_painter.dart';
+import 'package:inkpadu/features/drawing/application/drawing_controller.dart';
+import 'package:inkpadu/features/drawing/presentation/drawing_painter.dart';
 
 /// A widget layer that renders finished and currently drawn strokes.
 class StrokesLayer extends StatelessWidget {

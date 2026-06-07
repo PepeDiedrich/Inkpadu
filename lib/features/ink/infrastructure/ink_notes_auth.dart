@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:ai_handwriting_app/app/auth/auth_controller.dart';
+import 'package:inkpadu/app/auth/auth_controller.dart';
 
 /// Abstrakte Repräsentation des Authentifizierungszustands für die Notiz-Synchronisierung.
 abstract class InkNotesAuth {

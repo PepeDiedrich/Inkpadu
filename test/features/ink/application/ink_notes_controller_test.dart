@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ai_handwriting_app/features/ink/application/ink_notes_scope.dart';
-import 'package:ai_handwriting_app/features/ink/domain/ink_note.dart';
-import 'package:ai_handwriting_app/features/ink/domain/note_paper_style.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_auth.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_local_storage.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_repository.dart';
-import 'package:ai_handwriting_app/features/ink/infrastructure/ink_notes_sync_service.dart';
+import 'package:inkpadu/features/ink/application/ink_notes_scope.dart';
+import 'package:inkpadu/features/ink/domain/ink_note.dart';
+import 'package:inkpadu/features/ink/domain/note_paper_style.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_auth.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_local_storage.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_repository.dart';
+import 'package:inkpadu/features/ink/infrastructure/ink_notes_sync_service.dart';
 
 Future<void> pumpEventQueue([int iterations = 5]) async {
   for (int i = 0; i < iterations; i++) {
