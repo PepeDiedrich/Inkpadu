@@ -34,6 +34,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appwriteCallbackScheme"] =
+            System.getenv("INKPADU_APPWRITE_CALLBACK_SCHEME")
+                ?: "appwrite-callback-your-project-id"
     }
 
     signingConfigs {

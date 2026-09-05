@@ -7,17 +7,25 @@ class AppwriteConfig {
   AppwriteConfig._();
 
   /// Globale Endpoint-URL für Appwrite.
-  /// Standardwert ist der Prod-Endpoint, kann via --dart-define=APPWRITE_ENDPOINT=... überschrieben werden.
+  /// Must be supplied for a configured backend through
+  /// --dart-define=APPWRITE_ENDPOINT=....
   static const String endpoint = String.fromEnvironment(
     'APPWRITE_ENDPOINT',
-    defaultValue: 'https://appwrite.nebulium.info/v1',
+    defaultValue: 'https://cloud.appwrite.io/v1',
   );
 
   /// Globale Projekt-ID für Appwrite.
-  /// Standardwert ist die Prod-ID, kann via --dart-define=APPWRITE_PROJECT_ID=... überschrieben werden.
+  /// Must be supplied for a configured backend through
+  /// --dart-define=APPWRITE_PROJECT_ID=....
   static const String projectId = String.fromEnvironment(
     'APPWRITE_PROJECT_ID',
-    defaultValue: '68de8b41001d59b1c2d0',
+    defaultValue: 'your-project-id',
+  );
+
+  /// Appwrite Function responsible for the AI lasso workflow.
+  static const String aiFunctionId = String.fromEnvironment(
+    'APPWRITE_AI_FUNCTION_ID',
+    defaultValue: 'your-ai-function-id',
   );
 
   /// Storage Bucket-ID für PDF-Hintergrunddateien.
@@ -36,7 +44,8 @@ class AppwriteConfig {
   static const String callbackPath = '/auth-desktop';
 
   /// Vollständige Callback-URL für OAuth-Redirects auf Desktop.
-  static const String callbackUrl = '$callbackScheme://$callbackHost:$callbackPort$callbackPath';
+  static const String callbackUrl =
+      '$callbackScheme://$callbackHost:$callbackPort$callbackPath';
 
   static final Client _client = Client()
     ..setEndpoint(endpoint)

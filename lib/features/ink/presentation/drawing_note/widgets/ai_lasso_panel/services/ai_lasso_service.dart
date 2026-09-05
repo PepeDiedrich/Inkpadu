@@ -49,7 +49,7 @@ class AiLassoService {
     final base64Image = base64Encode(byteData.buffer.asUint8List());
     final functions = appwrite.Functions(AppwriteConfig.client);
     final execution = await functions.createExecution(
-      functionId: '699f260b003cfa670c2c',
+      functionId: AppwriteConfig.aiFunctionId,
       body: jsonEncode({'image': base64Image, 'prompt': effectivePrompt}),
     );
 

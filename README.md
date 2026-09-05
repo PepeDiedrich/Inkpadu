@@ -134,6 +134,8 @@ flutter test integration_test/app_test.dart
 
 For a configured backend, set `APPWRITE_ENDPOINT` and `APPWRITE_PROJECT_ID` through `--dart-define` (or use the configured defaults in `lib/app/auth/appwrite_config.dart`).
 
+For the complete Appwrite, OAuth, Gemini Function, Android callback and release-signing procedure, see the [setup guide](docs/SETUP.md).
+
 ## What I learned building Inkpadu
 
 - AI becomes useful for learning when it is grounded in a deliberate user selection and can point back to that selection.
