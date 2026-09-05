@@ -82,6 +82,56 @@ Handwriting makes every performance mistake visible. A page with hundreds of str
 
 The learning here was that smooth drawing is not a single optimization. It is a set of boundaries: only the stylus path stays on the critical rendering path; simplification, compression and synchronization move out of it.
 
+## Why the code is structured this way
+
+The folder structure is intentional. Inkpadu started as a drawing application, but grew into a system with interaction-heavy UI, durable local data, remote synchronization and AI. Keeping those concerns in one widget tree would make each change risky, so the project separates them at the points where change is most likely.
+
+```text
+lib/
+├─ main.dart                         composition root: app lifecycle and shared scopes
+├─ app/                              auth, routing, theme and app-wide configuration
+├─ features/
+│  ├─ drawing/                       reusable stroke, geometry and rendering foundation
+│  │  ├─ domain/                     Stroke, DrawingPoint and NotePage data types
+│  │  ├─ application/                simplification, shape recognition, controller logic
+│  │  └─ presentation/               painters and platform-specific canvas/web views
+│  ├─ ink/                           notebook-specific behavior built on drawing/
+│  │  ├─ domain/                     InkNote, paper styles and drawing tools
+│  │  ├─ application/                note controller, PDF export and shared scopes
+│  │  ├─ infrastructure/             SQLite, Appwrite sync, codecs and connectivity
+│  │  └─ presentation/               home/editor widgets, tool palette and AI lasso
+│  ├─ home/, editor/, settings/      focused screens and their state
+│  └─ onboarding/, input/            first-run and stylus/pointer concerns
+├─ background/                       Workmanager entry point kept outside the UI lifecycle
+└─ i18n/                             source translations and generated locale bindings
+```
+
+- **`main.dart` is a composition root, not a feature screen.** It wires
+  authentication, notes, editor settings and pointer settings into scoped
+  controllers once, then the UI can access them without passing long parameter
+  chains through every widget.
+- **`drawing/` is independent of `ink/`.** A stroke, a point, simplification
+  and painting are useful primitives. The notebook layer adds pages, paper,
+  sync and study behavior on top. This keeps performance-sensitive drawing
+  code small and testable.
+- **The application layer owns behavior; infrastructure owns I/O.** For
+  example, `InkNotesRepository` coordinates local-first saves and a sync
+  interface, while SQLite and Appwrite live behind that boundary. This is why
+  the backend-free test mode can use the same note UI without mocking every
+  screen.
+- **Presentation code renders state instead of owning persistence.** Widgets
+  delegate edits to controllers; controllers maintain undo/redo, cache
+  invalidation and debounced writes. That reduces accidental rebuild work and
+  makes widget tests meaningful.
+- **The AI backend is deliberately separate.** The Flutter client handles
+  selection, crop and coordinate transformation; the Appwrite Function holds
+  the Gemini credential and model contract. A key rotation or model change
+  therefore does not require a mobile-app update.
+
+The same boundaries show up in `test/`: drawing algorithms, controller rules,
+widgets and integration flows can be verified independently instead of relying
+on one slow end-to-end test.
+
 ## Local-first synchronization
 
 The notebook remains useful before a user has logged in and when a connection is unavailable. SQLite stores notes, their synchronization status and an ordered operation queue. Every edit lands locally first. When the device is online, the repository uploads pending changes, processes queued deletes, merges remote notes by timestamp and subscribes to Appwrite Realtime updates. Android additionally uses Workmanager to retry pending work in the background.
@@ -135,6 +185,44 @@ flutter test integration_test/app_test.dart
 For a configured backend, set `APPWRITE_ENDPOINT` and `APPWRITE_PROJECT_ID` through `--dart-define` (or use the configured defaults in `lib/app/auth/appwrite_config.dart`).
 
 For the complete Appwrite, OAuth, Gemini Function, Android callback and release-signing procedure, see the [setup guide](docs/SETUP.md).
+
+## CI/CD: what I learned shipping a cross-platform app
+
+Inkpadu taught me that CI/CD is not a deploy button; it is the discipline of
+making every change reproducible and verifiable before it reaches a user. The
+repository's GitHub Actions workflow runs on every pull request and every push
+to `main`.
+
+```mermaid
+flowchart LR
+    A[Push or pull request] --> B[Install pinned Flutter toolchain]
+    B --> C[Restore pub/build cache]
+    C --> D[Static analysis and code metrics]
+    D --> E[Unit and widget tests with coverage]
+    E --> F[Linux integration tests via Xvfb]
+    D --> G[Release build matrix]
+    G --> H[APK, Linux, Windows, iOS and macOS artifacts]
+    H --> I[Upload artifacts for review]
+```
+
+The pipeline in [`.github/workflows/quality.yml`](.github/workflows/quality.yml)
+does the following:
+
+1. Restores Flutter dependencies from a cache keyed by `pubspec.lock`, so CI
+   is faster without silently changing dependency versions.
+2. Runs static analysis, project metrics and unit/widget tests before a
+   platform build is allowed to proceed.
+3. Runs Linux integration tests in a virtual display, which catches flows that
+   a unit test cannot cover.
+4. Uses a build matrix for Android APK, Linux, Windows, iOS and macOS, then
+   publishes the resulting binaries as GitHub Actions artifacts.
+
+This is continuous integration plus release-ready artifact delivery. It does
+**not** automatically publish to an app store — that boundary is intentional
+because store credentials, signing and a human release decision should remain
+outside the repository. Building this pipeline taught me to treat lockfiles,
+cache keys, platform-specific dependencies, headless integration testing and
+signed artifacts as parts of the product rather than afterthoughts.
 
 ## What I learned building Inkpadu
 
