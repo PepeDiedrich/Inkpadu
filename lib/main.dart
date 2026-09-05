@@ -26,6 +26,9 @@ import 'package:inkpadu/background/sync_background.dart';
 import 'package:inkpadu/features/settings/application/general_settings.dart';
 import 'package:inkpadu/i18n/translations.g.dart';
 
+/// Explicit opt-in for a device-demo build that never contacts Appwrite.
+const bool _testMode = bool.fromEnvironment('INKPADU_TEST_MODE');
+
 /// Entry point for the handwriting prototype application.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,7 +56,7 @@ Future<void> main() async {
 
   final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-  if (isMobile) {
+  if (isMobile && !_testMode) {
     // initialize background dispatcher before runApp
     await Workmanager().initialize(callbackDispatcher);
     // register periodic task (every 15 minutes is minimum on Android)
@@ -92,7 +95,7 @@ class _InkpaduAppState extends State<InkpaduApp> {
   @override
   void initState() {
     super.initState();
-    _authController = AuthController();
+    _authController = AuthController(testMode: _testMode);
     _authController.addListener(_onAuthChanged);
     _authController.initialize();
 
@@ -100,16 +103,16 @@ class _InkpaduAppState extends State<InkpaduApp> {
     _pointerSettings = PointerSettings();
     _editorSettings = EditorSettings();
 
-    final notesSyncService = InkNotesSyncService();
     final localStorage = InkNotesLocalStorage();
     _repository = InkNotesRepository(
       localStorage: localStorage,
-      syncService: notesSyncService,
+      syncService: _testMode ? null : InkNotesSyncService(),
     );
     final authBridge = AuthControllerInkNotesAuth(_authController);
     _notesController = InkNotesController(
       repository: _repository,
       auth: authBridge,
+      enableConnectivityMonitoring: !_testMode,
     );
   }
 
@@ -150,8 +153,16 @@ class _InkpaduAppState extends State<InkpaduApp> {
                 localizationsDelegates: GlobalMaterialLocalizations.delegates,
                 // Globaler PageStorage-Bucket, damit Scrollpositionen
                 // auch nach Schließen/erneutem Öffnen einer Route erhalten bleiben.
-                builder: (context, child) =>
-                    PageStorage(bucket: _pageStorageBucket, child: child!),
+                builder: (context, child) => PageStorage(
+                  bucket: _pageStorageBucket,
+                  child: _testMode
+                      ? Banner(
+                          message: 'TESTMODUS',
+                          location: BannerLocation.topEnd,
+                          child: child!,
+                        )
+                      : child!,
+                ),
                 // Decide home based on current auth state or whether the user has ever logged in.
                 // This ensures onboarding is skipped after a successful login even if session
                 // needs to be restored later.
